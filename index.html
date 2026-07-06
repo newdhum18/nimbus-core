@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#08131f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Nimbus Core">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Nimbus Core</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="app">
+  <section id="lockScreen" class="screen active">
+    <div class="loginCard">
+      <div class="logo">NC</div>
+      <span class="pill">Secure Access</span>
+      <h1>Nimbus Core</h1>
+      <p>لوحة شخصية لاكتشاف روابط MEGA العامة وتنظيم المصادر التي تحتاج دخول رسمي.</p>
+      <form id="loginForm" class="loginRow">
+        <input id="pinInput" type="password" inputmode="numeric" maxlength="32" autocomplete="current-password" placeholder="Enter PIN">
+        <button type="submit">دخول</button>
+      </form>
+      <small>لا يوجد رمز سري داخل ملفات GitHub. يتم التحقق من خلال Cloudflare Environment Variable.</small>
+    </div>
+  </section>
+
+  <section id="dashboardScreen" class="screen">
+    <header class="appHeader">
+      <button id="logoutBtn" class="iconBtn">خروج</button>
+      <div class="brand">
+        <span class="pill">V10 Multi Engine Search</span>
+        <h1>Nimbus Core</h1>
+        <p id="subStatus">جاهز للعمل</p>
+      </div>
+    </header>
+
+    <section class="statsGrid">
+      <article><strong id="latestCount">0</strong><span>روابط MEGA</span></article>
+      <article><strong id="protectedCount">0</strong><span>مصادر محمية</span></article>
+      <article><strong id="lastScan">--</strong><span>آخر فحص</span></article>
+    </section>
+
+    <nav class="tabbar" aria-label="tabs">
+      <button class="tab active" data-tab="latest">الجديد</button>
+      <button class="tab" data-tab="search">ابحث الآن</button>
+      <button class="tab" data-tab="protected">المحمية</button>
+      <button class="tab" data-tab="archive">الأرشيف</button>
+      <button class="tab" data-tab="settings">الإعدادات</button>
+    </nav>
+
+    <section id="latest" class="panel active">
+      <div class="panelHead">
+        <div>
+          <h2>📦 الملفات المكتشفة</h2>
+          <p>مرتبة دائمًا من الأحدث إلى الأقدم، وتتحدث بعد كل فحص.</p>
+        </div>
+        <div class="actions">
+          <button id="refreshBtn" class="secondary">تحديث</button>
+          <button id="autoScanBtn">Auto Scan</button>
+        </div>
+      </div>
+      <div class="filterRow">
+        <button class="range" data-hours="2">ساعتين</button>
+        <button class="range active" data-hours="24">24 ساعة</button>
+        <button class="range" data-hours="48">يومين</button>
+        <button class="range" data-hours="168">أسبوع</button>
+        <button class="range" data-hours="720">شهر</button>
+        <button class="range" data-hours="0">الكل</button>
+      </div>
+      <div id="latestList" class="results"></div>
+    </section>
+
+    <section id="search" class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>🔎 ابحث الآن</h2>
+          <p>بحث موسع عبر أكثر من محرك ومصدر عام، ثم استخراج روابط MEGA فقط.</p>
+        </div>
+      </div>
+      <div class="searchBox">
+        <input id="keywordInput" placeholder="اكتب كلمة البحث مثل SNLK">
+        <div class="chips">
+          <label class="wide"><input id="allWorld" type="checkbox" checked value="ALL"><span>🌍 All World</span></label>
+          <label><input type="checkbox" checked value="US"><span>US</span></label>
+          <label><input type="checkbox" checked value="UK"><span>UK</span></label>
+          <label><input type="checkbox" checked value="JP"><span>Japan</span></label>
+          <label><input type="checkbox" checked value="BR"><span>Brazil</span></label>
+          <label><input type="checkbox" checked value="DE"><span>Germany</span></label>
+          <label><input type="checkbox" value="FR"><span>France</span></label>
+          <label><input type="checkbox" value="RU"><span>Russia</span></label>
+          <label><input type="checkbox" value="IN"><span>India</span></label>
+          <label><input type="checkbox" value="KR"><span>Korea</span></label>
+        </div>
+        <button id="scanBtn">Search Now</button>
+      </div>
+      <div id="scanSummary" class="summary hidden"></div>
+      <div id="searchResults" class="results"></div>
+    </section>
+
+    <section id="protected" class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>🔒 مصادر تحتاج دخول رسمي</h2>
+          <p>لا يتم وضع المصدر هنا إذا تم استخراج رابط MEGA منه بنجاح.</p>
+        </div>
+        <button id="refreshProtectedBtn" class="secondary">تحديث</button>
+      </div>
+      <div id="protectedList" class="results"></div>
+    </section>
+
+    <section id="archive" class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>🗂️ الأرشيف الكامل</h2>
+          <p>كل روابط MEGA المحفوظة في قاعدة البيانات، مع بحث داخلي سريع.</p>
+        </div>
+        <button id="archiveRefreshBtn" class="secondary">تحديث</button>
+      </div>
+      <input id="archiveFilter" placeholder="فلترة داخل الأرشيف">
+      <div id="archiveList" class="results"></div>
+    </section>
+
+    <section id="settings" class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>⚙️ الإعدادات والفحص</h2>
+          <p>تحقق من الاتصال والحماية قبل أي رفع جديد.</p>
+        </div>
+      </div>
+      <div class="settingsCards">
+        <article><b>Security</b><span>PIN داخل Cloudflare فقط باسم AUTH_PIN، وليس داخل GitHub.</span></article>
+        <article><b>Search mode</b><span>V10: Brave API + DuckDuckGo + Bing + Ahmia + OnionLand + OnionEngine + source-focused queries.</span></article>
+        <article><b>Database</b><span>Cloudflare D1 binding name: DB</span></article>
+        <article><b>Classification</b><span>المصدر لا يصنف محميًا إذا وجدنا داخله رابط MEGA صالح.</span></article>
+        <article><b>PWA</b><span>يدعم الإضافة للشاشة الرئيسية على iPhone.</span></article>
+      </div>
+      <div class="actions settingsActions">
+        <button id="pingBtn" class="secondary">Ping API</button>
+        <button id="schemaBtn">Check DB Schema</button>
+      </div>
+      <pre id="settingsOutput" class="output"></pre>
+    </section>
+  </section>
+</main>
+<div id="toast" class="toast"></div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
