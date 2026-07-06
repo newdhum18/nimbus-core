@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#071522">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Nimbus Core">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  <title>Nimbus Core V15</title>
+  <link rel="manifest" href="manifest.json?v=15">
+  <link rel="apple-touch-icon" href="icon-192.png?v=15">
+  <link rel="stylesheet" href="style.css?v=15">
+</head>
+<body>
+<main class="app">
+  <section id="lockScreen" class="screen active">
+    <div class="loginCard">
+      <div class="logo">NC</div>
+      <span class="pill">V15 Link First</span>
+      <h1>Nimbus Core</h1>
+      <p>لوحة خاصة لاكتشاف روابط MEGA العامة بنظام Link-First بدون كلمات ملف ثابتة.</p>
+      <form id="loginForm" class="loginRow">
+        <input id="pinInput" type="password" inputmode="numeric" maxlength="32" autocomplete="current-password" placeholder="Enter PIN">
+        <button type="submit">دخول</button>
+      </form>
+      <small>الرمز السري محفوظ في Cloudflare باسم <b>AUTH_PIN</b>.</small>
+    </div>
+  </section>
+
+  <section id="dashboardScreen" class="screen">
+    <header class="appHeader">
+      <button id="logoutBtn" class="iconBtn">خروج</button>
+      <div class="brand">
+        <span class="pill">V15 Link First</span>
+        <h1>Nimbus Core</h1>
+        <p id="subStatus">جاهز للفحص المفتوح</p>
+      </div>
+    </header>
+
+    <section class="statsGrid">
+      <article><strong id="latestCount">0</strong><span>روابط MEGA</span></article>
+      <article><strong id="manualCount">0</strong><span>مصادر يدوية</span></article>
+      <article><strong id="lastScan">--</strong><span>آخر فحص</span></article>
+    </section>
+
+    <nav class="tabbar">
+      <button class="tab active" data-tab="latest">Auto Scan</button>
+      <button class="tab" data-tab="search">بحث يدوي</button>
+      <button class="tab" data-tab="manual">مصادر يدوية</button>
+      <button class="tab" data-tab="archive">الأرشيف</button>
+      <button class="tab" data-tab="settings">الإعدادات</button>
+    </nav>
+
+    <section id="latest" class="panel active">
+      <div class="panelHead">
+        <div>
+          <h2>📦 روابط MEGA المكتشفة</h2>
+          <p>لا توجد فلاتر وقت ولا دول ولا كلمات بحث. الفحص يبحث عن أشكال روابط MEGA فقط.</p>
+        </div>
+        <div class="actions">
+          <button id="refreshBtn" class="secondary">تحديث</button>
+          <button id="autoScanBtn">Auto Scan</button>
+        </div>
+      </div>
+      <div id="latestList" class="results"></div>
+      <button id="moreLatestBtn" class="moreBtn">More ▼ فحص أعمق وتحميل المزيد</button>
+    </section>
+
+    <section id="search" class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>🔎 بحث يدوي اختياري</h2>
+          <p>هذه الصفحة فقط للبحث باسم معين إذا أردت. أما Auto Scan فلا يستخدم كلمات.</p>
+        </div>
+      </div>
+      <div class="searchBox">
+        <input id="keywordInput" placeholder="اختياري — مثال اسم ملف أو كلمة">
+        <div class="actions">
+          <button id="scanBtn">Search Now</button>
+          <button id="moreSearchBtn" class="secondary">More ▼</button>
+        </div>
+      </div>
+      <div id="scanSummary" class="summary hidden"></div>
+      <div id="searchResults" class="results"></div>
+    </section>
+
+    <section id="manual" class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>🔒 مصادر تحتاج فتح يدوي</h2>
+          <p>مصادر لم نستطع قراءة محتواها آلياً أو تحتاج Tor/دخول رسمي. لا تُضاف هنا إذا تم استخراج رابط MEGA منها.</p>
+        </div>
+        <button id="refreshManualBtn" class="secondary">تحديث</button>
+      </div>
+      <div id="manualList" class="results"></div>
+      <button id="moreManualBtn" class="moreBtn">More ▼</button>
+    </section>
+
+    <section id="archive" class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>🗂️ الأرشيف</h2>
+          <p>صفحات قابلة للزيادة مع حذف أي رابط لا تريد الاحتفاظ به.</p>
+        </div>
+        <button id="archiveRefreshBtn" class="secondary">تحديث</button>
+      </div>
+      <input id="archiveFilter" placeholder="فلترة داخل الأرشيف">
+      <div id="archiveList" class="results"></div>
+      <button id="moreArchiveBtn" class="moreBtn">More ▼</button>
+    </section>
+
+    <section id="settings" class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>⚙️ الإعدادات والإصلاح</h2>
+          <p>استخدم التنظيف بعد الرفع لإزالة آثار قواعد البيانات القديمة والكاش.</p>
+        </div>
+      </div>
+      <div class="settingsCards">
+        <article><b>Link-First Auto Scan</b><span>لا يستخدم Query ظاهر ولا كلمات ثابتة. يولد فقط أنماط روابط MEGA: folder / file / legacy.</span></article>
+        <article><b>No Time Filters</b><span>حذف كامل لفلاتر ساعتين/24 ساعة/أسبوع/شهر.</span></article>
+        <article><b>No Countries</b><span>حذف الدول والبحث الإقليمي من الواجهة والمنطق.</span></article>
+        <article><b>More Engine</b><span>زر More يستخدم cursor ويكمل فحص دفعات جديدة بدل إعادة نفس النتائج.</span></article>
+        <article><b>Archive Control</b><span>حذف مباشر، تحميل صفحات إضافية، وفلترة داخل الأرشيف.</span></article>
+      </div>
+      <div class="actions settingsActions">
+        <button id="pingBtn" class="secondary">Ping API</button>
+        <button id="schemaBtn">Check DB</button>
+        <button id="cleanupBtn">Clean Old Data</button>
+        <button id="clearCacheBtn" class="secondary">Clear App Cache</button>
+      </div>
+      <pre id="settingsOutput" class="output"></pre>
+    </section>
+  </section>
+</main>
+<div id="toast" class="toast"></div>
+<script src="config.js?v=15"></script>
+<script src="app.js?v=15"></script>
+</body>
+</html>
