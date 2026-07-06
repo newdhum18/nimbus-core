@@ -1,0 +1,9 @@
+{
+  "name": "Nimbus Core",
+  "short_name": "Nimbus",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#06101f",
+  "theme_color": "#08111f",
+  "icons": []
+}
