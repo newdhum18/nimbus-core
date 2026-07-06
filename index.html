@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#061827">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Nimbus Core">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  <title>Nimbus Core V12</title>
+  <link rel="manifest" href="manifest.json?v=12">
+  <link rel="apple-touch-icon" href="icon-192.png?v=12">
+  <link rel="stylesheet" href="style.css?v=12">
+</head>
+<body>
+<main class="app">
+  <section id="lockScreen" class="screen active">
+    <div class="loginCard">
+      <div class="logo">NC</div>
+      <span class="pill">V12 Secure</span>
+      <h1>Nimbus Core</h1>
+      <p>لوحة خاصة لاكتشاف روابط MEGA العامة وتنظيم المصادر التي تحتاج دخول رسمي.</p>
+      <form id="loginForm" class="loginRow">
+        <input id="pinInput" type="password" inputmode="numeric" maxlength="32" autocomplete="current-password" placeholder="Enter PIN">
+        <button type="submit">دخول</button>
+      </form>
+      <small>الرمز السري داخل Cloudflare فقط باسم <b>AUTH_PIN</b> وليس داخل GitHub.</small>
+    </div>
+  </section>
+
+  <section id="dashboardScreen" class="screen">
+    <header class="appHeader">
+      <button id="logoutBtn" class="iconBtn">خروج</button>
+      <div class="brand">
+        <span class="pill">V12 Global AutoScan</span>
+        <h1>Nimbus Core</h1>
+        <p id="subStatus">جاهز للفحص العالمي بدون كلمة افتراضية</p>
+      </div>
+    </header>
+
+    <section class="statsGrid">
+      <article><strong id="latestCount">0</strong><span>روابط MEGA</span></article>
+      <article><strong id="protectedCount">0</strong><span>مصادر محمية</span></article>
+      <article><strong id="lastScan">--</strong><span>آخر فحص</span></article>
+    </section>
+
+    <nav class="tabbar">
+      <button class="tab active" data-tab="latest">الجديد</button>
+      <button class="tab" data-tab="search">بحث</button>
+      <button class="tab" data-tab="protected">المحمية</button>
+      <button class="tab" data-tab="archive">الأرشيف</button>
+      <button class="tab" data-tab="settings">الإعدادات</button>
+    </nav>
+
+    <section id="latest" class="panel active">
+      <div class="panelHead">
+        <div>
+          <h2>📦 أحدث الاكتشافات</h2>
+          <p>Auto Scan لا يستخدم كلمة SNLK أو أي كلمة ثابتة. يتم تدوير عمليات البحث العامة لاكتشاف روابط MEGA المتاحة علناً.</p>
+        </div>
+        <div class="actions">
+          <button id="refreshBtn" class="secondary">تحديث</button>
+          <button id="autoScanBtn">Auto Scan Batch</button>
+        </div>
+      </div>
+      <div class="filterRow">
+        <button class="range active" data-hours="2">ساعتين</button>
+        <button class="range" data-hours="24">24 ساعة</button>
+        <button class="range" data-hours="48">يومين</button>
+        <button class="range" data-hours="168">أسبوع</button>
+        <button class="range" data-hours="720">شهر</button>
+        <button class="range" data-hours="0">الكل</button>
+      </div>
+      <div id="latestList" class="results"></div>
+    </section>
+
+    <section id="search" class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>🔎 بحث عالمي</h2>
+          <p>اترك مربع البحث فارغاً للفحص العام، أو اكتب كلمة للبحث المخصص.</p>
+        </div>
+      </div>
+      <div class="searchBox">
+        <input id="keywordInput" placeholder="اختياري: اكتب كلمة البحث أو اتركه فارغاً للفحص العام">
+        <div class="chipsToolbar">
+          <button id="selectAllCountries" class="secondary" type="button">تحديد الكل</button>
+          <button id="clearCountries" class="secondary" type="button">إلغاء الكل</button>
+        </div>
+        <div id="countryChips" class="chips"></div>
+        <div class="actions">
+          <button id="scanBtn">Search Now</button>
+          <button id="continueBtn" class="secondary">Continue Batch</button>
+        </div>
+      </div>
+      <div id="scanSummary" class="summary hidden"></div>
+      <div id="searchResults" class="results"></div>
+    </section>
+
+    <section id="protected" class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>🔒 مصادر تحتاج دخول رسمي أو Tor</h2>
+          <p>لا يتم وضع المصدر هنا إذا تم استخراج رابط MEGA منه بنجاح.</p>
+        </div>
+        <button id="refreshProtectedBtn" class="secondary">تحديث</button>
+      </div>
+      <div id="protectedList" class="results"></div>
+    </section>
+
+    <section id="archive" class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>🗂️ الأرشيف الكامل</h2>
+          <p>كل النتائج المحفوظة، مع بحث داخلي وترتيب حسب آخر ظهور.</p>
+        </div>
+        <button id="archiveRefreshBtn" class="secondary">تحديث</button>
+      </div>
+      <input id="archiveFilter" placeholder="فلترة داخل الأرشيف">
+      <div id="archiveList" class="results"></div>
+    </section>
+
+    <section id="settings" class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>⚙️ الإعدادات</h2>
+          <p>فحص الاتصال، قاعدة البيانات، وتنظيف كاش المتصفح.</p>
+        </div>
+      </div>
+      <div class="settingsCards">
+        <article><b>Security</b><span>AUTH_PIN + signed token. لا يوجد رمز ثابت داخل ملفات GitHub.</span></article>
+        <article><b>AutoScan</b><span>لا توجد كلمة افتراضية. يستخدم Seed Bank عام + 50 دولة + مصادر مركزة.</span></article>
+        <article><b>Engines</b><span>DuckDuckGo, Bing, Ahmia, OnionLand web, OnionEngine web, Dark.fail discovery, optional Brave API.</span></article>
+        <article><b>Tor .onion</b><span>Cloudflare لا يستطيع فتح Tor مباشرة. روابط Tor تحفظ كمصادر يدوية فقط.</span></article>
+        <article><b>Cache Fix</b><span>V12 يستخدم cache-busting و no-store حتى لا تبقى نسخة V9/V11.</span></article>
+      </div>
+      <div class="actions settingsActions">
+        <button id="pingBtn" class="secondary">Ping API</button>
+        <button id="schemaBtn">Check DB</button>
+        <button id="clearCacheBtn" class="secondary">Clear App Cache</button>
+      </div>
+      <pre id="settingsOutput" class="output"></pre>
+    </section>
+  </section>
+</main>
+<div id="toast" class="toast"></div>
+<script src="config.js?v=12"></script>
+<script src="app.js?v=12"></script>
+</body>
+</html>
