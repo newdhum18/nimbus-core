@@ -1,19 +1,19 @@
-const CFG = window.NIMBUS_CONFIG || { apiBase:'', version:'26' };
+const CFG = window.NIMBUS_CONFIG || { apiBase:'', version:'27' };
 const $ = id => document.getElementById(id);
 let token = localStorage.getItem('nimbus_token') || '';
 let archiveOffset = 0;
 let archiveFilter = '';
 
 init();
-function init(){ bind(); if('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js?v=26').catch(()=>{}); show(token?'appView':'loginView'); if(token){ ping(); loadDashboard(); } }
+function init(){ bind(); if('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js?v=27').catch(()=>{}); show(token?'appView':'loginView'); if(token){ ping(); loadDashboard(); } }
 function bind(){
   $('loginBtn').onclick=login;
   document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>openPage(b.dataset.page));
   $('scanBtn').onclick=()=>runScan(false); $('moreBtn').onclick=()=>runScan(true); $('resetCursorBtn').onclick=resetCursor;
   $('manualBtn').onclick=manualSearch; $('archiveFilterBtn').onclick=()=>{archiveOffset=0;archiveFilter=$('archiveFilter').value.trim();loadArchive(false)}; $('archiveMoreBtn').onclick=()=>loadArchive(true);
   $('sourcesBtn').onclick=loadSources; $('pingBtn').onclick=ping; $('dbBtn').onclick=checkDb; $('diagBtn').onclick=diagnostics; $('cleanBtn').onclick=cleanOld;
-  $('clearCacheBtn').onclick=clearCache; $('fullResetBtn').onclick=()=>location.href='/reset?v=26&fresh=1'; $('logoutBtn').onclick=logout;
-  $('exportJsonBtn').onclick=()=>downloadExport('json'); $('exportCsvBtn').onclick=()=>downloadExport('csv');
+  $('clearCacheBtn').onclick=clearCache; $('fullResetBtn').onclick=()=>location.href='/reset?v=27&fresh=1'; $('logoutBtn').onclick=logout;
+  $('exportJsonBtn').onclick=()=>downloadExport('json'); $('exportCsvBtn').onclick=()=>downloadExport('csv'); $('verifyLinksBtn').onclick=verifyLinks;
 }
 function show(id){ $('loginView').classList.toggle('hidden',id!=='loginView'); $('appView').classList.toggle('hidden',id!=='appView'); }
 function logout(){ localStorage.removeItem('nimbus_token'); token=''; show('loginView'); }
@@ -29,11 +29,22 @@ async function runScan(more){ $('scanMessage').className='notice show'; $('scanM
 async function resetCursor(){ const d=await api('/api/reset-cursor',{method:'POST',body:'{}'}); $('scanOut').textContent=pretty(d); }
 async function manualSearch(){ const q=$('manualInput').value.trim(); if(!q){$('manualMessage').className='notice show';$('manualMessage').textContent='Enter search text.';return} $('manualMessage').className='notice show'; $('manualMessage').textContent='Searching...'; $('manualOut').textContent=''; $('manualList').className='list empty'; $('manualList').textContent='Searching...'; const d=await api('/api/search',{method:'POST',body:JSON.stringify({mode:'manual',query:q})}); $('manualOut').textContent=pretty(d); if(d.ok){$('manualMessage').textContent=`Manual search finished: ${d.links_found||0} links found, ${d.new_links||0} new.`; renderLinks($('manualList'),d.saved||[]); loadDashboard();} else {$('manualMessage').textContent=d.message||d.error||'Manual search failed'; $('manualList').textContent=d.message||d.error||'Manual search failed';} }
 async function loadArchive(more){ if(!more) archiveOffset=0; const d=await api(`/api/archive?limit=30&offset=${archiveOffset}&q=${encodeURIComponent(archiveFilter)}`); if(d.ok){renderLinks($('archiveList'),d.items||[],true,more);archiveOffset=d.next_offset||archiveOffset+30;} }
+
+async function verifyLinks(){
+  $('verifyMessage').className='notice show';
+  $('verifyMessage').textContent='Health Bot checking MEGA links without downloading files...';
+  $('verifyOut').textContent='';
+  const d=await api('/api/verify-links',{method:'POST',body:JSON.stringify({limit:40,onlyUnchecked:false})});
+  $('verifyOut').textContent=pretty(d);
+  if(d.ok){ $('verifyMessage').textContent=`Health Bot finished: ${d.checked||0} checked, ${d.live||0} live/probably live, ${d.not_live||0} unavailable.`; loadArchive(false); loadDashboard(); }
+  else $('verifyMessage').textContent=d.message||d.error||'Health Bot failed';
+}
+
 async function loadSources(){ const d=await api('/api/manual-sources?limit=80'); if(d.ok) renderSources(d.items||[]); else $('sourcesList').textContent=pretty(d); }
 function updateCounts(c={}){ $('countMega').textContent=c.mega_links??0; $('countManual').textContent=c.manual_sources??0; }
 function renderSummary(s){ if(!s)return; $('scanSummary').innerHTML=Object.entries(s).filter(([k])=>k!=='errors').map(([k,v])=>`<div><b>${esc(v)}</b><br><span>${esc(k.replaceAll('_',' '))}</span></div>`).join(''); }
-function renderLinks(el,items,del=false,append=false){ if(!append)el.innerHTML=''; el.className='list'; if(!items.length&&!append){el.className='list empty';el.textContent='No links found in this batch.';return} for(const item of items){ const div=document.createElement('article'); div.className='item'; div.innerHTML=`<a href="${attr(item.mega_url)}" target="_blank" rel="noopener noreferrer">${esc(item.mega_url||'')}</a><div class="meta"><span class="pill">${esc(item.confidence??'')}</span>${esc(item.confidence_reason||'public-indexed-result')}</div><div class="meta">Source: <a href="${attr(item.source_url||'')}" target="_blank" rel="noopener noreferrer">${esc(item.source_domain||item.source_url||'')}</a></div>${del?'<button class="danger">Delete</button>':''}`; if(del) div.querySelector('button').onclick=async()=>{await api('/api/delete-link',{method:'POST',body:JSON.stringify({id:item.id,mega_url:item.mega_url})});div.remove();loadDashboard();}; el.appendChild(div); } }
+function renderLinks(el,items,del=false,append=false){ if(!append)el.innerHTML=''; el.className='list'; if(!items.length&&!append){el.className='list empty';el.textContent='No links found in this batch.';return} for(const item of items){ const div=document.createElement('article'); div.className='item'; div.innerHTML=`<a href="${attr(item.mega_url)}" target="_blank" rel="noopener noreferrer">${esc(item.mega_url||'')}</a><div class="meta"><span class="pill">${esc(item.confidence??'')}</span>${esc(item.confidence_reason||'public-indexed-result')}</div><div class="meta"><span class="pill health">${esc(item.health_status||'unverified')}</span>${esc(item.health_reason||'')}</div><div class="meta">Source: <a href="${attr(item.source_url||'')}" target="_blank" rel="noopener noreferrer">${esc(item.source_domain||item.source_url||'')}</a></div>${del?'<button class="danger">Delete</button>':''}`; if(del) div.querySelector('button').onclick=async()=>{await api('/api/delete-link',{method:'POST',body:JSON.stringify({id:item.id,mega_url:item.mega_url})});div.remove();loadDashboard();}; el.appendChild(div); } }
 function renderSources(items){ const el=$('sourcesList'); el.innerHTML=''; el.className='list'; if(!items.length){el.className='list empty';el.textContent='No manual sources.';return} for(const item of items){ const div=document.createElement('article'); div.className='item'; div.innerHTML=`<a href="${attr(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.url)}</a><div class="meta"><span class="pill">${esc(item.reason||'manual_review')}</span>${esc(item.domain||'')}</div>`; el.appendChild(div); } }
-async function clearCache(){ const lines=[]; try{if('serviceWorker'in navigator){const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs){await r.unregister();lines.push('Service worker removed')}}}catch(e){lines.push('SW '+e.message)} try{if(window.caches){const keys=await caches.keys();for(const k of keys){await caches.delete(k);lines.push('Cache deleted: '+k)}}}catch(e){lines.push('Cache '+e.message)} $('settingsOut').textContent=lines.concat(['Reopen: /?v=26&fresh=1']).join('\n'); }
-async function downloadExport(format){ const res=await fetch(`/api/export?format=${format}`,{headers:{authorization:'Bearer '+token},cache:'no-store'}); const blob=await res.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`nimbus-core-v26-export.${format==='csv'?'csv':'json'}`; document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500); }
+async function clearCache(){ const lines=[]; try{if('serviceWorker'in navigator){const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs){await r.unregister();lines.push('Service worker removed')}}}catch(e){lines.push('SW '+e.message)} try{if(window.caches){const keys=await caches.keys();for(const k of keys){await caches.delete(k);lines.push('Cache deleted: '+k)}}}catch(e){lines.push('Cache '+e.message)} $('settingsOut').textContent=lines.concat(['Reopen: /?v=27&fresh=1']).join('\n'); }
+async function downloadExport(format){ const res=await fetch(`/api/export?format=${format}`,{headers:{authorization:'Bearer '+token},cache:'no-store'}); const blob=await res.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`nimbus-core-v27-export.${format==='csv'?'csv':'json'}`; document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500); }
 function pretty(x){return JSON.stringify(x,null,2)} function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))} function attr(s){return esc(s||'#')} function message(){ }

@@ -1,4 +1,4 @@
-# Roadmap after V26
+# Roadmap after V27
 
 - Add optional Brave API setup guide.
 - Add domain source toggles in UI.

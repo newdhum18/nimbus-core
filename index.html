@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#071022">
   <meta http-equiv="Cache-Control" content="no-store">
-  <link rel="manifest" href="/manifest.json?v=26">
-  <link rel="stylesheet" href="/style.css?v=26">
-  <title>Nimbus Core V26</title>
+  <link rel="manifest" href="/manifest.json?v=27">
+  <link rel="stylesheet" href="/style.css?v=27">
+  <title>Nimbus Core V27</title>
 </head>
 <body>
   <main id="loginView" class="login hidden">
     <section class="panel small">
       <p class="eyebrow">NIMBUS CORE</p>
-      <h1>V26 Link-First Console</h1>
+      <h1>V27 Link-First Console</h1>
       <p class="muted">Private dashboard. AUTH_PIN stays only in Cloudflare variables.</p>
       <input id="pinInput" type="password" inputmode="numeric" placeholder="PIN">
       <button id="loginBtn">Login</button>
@@ -25,7 +25,7 @@
     <header>
       <div>
         <p class="eyebrow">NIMBUS CORE</p>
-        <h1>V26 Link-First Console</h1>
+        <h1>V27 Link-First Console</h1>
       </div>
       <div class="online"><span></span>Online</div>
     </header>
@@ -43,7 +43,7 @@
       <div class="cards">
         <div class="card"><b id="countMega">0</b><span>MEGA Links</span></div>
         <div class="card"><b id="countManual">0</b><span>Manual Sources</span></div>
-        <div class="card"><b>26.0.0</b><span>Version</span></div>
+        <div class="card"><b>27.0.0</b><span>Version</span></div>
       </div>
       <h2>Latest Discoveries</h2>
       <div id="latestList" class="list empty">No links yet.</div>
@@ -84,7 +84,10 @@
         <button id="archiveMoreBtn">More</button>
         <button id="exportJsonBtn">Export JSON</button>
         <button id="exportCsvBtn">Export CSV</button>
+        <button id="verifyLinksBtn">Health Bot</button>
       </div>
+      <div id="verifyMessage" class="notice"></div>
+      <details><summary>Raw Health Bot Output</summary><pre id="verifyOut"></pre></details>
       <div id="archiveList" class="list empty">No archive loaded.</div>
     </section>
 
@@ -111,7 +114,7 @@
 
     <footer>Public indexed discovery only · No bypass · No hidden PIN in code</footer>
   </main>
-  <script src="/config.js?v=26"></script>
-  <script src="/app.js?v=26"></script>
+  <script src="/config.js?v=27"></script>
+  <script src="/app.js?v=27"></script>
 </body>
 </html>

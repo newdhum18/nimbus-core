@@ -1,1 +1,1 @@
-window.NIMBUS_CONFIG = { apiBase: '', version: '26' };
+window.NIMBUS_CONFIG = { apiBase:'', version:'27' };

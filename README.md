@@ -1,4 +1,4 @@
-# Nimbus Core V26
+# Nimbus Core V27
 
 Deep Source Expansion release for public indexed MEGA URL discovery.
 
@@ -7,7 +7,7 @@ Core rules:
 - No bypass of login, captcha, paywall, credits, unlock pages, advertisements, or private systems.
 - Auto Scan remains Link-First: MEGA URL shapes are searched, not fixed file names, countries, or time labels.
 
-V26 highlights:
+V27 highlights:
 - Expanded source-domain pattern generator.
 - More search surfaces: Bing RSS, DuckDuckGo Lite, Ahmia, URLScan, optional Brave API.
 - Larger scan batch and page fetch budget.
@@ -17,4 +17,4 @@ V26 highlights:
 
 Deploy then open:
 
-https://nimbus-core-6or.pages.dev/reset?v=26&fresh=1
+https://nimbus-core-6or.pages.dev/reset?v=27&fresh=1
