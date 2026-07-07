@@ -1,0 +1,12 @@
+V20 combines planned V16-V19 improvements into one clean version:
+- Cleanroom rebuild.
+- Link-first Auto Scan.
+- Real cursor-based More.
+- No old labels in UI or new schema.
+- Archive pagination and delete.
+- Export JSON and CSV.
+- Manual sources separated from real extracted links.
+- Optional Brave Search API.
+- Optional Cloudflare Cron scan.
+- Stronger cleanup for old D1 traces.
+- Better mobile PWA layout.
