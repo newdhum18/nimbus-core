@@ -1,28 +1,20 @@
-# Nimbus Core V25
+# Nimbus Core V26
 
-Clean Link-First PWA for public indexed MEGA URL discovery.
+Deep Source Expansion release for public indexed MEGA URL discovery.
 
-## Critical V25 Fix
-V25 no longer uses legacy tables such as `scan_state`, `mega_links`, or broken ALTER migrations. It creates isolated tables:
+Core rules:
+- Public indexed discovery only.
+- No bypass of login, captcha, paywall, credits, unlock pages, advertisements, or private systems.
+- Auto Scan remains Link-First: MEGA URL shapes are searched, not fixed file names, countries, or time labels.
 
-- nimbus_v25_links
-- nimbus_v25_sources
-- nimbus_v25_logs
-- nimbus_v25_state
+V26 highlights:
+- Expanded source-domain pattern generator.
+- More search surfaces: Bing RSS, DuckDuckGo Lite, Ahmia, URLScan, optional Brave API.
+- Larger scan batch and page fetch budget.
+- Example/fake MEGA link filtering.
+- Optional adult public indexed source expansion via UI checkbox.
+- Keeps stable V25 D1 tables to preserve previous discoveries and avoid migration breakage.
 
-This avoids the D1 error: `table scan_state has no column named key`.
+Deploy then open:
 
-## Deploy
-Upload the ZIP contents to GitHub root, wait for Cloudflare Pages deployment, then open:
-
-`https://nimbus-core-6or.pages.dev/reset?v=25&fresh=1`
-
-Then run:
-
-1. Settings > Ping API
-2. Settings > Check DB
-3. Auto Scan
-4. Manual Search
-
-## Policy
-Public indexed discovery only. No login/captcha/paywall/advertisement/unlock/private-system bypass.
+https://nimbus-core-6or.pages.dev/reset?v=26&fresh=1
