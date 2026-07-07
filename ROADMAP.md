@@ -1,7 +1,7 @@
-# Roadmap After V30
+# Roadmap
 
-- Optional queue-based scans using Cloudflare Cron.
-- Source success-rate scoring.
-- Link recheck scheduling.
-- UI source analytics.
-- Faster paginated archive search.
+- Optional Brave API integration for more reliable search results.
+- Cloudflare Cron scheduled scans.
+- Source grouping and validation queue.
+- Better result ranking and duplicate source tracking.
+- Export/import tools.
