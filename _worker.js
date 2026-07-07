@@ -351,8 +351,7 @@ async function reportPackage(env,url,headers){
   sql+=' ORDER BY id DESC LIMIT 10000';
   const data=rows(await all(env,sql,params));
   if(format==='csv'){
-    const csv=['mega_url,source_url,source_domain,title,confidence,confidence_reason,health_status,health_reason,health_checked_at,discovered_at,last_seen_at'].concat(data.map(r=>[r.mega_url,r.source_url,r.source_domain,r.title,r.confidence,r.confidence_reason,r.health_status,r.health_reason,r.health_checked_at,r.discovered_at,r.last_seen_at].map(csvCell).join(','))).join('
-');
+    const csv=['mega_url,source_url,source_domain,title,confidence,confidence_reason,health_status,health_reason,health_checked_at,discovered_at,last_seen_at'].concat(data.map(r=>[r.mega_url,r.source_url,r.source_domain,r.title,r.confidence,r.confidence_reason,r.health_status,r.health_reason,r.health_checked_at,r.discovered_at,r.last_seen_at].map(csvCell).join(','))).join('\n');
     return new Response(csv,{status:200,headers:{...headers,'content-type':'text/csv;charset=utf-8','content-disposition':'attachment; filename="nimbus-core-v30-report-package.csv"'}});
   }
   return json({ok:true,version:VERSION,purpose:'review_and_report_package',items:data},200,headers);
