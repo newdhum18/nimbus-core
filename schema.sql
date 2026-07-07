@@ -1,4 +1,4 @@
--- Nimbus Core V27 keeps the stable V25 table layer intentionally.
+-- Nimbus Core V28 keeps the stable V25 table layer intentionally.
 -- This avoids breaking existing Cloudflare D1 data and preserves current archive results.
 
 CREATE TABLE IF NOT EXISTS nimbus_v25_links (

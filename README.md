@@ -1,20 +1,27 @@
-# Nimbus Core V27
+# Nimbus Core V30 — Report Ready Wide Scan
 
-Deep Source Expansion release for public indexed MEGA URL discovery.
+V30 keeps the stable V25 database tables and upgrades the discovery engine.
 
-Core rules:
-- Public indexed discovery only.
-- No bypass of login, captcha, paywall, credits, unlock pages, advertisements, or private systems.
-- Auto Scan remains Link-First: MEGA URL shapes are searched, not fixed file names, countries, or time labels.
+## Core guarantees
+- No content categories.
+- No content keyword blocklist.
+- No hidden result filter.
+- All structurally valid public MEGA links are displayed.
+- Health status is shown for every link: live, unavailable, or unverified.
+- Unavailable links remain visible instead of being deleted.
+- The requested Telegram source prefix is excluded and cleanup removes it.
 
-V27 highlights:
-- Expanded source-domain pattern generator.
-- More search surfaces: Bing RSS, DuckDuckGo Lite, Ahmia, URLScan, optional Brave API.
-- Larger scan batch and page fetch budget.
-- Example/fake MEGA link filtering.
-- Optional adult public indexed source expansion via UI checkbox.
-- Keeps stable V25 D1 tables to preserve previous discoveries and avoid migration breakage.
+## 10 accuracy improvements
+1. Wider pattern rotation with more public indexed surfaces.
+2. Larger Auto Scan batch capacity.
+3. More pages fetched per batch.
+4. More parallel page fetch workers.
+5. More parallel MEGA health checks.
+6. Added generic public HTML search adapter.
+7. Added Mojeek adapter.
+8. Added OnionLand web adapter.
+9. Added OnionEngine web adapter.
+10. Added Audit and Report Package APIs.
 
-Deploy then open:
-
-https://nimbus-core-6or.pages.dev/reset?v=27&fresh=1
+Deployment reset:
+`/reset?v=30&fresh=1`
