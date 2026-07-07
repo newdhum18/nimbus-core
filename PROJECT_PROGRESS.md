@@ -1,6 +1,6 @@
-# V24 Progress
+# V25 Progress
 
-- Rebuilt storage layer with isolated V24 D1 tables.
+- Rebuilt storage layer with isolated V25 D1 tables.
 - Removed all dependency on legacy `scan_state` and `key` column.
 - Added JSON-only API error handling.
 - Added reset page.

@@ -1,5 +1,5 @@
--- Nimbus Core V24 uses isolated tables to avoid legacy D1 schema conflicts.
-CREATE TABLE IF NOT EXISTS nimbus_v24_links (
+-- Nimbus Core V25 uses isolated tables to avoid legacy D1 schema conflicts.
+CREATE TABLE IF NOT EXISTS nimbus_v25_links (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   mega_url TEXT NOT NULL UNIQUE,
   normalized_url TEXT,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS nimbus_v24_links (
   status TEXT,
   notes TEXT
 );
-CREATE TABLE IF NOT EXISTS nimbus_v24_sources (
+CREATE TABLE IF NOT EXISTS nimbus_v25_sources (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   url TEXT NOT NULL UNIQUE,
   domain TEXT,
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS nimbus_v24_sources (
   last_seen_at TEXT,
   status TEXT
 );
-CREATE TABLE IF NOT EXISTS nimbus_v24_logs (
+CREATE TABLE IF NOT EXISTS nimbus_v25_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   mode TEXT,
   started_at TEXT,
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS nimbus_v24_logs (
   manual_sources INTEGER,
   errors TEXT
 );
-CREATE TABLE IF NOT EXISTS nimbus_v24_state (
+CREATE TABLE IF NOT EXISTS nimbus_v25_state (
   name TEXT PRIMARY KEY,
   value TEXT,
   updated_at TEXT
