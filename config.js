@@ -1,1 +1,1 @@
-window.NIMBUS_VERSION='27.0.0-full-core-build';
+window.NIMBUS_CONFIG = { version: '27-rewrite.1', apiBase: '' };

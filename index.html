@@ -1,84 +1,116 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#07111f" />
-  <title>Nimbus Core V27</title>
-  <link rel="manifest" href="/manifest.json" />
-  <link rel="stylesheet" href="/style.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#08111f">
+  <title>Nimbus Core V27 Rewrite</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <div class="shell">
-    <header>
+    <header class="topbar">
       <div>
-        <div class="eyebrow">NIMBUS CORE</div>
-        <h1>V27.1 Fixed AutoScan Console</h1>
-        <p>Fixed DB migration, AutoScan, multi-source discovery, crawler queue, cache, health checks, and statistics dashboard.</p>
+        <div class="eyebrow">Nimbus Core</div>
+        <h1>V27 Rewrite</h1>
       </div>
-      <div class="status" id="status">Offline</div>
+      <div class="status-pill" id="apiStatus">Checking...</div>
     </header>
 
-    <section id="loginPanel" class="card login-card">
+    <section class="login card" id="loginCard">
       <h2>Login</h2>
-      <p>Enter your Cloudflare AUTH_PIN.</p>
+      <p>Enter your Nimbus PIN. Default PIN is <b>0000</b> unless you set <code>NIMBUS_PIN</code> in Cloudflare.</p>
       <div class="row">
-        <input id="pin" type="password" placeholder="PIN" autocomplete="current-password" />
+        <input id="pin" type="password" inputmode="numeric" placeholder="PIN">
         <button id="loginBtn">Login</button>
       </div>
-      <pre id="loginOut"></pre>
     </section>
 
     <main id="app" class="hidden">
-      <nav class="tabs">
-        <button data-tab="dash" class="active">Dashboard</button>
-        <button data-tab="scan">Scan</button>
-        <button data-tab="queue">Queue</button>
-        <button data-tab="archive">Archive</button>
-        <button data-tab="pages">Pages</button>
-        <button data-tab="sources">Sources</button>
-        <button data-tab="settings">Settings</button>
-      </nav>
+      <section class="grid stats" id="statsGrid"></section>
 
-      <section id="dash" class="tab active">
-        <div class="grid stats">
-          <div><b id="cLinks">0</b><span>Links</span></div>
-          <div><b id="cAlive">0</b><span>Alive</span></div>
-          <div><b id="cDead">0</b><span>Dead</span></div>
-          <div><b id="cUnknown">0</b><span>Unknown</span></div>
-          <div><b id="cPages">0</b><span>Pages</span></div>
-          <div><b id="cQueue">0</b><span>Queued</span></div>
+      <section class="card hero">
+        <div>
+          <h2>Unified Search + Extractor</h2>
+          <p>Search public sources, crawl pages, extract MEGA links, process queue, check health, and export results from one integrated dashboard.</p>
         </div>
-        <div class="card"><h2>Latest Discoveries</h2><div id="latestList" class="list muted">No links yet.</div></div>
-        <div class="card"><h2>Statistics</h2><pre id="statsOut">No statistics yet.</pre></div>
+        <div class="actions wrap">
+          <button id="checkDbBtn">Check DB</button>
+          <button id="repairDbBtn">Repair DB</button>
+          <button id="diagBtn">Diagnostics</button>
+          <button id="cleanBtn">Clean Data</button>
+        </div>
       </section>
 
-      <section id="scan" class="tab">
+      <section class="grid two">
         <div class="card">
-          <h2>AutoScan / Keyword Scan</h2>
-          <p>Leave keyword empty for pattern rotation, or enter a specific keyword.</p>
-          <div class="row"><input id="query" placeholder="Optional keyword" /><button id="autoScanFullBtn">AutoScan</button><button id="autoScanBtn">Start Scan</button><button id="processBtn">Process Queue</button></div>
-          <pre id="scanOut">Press Start Scan.</pre>
+          <h2>Manual Scan</h2>
+          <label>Search query</label>
+          <input id="query" placeholder="Example: project name, file name, public index keyword">
+          <div class="actions">
+            <button id="scanBtn">Start Scan</button>
+            <button id="autoBtn" class="accent">AutoScan</button>
+          </div>
         </div>
         <div class="card">
           <h2>Extract From URL</h2>
-          <div class="row"><input id="targetUrl" placeholder="https://example.com/page" /><button id="extractBtn">Extract</button></div>
-          <pre id="extractOut">No URL extraction yet.</pre>
-        </div>
-        <div class="card">
-          <h2>Link Health Checker</h2>
-          <div class="row"><input id="megaUrl" placeholder="https://mega.nz/folder/..." /><button id="healthOneBtn">Check One</button><button id="healthBatchBtn">Check Batch</button></div>
-          <pre id="healthOut">No health check yet.</pre>
+          <label>Public page URL</label>
+          <input id="extractUrl" placeholder="https://example.com/page">
+          <div class="actions">
+            <button id="extractBtn">Fetch + Extract</button>
+            <button id="processBtn">Process Queue</button>
+            <button id="healthBtn">Check Batch</button>
+          </div>
         </div>
       </section>
 
-      <section id="queue" class="tab"><div class="card"><h2>Queue Manager</h2><div class="row"><button id="queueRefreshBtn">Refresh</button><button id="queueProcessBtn">Process 40</button></div><div id="queueList" class="list"></div></div></section>
-      <section id="archive" class="tab"><div class="card"><h2>Archive</h2><div class="row"><input id="archiveQ" placeholder="Filter"/><select id="healthFilter"><option value="">All</option><option value="alive">Alive</option><option value="dead">Dead</option><option value="unknown">Unknown</option></select><button id="archiveBtn">Load</button><button id="exportJsonBtn">Export JSON</button><button id="exportCsvBtn">Export CSV</button></div><div id="archiveList" class="list"></div></div></section>
-      <section id="pages" class="tab"><div class="card"><h2>Crawler Pages</h2><button id="pagesBtn">Refresh</button><div id="pagesList" class="list"></div></div></section>
-      <section id="sources" class="tab"><div class="card"><h2>JSON / Plugin Sources</h2><p>Endpoint supports <code>{q}</code> placeholder.</p><div class="row"><input id="srcName" placeholder="source_name"/><input id="srcEndpoint" placeholder="https://example.com/search?q={q}"/></div><div class="row"><select id="srcType"><option value="json">json</option><option value="html">html</option></select><button id="saveSourceBtn">Save Source</button><button id="sourcesBtn">Refresh Sources</button></div><div id="sourcesList" class="list"></div></div></section>
-      <section id="settings" class="tab"><div class="card"><h2>Settings</h2><div class="row wrap"><button id="pingBtn">Ping API</button><button id="schemaBtn">Check DB</button><button id="diagBtn">Diagnostics</button><button id="cleanupBtn">Clean Data</button><button id="resetBtn">Reset Cursor</button><button id="logoutBtn">Logout</button></div><pre id="settingsOut">Ready.</pre></div></section>
+      <section class="grid two">
+        <div class="card">
+          <h2>Source Manager</h2>
+          <div class="row">
+            <input id="srcName" placeholder="Source name">
+            <select id="srcType"><option>html</option><option>rss</option><option>json</option><option>json_reddit</option><option>xml</option></select>
+          </div>
+          <input id="srcTemplate" placeholder="https://source/search?q={query}">
+          <div class="row">
+            <input id="srcPriority" type="number" value="50" min="1" max="100">
+            <button id="addSourceBtn">Add Source</button>
+          </div>
+          <div id="sourcesList" class="mini-list"></div>
+        </div>
+        <div class="card">
+          <h2>Maintenance</h2>
+          <div class="actions wrap">
+            <button id="resetQueueBtn">Reset Queue</button>
+            <button id="resetCacheBtn">Reset Cache</button>
+            <button id="resetCursorBtn">Reset AutoScan Cursor</button>
+            <button id="exportCsvBtn">Export CSV</button>
+            <button id="exportJsonBtn">Export JSON</button>
+          </div>
+          <p class="muted">Full fresh reset URL: <code>/reset?v=27&fresh=1</code></p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Results</h2>
+          <div class="row filters">
+            <select id="healthFilter"><option value="">All</option><option value="alive">Alive</option><option value="dead">Dead</option><option value="unknown">Unknown</option></select>
+            <input id="resultSearch" placeholder="Filter URL">
+            <button id="refreshBtn">Refresh</button>
+          </div>
+        </div>
+        <div id="results" class="results"></div>
+      </section>
+
+      <section class="card">
+        <h2>Event Log</h2>
+        <pre id="log"></pre>
+      </section>
     </main>
   </div>
+  <script src="/config.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

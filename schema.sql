@@ -1,2 +1,3 @@
--- Nimbus Core V27 uses automatic D1 schema creation inside _worker.js.
--- Open /api/schema after login to create nimbus_v27_* tables.
+-- Nimbus Core V27 Rewrite schema reference. The Worker auto-creates and repairs these tables.
+-- D1 binding name required: DB
+-- Table prefix: nimbus_v27_*

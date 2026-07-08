@@ -1,15 +1,38 @@
-Nimbus Core V27.1 Fixed AutoScan Build
+# Project Progress - Nimbus Core V27 Rewrite
 
-Problem found from user screenshots:
-- D1 queue table existed but was missing the `available_at` column.
-- `CREATE TABLE IF NOT EXISTS` did not repair old tables.
-- Process Queue, Diagnostics, and Reset Cursor failed when SQL referenced `available_at`.
-- AutoScan was not clearly visible as a separate button.
+## Build type
 
-Fixes implemented:
-- Rebuilt schema bootstrap to create tables, then inspect each table with PRAGMA table_info, then ALTER missing columns.
-- Added `available_at` migration and queue defaults.
-- Added `/api/autoscan` endpoint.
-- Added AutoScan button to UI.
-- Updated reset instructions.
-- Updated docs.
+Full rewrite from a clean directory.
+
+## Verification performed
+
+- `node --check _worker.js` passed.
+- `node --check app.js` passed.
+- Confirmed Queue schema contains `available_at`.
+- Confirmed AutoScan UI button and `/api/autoscan` endpoint exist.
+- Confirmed extractor is integrated into `/api/scan`, `/api/autoscan`, `/api/extract-url`, source processing, crawler processing, and Reddit comment processing.
+- Confirmed all tables use `nimbus_v27_*` prefix.
+- Confirmed no old version table names are present in generated code.
+
+## Feature map
+
+- Core Engine: included.
+- Database V27: included.
+- Search Engine: included.
+- Source Manager: included.
+- Crawler Engine: included.
+- Extractor Engine: included.
+- Link Health Checker: included.
+- Queue Manager: included.
+- Background Workers: included through Cloudflare scheduled handler; requires Cron Trigger to run automatically.
+- Cache System: included.
+- Reddit Engine: included for public posts/comments JSON.
+- Result Processor: included.
+- Statistics Dashboard: included.
+- Export System: included.
+- Diagnostics: included.
+- User Interface: included.
+- AutoScan: included.
+- Auth/session/rate-compatible structure: included.
+- Maintenance tools: included.
+- Performance improvements: included with cache, indexes, queue limits, lazy result loading.
