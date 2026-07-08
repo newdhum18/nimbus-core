@@ -1,20 +1,20 @@
-# Nimbus Core V27 Source Boost
+# Nimbus Core V27 SourceBoost.3 Deep
 
-Fresh Cloudflare Pages + D1 build focused on stronger public-source discovery.
+This build continues from the working SourceBoost branch and focuses on stronger discovery.
 
 ## Main changes
-- Separate AutoScan page and Keyword Search page.
-- Results appear directly under each page.
-- Integrated extractor; no separate standalone extractor workflow.
-- Multi-source engine: Bing RSS, DuckDuckGo HTML, Yahoo, Reddit JSON, r/megalinks JSON, GitHub search, Archive, Pastebin, Rentry, Ahmia, Meawfy web, Linktree web.
-- JSON/HTML/RSS/XML source templates through Source Manager.
-- Queue Manager, Cache, Crawler, Health Checker, Dashboard, CSV/JSON export.
-- D1 tables use `nimbus_v27sb_*` to avoid collisions with old broken schemas.
+- AutoScan and Keyword Search remain separated into independent iPhone-friendly pages.
+- Results for AutoScan appear under AutoScan only.
+- Results for Keyword Search appear under Keyword Search only.
+- Deep queue processing up to 100 rounds per run, with Cloudflare time-budget stop to avoid timeout.
+- More public sources: Bing RSS/Web, DuckDuckGo, Yahoo, Brave Search, Mojeek, Reddit JSON, r/megalinks JSON, GitHub code/issues/repos, Gist, GitLab, Bitbucket, Archive, Pastebin, Rentry, Paste.ee, JustPaste, ControlC, Telegraph, Ahmia, Meawfy, Linktree.
+- Stronger MEGA extractor: supports https/no-protocol, mega.nz, mega.co.nz, mega.io, file/folder, old #F! format, encoded URLs, escaped slashes, JSON/RSS/HTML text.
+- Reddit JSON target extraction and Reddit .json comment-page discovery from permalinks.
+- Wider crawler that follows extracted targets and same-page JSON/RSS/HTML links.
+- Queue Manager, Cache, Health Checker, Dashboard, Export CSV/JSON, Diagnostics.
 
-## Cloudflare requirements
-- Pages Functions enabled.
-- D1 binding name: `DB`.
-- Optional variable: `AUTH_PIN` or `NIMBUS_PIN`.
+## After upload
+Open:
+`https://nimbus-core-6or.pages.dev/reset?v=27&fresh=1`
 
-## Reset URL
-`/reset?v=27&fresh=1`
+Then login and use AutoScan or Keyword Search. If the run queues many pages, press **Deep Process 100 Rounds** under the same page.
