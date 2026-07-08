@@ -2,7 +2,7 @@
    Fresh implementation: API + engine + crawler + extractor + queue + cache + dashboard.
    D1 binding required: DB
 */
-const VERSION = '27-rewrite.2';
+const VERSION = '27-rewrite.3';
 const TABLE_PREFIX = 'nimbus_v27';
 const DEFAULT_PIN = '0000';
 const MAX_FETCH_BYTES = 900000;
@@ -127,12 +127,22 @@ async function ensureDb(env){
     [T.scans]: {query:'TEXT DEFAULT \"\"', status:'TEXT DEFAULT \"pending\"', created_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', started_at:'TEXT', finished_at:'TEXT', elapsed_ms:'INTEGER DEFAULT 0', pages_found:'INTEGER DEFAULT 0', pages_scanned:'INTEGER DEFAULT 0', links_found:'INTEGER DEFAULT 0', links_alive:'INTEGER DEFAULT 0', links_dead:'INTEGER DEFAULT 0', links_unknown:'INTEGER DEFAULT 0', errors:'INTEGER DEFAULT 0', message:'TEXT DEFAULT \"\"'},
     [T.queue]: {scan_id:'TEXT DEFAULT \"\"', type:'TEXT DEFAULT \"crawl\"', payload:'TEXT DEFAULT \"{}\"', priority:'INTEGER DEFAULT 50', status:'TEXT DEFAULT \"pending\"', attempts:'INTEGER DEFAULT 0', max_attempts:'INTEGER DEFAULT 3', available_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', locked_at:'TEXT', created_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', updated_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', last_error:'TEXT DEFAULT \"\"'},
     [T.pages]: {scan_id:'TEXT DEFAULT \"\"', source_id:'TEXT DEFAULT \"\"', url:'TEXT DEFAULT \"\"', normalized_url:'TEXT DEFAULT \"\"', depth:'INTEGER DEFAULT 0', status:'TEXT DEFAULT \"pending\"', http_status:'INTEGER DEFAULT 0', title:'TEXT DEFAULT \"\"', fetched_at:'TEXT', created_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', error:'TEXT DEFAULT \"\"'},
-    [T.links]: {scan_id:'TEXT DEFAULT \"\"', page_id:'TEXT DEFAULT \"\"', source_id:'TEXT DEFAULT \"\"', url:'TEXT DEFAULT \"\"', normalized_url:'TEXT DEFAULT \"\"', host:'TEXT DEFAULT \"\"', type:'TEXT DEFAULT \"\"', health:'TEXT DEFAULT \"unknown\"', http_status:'INTEGER DEFAULT 0', score:'INTEGER DEFAULT 0', first_seen:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', last_seen:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', checked_at:'TEXT', context:'TEXT DEFAULT \"\"', meta:'TEXT DEFAULT \"{}\"'}
+    [T.links]: {scan_id:'TEXT DEFAULT \"\"', page_id:'TEXT DEFAULT \"\"', source_id:'TEXT DEFAULT \"\"', url:'TEXT DEFAULT \"\"', normalized_url:'TEXT DEFAULT \"\"', host:'TEXT DEFAULT \"\"', type:'TEXT DEFAULT \"\"', health:'TEXT DEFAULT \"unknown\"', http_status:'INTEGER DEFAULT 0', score:'INTEGER DEFAULT 0', first_seen:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', last_seen:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', checked_at:'TEXT', context:'TEXT DEFAULT \"\"', meta:'TEXT DEFAULT \"{}\"'},
+    [T.cache]: {key:'TEXT DEFAULT \"\"', type:'TEXT DEFAULT \"response\"', value:'TEXT DEFAULT \"\"', expires_at:'TEXT DEFAULT \"2999-01-01T00:00:00.000Z\"', created_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"'},
+    [T.logs]: {id:'TEXT DEFAULT \"\"', created_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', level:'TEXT DEFAULT \"info\"', event:'TEXT DEFAULT \"\"', data:'TEXT DEFAULT \"{}\"'},
+    [T.stats]: {key:'TEXT DEFAULT \"\"', value:'TEXT DEFAULT \"0\"', updated_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"'},
+    [T.settings]: {key:'TEXT DEFAULT \"\"', value:'TEXT DEFAULT \"\"', updated_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"'},
+    [T.backups]: {id:'TEXT DEFAULT \"\"', created_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', reason:'TEXT DEFAULT \"\"', snapshot:'TEXT DEFAULT \"{}\"'}
   };
   for (const [table, cols] of Object.entries(required)){
     const info = await env.DB.prepare(`PRAGMA table_info(${table})`).all();
     const have = new Set((info.results||[]).map(x=>x.name));
-    for (const [col, def] of Object.entries(cols)) if(!have.has(col)) await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`).run();
+    for (const [col, def] of Object.entries(cols)) {
+      if(!have.has(col)) {
+        try { await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`).run(); }
+        catch(e) { if(!String(e).includes('duplicate column name')) throw e; }
+      }
+    }
   }
   const idx = [
     `CREATE INDEX IF NOT EXISTS idx_${TABLE_PREFIX}_queue_status ON ${T.queue}(status, available_at, priority)`,
@@ -387,9 +397,12 @@ async function cleanData(env){
   return {ok:true, stats: await stats(env)};
 }
 async function resetAll(env){
+  if(!env.DB) throw new Error('D1 binding DB is missing');
+  // Full fresh reset for V27: drop V27 tables so old/partial schemas cannot survive.
+  const tables=[T.sessions,T.sources,T.scans,T.queue,T.pages,T.links,T.cache,T.logs,T.stats,T.settings,T.backups];
+  for(const t of tables){ try { await env.DB.prepare(`DROP TABLE IF EXISTS ${t}`).run(); } catch(e){} }
   await ensureDb(env);
-  for(const t of [T.scans,T.queue,T.pages,T.links,T.cache,T.logs,T.stats,T.settings]) await env.DB.prepare(`DELETE FROM ${t}`).run();
-  return {ok:true, reset:true};
+  return {ok:true, reset:true, version:VERSION, message:'Fresh V27 schema recreated'};
 }
 async function results(env, req){
   const u=new URL(req.url); const health=u.searchParams.get('health')||''; const search=u.searchParams.get('q')||''; const limit=Math.min(200, parseInt(u.searchParams.get('limit')||'100',10));
