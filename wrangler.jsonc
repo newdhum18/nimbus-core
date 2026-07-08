@@ -3,6 +3,13 @@
   "name": "nimbus-core",
   "compatibility_date": "2025-08-01",
   "pages_build_output_dir": ".",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nimbus-db",
+      "database_id": "PUT_DATABASE_ID_HERE"
+    }
+  ],
   "limits": {
     "cpu_ms": 30000,
     "subrequests": 1000
