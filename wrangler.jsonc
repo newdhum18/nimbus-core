@@ -7,7 +7,7 @@
     {
       "binding": "DB",
       "database_name": "nimbus-db",
-      "database_id": "PUT_DATABASE_ID_HERE"
+      "database_id": "ab619b87-8888-4eea-a632-304af715c786"
     }
   ],
   "limits": {
