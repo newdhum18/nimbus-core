@@ -1,116 +1,83 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#071022">
-  <meta http-equiv="Cache-Control" content="no-store">
-  <link rel="manifest" href="/manifest.json?v=25">
-  <link rel="stylesheet" href="/style.css?v=25">
-  <title>Nimbus Core V25</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Nimbus Core V27 Core</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="/style.css" />
+  <script src="/config.js"></script>
 </head>
 <body>
-  <main id="loginView" class="login hidden">
-    <section class="panel small">
-      <p class="eyebrow">NIMBUS CORE</p>
-      <h1>V25 Link-First Console</h1>
-      <p class="muted">Private dashboard. AUTH_PIN stays only in Cloudflare variables.</p>
-      <input id="pinInput" type="password" inputmode="numeric" placeholder="PIN">
-      <button id="loginBtn">Login</button>
-      <pre id="loginOut"></pre>
+  <header>
+    <div>
+      <h1>Nimbus Core V27 Core</h1>
+      <p>Public indexed MEGA link discovery, queue processing, health checks, cache, and dashboard.</p>
+    </div>
+    <button id="logoutBtn" class="hidden">Logout</button>
+  </header>
+
+  <section id="loginCard" class="card narrow">
+    <h2>Login</h2>
+    <input id="pinInput" type="password" placeholder="AUTH_PIN" autocomplete="current-password" />
+    <button id="loginBtn">Enter</button>
+    <p id="loginMsg" class="error"></p>
+  </section>
+
+  <main id="app" class="hidden">
+    <section class="grid">
+      <div class="card">
+        <h2>Search</h2>
+        <input id="query" placeholder="Optional safe keyword. Leave empty for auto patterns." />
+        <div class="row">
+          <button id="manualBtn">Manual Smart Search</button>
+          <button id="autoBtn">Auto Scan</button>
+          <button id="continueBtn">Continue Auto</button>
+        </div>
+        <div class="row">
+          <input id="urlInput" placeholder="Scan a public page URL" />
+          <button id="scanUrlBtn">Extract From URL</button>
+        </div>
+        <p class="muted">Core rebuild from V26+ with source engine, queue, cache, health checker, dashboard, and export.</p>
+      </div>
+
+      <div class="card">
+        <h2>Controls</h2>
+        <div class="row wrap">
+          <button id="schemaBtn">Check DB</button>
+          <button id="processQueueBtn">Process Queue</button>
+          <button id="checkBtn">Check Link Health</button>
+          <button id="dashboardBtn">Dashboard</button>
+          <button id="refreshBtn">Refresh</button>
+          <button id="exportBtn">Export CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid stats" id="stats"></section>
+
+    <section class="card">
+      <h2>Latest Links</h2>
+      <div id="results"></div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Manual Review Sources</h2>
+        <div id="manualSources"></div>
+      </div>
+      <div class="card">
+        <h2>Queue</h2>
+        <div id="queueBox"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Log</h2>
+      <pre id="logBox"></pre>
     </section>
   </main>
 
-  <main id="appView" class="app hidden">
-    <header>
-      <div>
-        <p class="eyebrow">NIMBUS CORE</p>
-        <h1>V25 Link-First Console</h1>
-      </div>
-      <div class="online"><span></span>Online</div>
-    </header>
-
-    <nav class="tabs">
-      <button data-page="dashboard" class="active">Dashboard</button>
-      <button data-page="scan">Auto Scan</button>
-      <button data-page="manual">Manual Search</button>
-      <button data-page="archive">Archive</button>
-      <button data-page="sources">Manual Sources</button>
-      <button data-page="settings">Settings</button>
-    </nav>
-
-    <section id="page-dashboard" class="page active panel">
-      <div class="cards">
-        <div class="card"><b id="countMega">0</b><span>MEGA Links</span></div>
-        <div class="card"><b id="countManual">0</b><span>Manual Sources</span></div>
-        <div class="card"><b>25.0.0</b><span>Version</span></div>
-      </div>
-      <h2>Latest Discoveries</h2>
-      <div id="latestList" class="list empty">No links yet.</div>
-    </section>
-
-    <section id="page-scan" class="page panel">
-      <h2>Auto Scan</h2>
-      <p class="muted">Link-first only: MEGA URL shapes, no countries, no time labels, no fixed file names.</p>
-      <div class="actions">
-        <button id="scanBtn">Auto Scan</button>
-        <button id="moreBtn">More</button>
-        <button id="resetCursorBtn">Reset Cursor</button>
-      </div>
-      <div id="scanMessage" class="notice"></div>
-      <div id="scanSummary" class="summary"></div>
-      <details open><summary>Raw Scan Output</summary><pre id="scanOut"></pre></details>
-      <div id="scanList" class="list empty">Press Auto Scan.</div>
-    </section>
-
-    <section id="page-manual" class="page panel">
-      <h2>Manual Search</h2>
-      <p class="muted">Optional keyword mode. It is fully separated from Auto Scan.</p>
-      <div class="searchbar">
-        <input id="manualInput" placeholder="search text">
-        <button id="manualBtn">Search</button>
-      </div>
-      <div id="manualMessage" class="notice"></div>
-      <details><summary>Raw Manual Output</summary><pre id="manualOut"></pre></details>
-      <div id="manualList" class="list empty">No manual search yet.</div>
-    </section>
-
-    <section id="page-archive" class="page panel">
-      <h2>Archive</h2>
-      <div class="searchbar">
-        <input id="archiveFilter" placeholder="filter archive">
-        <button id="archiveFilterBtn">Filter</button>
-        <button id="archiveMoreBtn">More</button>
-        <button id="exportJsonBtn">Export JSON</button>
-        <button id="exportCsvBtn">Export CSV</button>
-      </div>
-      <div id="archiveList" class="list empty">No archive loaded.</div>
-    </section>
-
-    <section id="page-sources" class="page panel">
-      <h2>Manual Sources</h2>
-      <p class="muted">Sources needing manual review only. The app does not bypass login, captcha, paywalls, credits, unlock pages, or private systems.</p>
-      <button id="sourcesBtn">Refresh</button>
-      <div id="sourcesList" class="list empty">No manual sources.</div>
-    </section>
-
-    <section id="page-settings" class="page panel">
-      <h2>Settings</h2>
-      <div class="actions">
-        <button id="pingBtn">Ping API</button>
-        <button id="dbBtn">Check DB</button>
-        <button id="diagBtn">Diagnostics</button>
-        <button id="cleanBtn">Clean Old Data</button>
-        <button id="clearCacheBtn">Clear App Cache</button>
-        <button id="fullResetBtn">Full Reset</button>
-        <button id="logoutBtn" class="danger">Logout</button>
-      </div>
-      <pre id="settingsOut"></pre>
-    </section>
-
-    <footer>Public indexed discovery only · No bypass · No hidden PIN in code</footer>
-  </main>
-  <script src="/config.js?v=25"></script>
-  <script src="/app.js?v=25"></script>
+  <script src="/app.js"></script>
 </body>
 </html>

@@ -1,1 +1,20 @@
-{"name":"Nimbus Core","short_name":"Nimbus","start_url":"/?v=25&fresh=1","display":"standalone","background_color":"#050914","theme_color":"#071022","icons":[{"src":"/icon-192.png","sizes":"192x192","type":"image/png"},{"src":"/icon-512.png","sizes":"512x512","type":"image/png"}]}
+{
+  "name": "Nimbus Core V27 Core",
+  "short_name": "Nimbus V27",
+  "start_url": "/?v=27",
+  "display": "standalone",
+  "background_color": "#070b14",
+  "theme_color": "#0b1220",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
