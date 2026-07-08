@@ -36,3 +36,7 @@ Full rewrite from a clean directory.
 - Auth/session/rate-compatible structure: included.
 - Maintenance tools: included.
 - Performance improvements: included with cache, indexes, queue limits, lazy result loading.
+
+
+## 27-rewrite.2
+Fixed D1 migration for old/partial V27 tables: scan_id, available_at, and related columns are added automatically before indexes are created.

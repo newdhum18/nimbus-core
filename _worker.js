@@ -2,7 +2,7 @@
    Fresh implementation: API + engine + crawler + extractor + queue + cache + dashboard.
    D1 binding required: DB
 */
-const VERSION = '27-rewrite.1';
+const VERSION = '27-rewrite.2';
 const TABLE_PREFIX = 'nimbus_v27';
 const DEFAULT_PIN = '0000';
 const MAX_FETCH_BYTES = 900000;
@@ -122,10 +122,12 @@ async function ensureDb(env){
   ];
   for (const s of stmts) await env.DB.prepare(s).run();
   const required = {
-    [T.queue]: {available_at:'TEXT NOT NULL DEFAULT \"1970-01-01T00:00:00.000Z\"', locked_at:'TEXT', last_error:'TEXT DEFAULT \"\"', max_attempts:'INTEGER DEFAULT 3'},
-    [T.scans]: {elapsed_ms:'INTEGER DEFAULT 0', links_alive:'INTEGER DEFAULT 0', links_dead:'INTEGER DEFAULT 0', links_unknown:'INTEGER DEFAULT 0', message:'TEXT DEFAULT \"\"'},
-    [T.links]: {host:'TEXT DEFAULT \"\"', type:'TEXT DEFAULT \"\"', http_status:'INTEGER DEFAULT 0', meta:'TEXT DEFAULT \"{}\"'},
-    [T.pages]: {normalized_url:'TEXT DEFAULT \"\"', title:'TEXT DEFAULT \"\"', error:'TEXT DEFAULT \"\"'}
+    [T.sessions]: {created_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', expires_at:'TEXT DEFAULT \"2999-01-01T00:00:00.000Z\"'},
+    [T.sources]: {name:'TEXT DEFAULT \"\"', type:'TEXT DEFAULT \"html\"', url_template:'TEXT DEFAULT \"\"', enabled:'INTEGER DEFAULT 1', priority:'INTEGER DEFAULT 50', config:'TEXT DEFAULT \"{}\"', created_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', updated_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"'},
+    [T.scans]: {query:'TEXT DEFAULT \"\"', status:'TEXT DEFAULT \"pending\"', created_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', started_at:'TEXT', finished_at:'TEXT', elapsed_ms:'INTEGER DEFAULT 0', pages_found:'INTEGER DEFAULT 0', pages_scanned:'INTEGER DEFAULT 0', links_found:'INTEGER DEFAULT 0', links_alive:'INTEGER DEFAULT 0', links_dead:'INTEGER DEFAULT 0', links_unknown:'INTEGER DEFAULT 0', errors:'INTEGER DEFAULT 0', message:'TEXT DEFAULT \"\"'},
+    [T.queue]: {scan_id:'TEXT DEFAULT \"\"', type:'TEXT DEFAULT \"crawl\"', payload:'TEXT DEFAULT \"{}\"', priority:'INTEGER DEFAULT 50', status:'TEXT DEFAULT \"pending\"', attempts:'INTEGER DEFAULT 0', max_attempts:'INTEGER DEFAULT 3', available_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', locked_at:'TEXT', created_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', updated_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', last_error:'TEXT DEFAULT \"\"'},
+    [T.pages]: {scan_id:'TEXT DEFAULT \"\"', source_id:'TEXT DEFAULT \"\"', url:'TEXT DEFAULT \"\"', normalized_url:'TEXT DEFAULT \"\"', depth:'INTEGER DEFAULT 0', status:'TEXT DEFAULT \"pending\"', http_status:'INTEGER DEFAULT 0', title:'TEXT DEFAULT \"\"', fetched_at:'TEXT', created_at:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', error:'TEXT DEFAULT \"\"'},
+    [T.links]: {scan_id:'TEXT DEFAULT \"\"', page_id:'TEXT DEFAULT \"\"', source_id:'TEXT DEFAULT \"\"', url:'TEXT DEFAULT \"\"', normalized_url:'TEXT DEFAULT \"\"', host:'TEXT DEFAULT \"\"', type:'TEXT DEFAULT \"\"', health:'TEXT DEFAULT \"unknown\"', http_status:'INTEGER DEFAULT 0', score:'INTEGER DEFAULT 0', first_seen:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', last_seen:'TEXT DEFAULT \"1970-01-01T00:00:00.000Z\"', checked_at:'TEXT', context:'TEXT DEFAULT \"\"', meta:'TEXT DEFAULT \"{}\"'}
   };
   for (const [table, cols] of Object.entries(required)){
     const info = await env.DB.prepare(`PRAGMA table_info(${table})`).all();
@@ -412,7 +414,7 @@ async function exportData(env, req){
 async function handleApi(req, env, ctx){
   const url=new URL(req.url); const path=url.pathname;
   if(path==='/api/login' && req.method==='POST'){
-    await ensureDb(env); const b=await bodyJson(req); const pin=String(b.pin||''); const expected=String(env.NIMBUS_PIN||DEFAULT_PIN);
+    await ensureDb(env); const b=await bodyJson(req); const pin=String(b.pin||''); const expected=String(env.NIMBUS_PIN||env.AUTH_PIN||DEFAULT_PIN);
     if(pin!==expected) return json({ok:false,error:'Invalid PIN'},403);
     const token=uid('sess'); const exp=new Date(Date.now()+7*86400000).toISOString();
     await env.DB.prepare(`INSERT INTO ${T.sessions}(token,created_at,expires_at) VALUES(?,?,?)`).bind(token,now(),exp).run();

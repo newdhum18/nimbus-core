@@ -1,1 +1,1 @@
-window.NIMBUS_CONFIG = { version: '27-rewrite.1', apiBase: '' };
+window.NIMBUS_CONFIG = { version: '27-rewrite.2', apiBase: '' };

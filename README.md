@@ -54,3 +54,8 @@ Then:
 ## Notes
 
 This rewrite is designed around public-source discovery and indexing. The separate search-protection/content-policy module requested for a later version is not included in this build.
+
+
+## 27-rewrite.2 hotfix
+- Accepts NIMBUS_PIN or AUTH_PIN.
+- Auto-migrates missing scan_id/available_at and other V27 columns in existing D1 tables.
