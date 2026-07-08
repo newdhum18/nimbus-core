@@ -2,7 +2,7 @@
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '27-sourceboost.5-auto-batch';
+const VERSION = '27-sourceboost.6-autopilot';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -17,14 +17,14 @@ const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Apple
 const TIMEOUT_MS = 11000;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 const HEALTH_TTL_MS = 1000 * 60 * 60 * 12;
-const DEFAULT_MAX_SOURCE_FETCHES = 28;
-const HARD_MAX_SOURCE_FETCHES = 40;
+const DEFAULT_MAX_SOURCE_FETCHES = 36;
+const HARD_MAX_SOURCE_FETCHES = 48;
 const MAX_CRAWL_PAGES = 120;
-const MAX_QUEUE_BATCH = 14;
+const MAX_QUEUE_BATCH = 16;
 const MAX_DEEP_ROUNDS = 200;
-const REQUEST_BUDGET_MS = 42000;
+const REQUEST_BUDGET_MS = 45000;
 const MAX_TEXT = 350000;
-const LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz|io)\/(?:file|folder)\/[A-Za-z0-9_-]+(?:#[A-Za-z0-9_!\-]+)?)/gi;
+const LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz|io)\/(?:file|folder)\/[A-Za-z0-9_-]+#[A-Za-z0-9_!\-]{8,})/gi;
 const OLD_LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz)\/#(?:F!|N!|!)?[A-Za-z0-9_-]+![A-Za-z0-9_!\-]+)/gi;
 const MEGA_HOST_RE = /^https?:\/\/(?:www\.)?mega\.(?:nz|co\.nz|io)\//i;
 
@@ -96,6 +96,9 @@ function normalizeLink(link) {
 
     const u = new URL(link);
     if (!MEGA_HOST_RE.test(u.href)) return '';
+    // New MEGA file/folder links without a decryption key open as blank/empty pages.
+    // Keep only usable links that include a #key; old #F!/! formats are handled by OLD_LINK_RE.
+    if (/\/(file|folder)\//i.test(u.pathname) && (!u.hash || u.hash.length < 9)) return '';
     return u.href.replace(/&utm_[^#]+/g,'');
   } catch { return ''; }
 }
@@ -220,6 +223,8 @@ async function ensureDb(env) {
   )`);
   await ensureColumn(env, T.links, 'keyword_key', "TEXT NOT NULL DEFAULT ''");
   await runIgnore(q(env, `UPDATE ${T.links} SET keyword_key=COALESCE(keyword,'') WHERE keyword_key IS NULL OR keyword_key=''`));
+  // Remove unusable new-format MEGA links that were collected by older versions without a decryption key.
+  await runIgnore(q(env, `DELETE FROM ${T.links} WHERE (normalized LIKE '%/folder/%' OR normalized LIKE '%/file/%') AND instr(normalized, '#')=0`));
   const idx = [
     `CREATE INDEX IF NOT EXISTS idx_${T.links}_run ON ${T.links}(run_id)`,
     `CREATE INDEX IF NOT EXISTS idx_${T.links}_mode ON ${T.links}(mode, first_seen_at DESC)`,
@@ -498,7 +503,7 @@ async function runSearch(env, mode, keyword, quick = false, opts = {}) {
       }
       await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
         ['pg_'+hash(runId+url), runId, mode, src.name, url, query, got.status||0, 0, links.length, nowIso(), got.error||'']);
-      const targetLimit = quick ? 2 : (mode === 'autoscan' ? 4 : 3);
+      const targetLimit = quick ? 3 : (mode === 'autoscan' ? 8 : 5);
       const targets = parseSearchTargets(got.text, src, url).slice(0, targetLimit);
       for (const t of targets) {
         await enqueue(env, { run_id:runId, mode, kind:'crawl', url:t, keyword:keyword||query, source:src.name, priority: src.priority || 50 });
@@ -507,11 +512,11 @@ async function runSearch(env, mode, keyword, quick = false, opts = {}) {
     }
   }
   await Promise.all(Array.from({length:concurrency}, worker));
-  const rounds = quick ? 3 : Math.min(Number(opts.deep_rounds || 0) || 8, 20);
+  const rounds = quick ? 4 : Math.min(Number(opts.deep_rounds || 0) || 12, 24);
   const processed = await deepProcessQueue(env, runId, rounds, quick ? 8 : MAX_QUEUE_BATCH, started);
   const health = await checkBatch(env, runId, quick ? 5 : 15);
   await finishRun(env, runId);
-  const results = await getResults(env, mode, keyword, 200);
+  const results = await getResults(env, mode, keyword, 1000);
   const next_source_offset = (sourceOffset + sourceFetches) % Math.max(1, allSources.length);
   const next_query_offset = (queryOffset + 1) % Math.max(1, queries.length);
   return { ok:true, version:VERSION, run_id:runId, mode, keyword:keyword||'', source_fetches:sourceFetches, source_offset:sourceOffset, next_source_offset, next_query_offset, direct_links:direct, queued, processed, health, elapsed_ms:Date.now()-started, catalog_sources:allSources.length, auto_batch:true, results:results.results, stats: await dashboardStats(env) };
@@ -620,7 +625,7 @@ async function extractFromUrl(env, url, mode='url', keyword='') {
 }
 async function getResults(env, mode='', keyword='', limit=100) {
   await ensureDb(env);
-  const params=[]; let where='1=1';
+  const params=[]; let where="1=1 AND (normalized LIKE '%#%' OR normalized LIKE '%mega.co.nz/%')";
   if (mode) { where += ' AND mode=?'; params.push(mode); }
   if (keyword) { where += ' AND keyword=?'; params.push(keyword); }
   params.push(limit);
@@ -646,7 +651,7 @@ async function diagnostics(env) {
     const c = await first(env, `SELECT COUNT(*) c FROM ${t}`);
     tables[t] = c?.c ?? 0;
   }
-  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep'] };
+  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend'] };
 }
 function csvEscape(s) { s=String(s??''); return '"'+s.replace(/"/g,'""')+'"'; }
 async function exportData(env, fmt='json', mode='') {
@@ -675,9 +680,9 @@ async function handleApi(req, env, ctx) {
     if (path === '/api/search') { const b = await parseBody(req); if (!String(b.keyword||'').trim()) return json({ok:false, error:'keyword_required'}, 400); const out = await runSearch(env, 'search', String(b.keyword||'').trim(), false, b); return json(out); }
     if (path === '/api/extract') { const b = await parseBody(req); if (!b.url) return json({ok:false,error:'url_required'},400); return json(await extractFromUrl(env, b.url, b.mode||'url', b.keyword||'')); }
     if (path === '/api/queue/process') { const b = await parseBody(req); const out = await processQueue(env, b.run_id||'', Number(b.limit||MAX_QUEUE_BATCH)); return json({ok:true, version:VERSION, ...out, stats:await dashboardStats(env)}); }
-    if (path === '/api/queue/deep') { const b = await parseBody(req); const out = await deepProcessQueue(env, b.run_id||'', Number(b.rounds||100), Number(b.limit||MAX_QUEUE_BATCH)); return json({ok:true, version:VERSION, ...out, stats:await dashboardStats(env), results:(await getResults(env,b.mode||'',b.keyword||'',200)).results}); }
+    if (path === '/api/queue/deep') { const b = await parseBody(req); const out = await deepProcessQueue(env, b.run_id||'', Number(b.rounds||100), Number(b.limit||MAX_QUEUE_BATCH)); return json({ok:true, version:VERSION, ...out, stats:await dashboardStats(env), results:(await getResults(env,b.mode||'',b.keyword||'',1000)).results}); }
     if (path === '/api/health/check') { const b = await parseBody(req); const out = await checkBatch(env, b.run_id||'', Number(b.limit||20)); return json({ok:true, version:VERSION, ...out, stats:await dashboardStats(env)}); }
-    if (path === '/api/results') return json(await getResults(env, url.searchParams.get('mode')||'', url.searchParams.get('keyword')||'', Number(url.searchParams.get('limit')||100)));
+    if (path === '/api/results') return json(await getResults(env, url.searchParams.get('mode')||'', url.searchParams.get('keyword')||'', Number(url.searchParams.get('limit')||1000)));
     if (path === '/api/stats') return json({ok:true, version:VERSION, stats:await dashboardStats(env)});
     if (path === '/api/sources') { await ensureDb(env); if (req.method==='GET') return json({ok:true, version:VERSION, sources: await getSources(env)}); const b=await parseBody(req); await q(env,`INSERT OR REPLACE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,[b.id||uid('src'),b.name,b.type||'html',b.enabled?1:0,b.priority||50,b.template,JSON.stringify(b.config||{}),nowIso(),nowIso()]); return json({ok:true}); }
     if (path === '/api/export') return exportData(env, url.searchParams.get('format')||'json', url.searchParams.get('mode')||'');
