@@ -23,8 +23,8 @@ const MAX_QUEUE_BATCH = 40;
 const MAX_DEEP_ROUNDS = 100;
 const REQUEST_BUDGET_MS = 42000;
 const MAX_TEXT = 350000;
-const LINK_RE = /(^|[^A-Za-z0-9_.-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz|io)\/(?:file|folder)\/[A-Za-z0-9_-]+(?:#[A-Za-z0-9_!\-]+)?)/gi;
-const OLD_LINK_RE = /(^|[^A-Za-z0-9_.-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz)\/#(?:F!|N!|!)?[A-Za-z0-9_-]+![A-Za-z0-9_!\-]+)/gi;
+const LINK_RE = /(?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz|io)\/(?:file|folder)\/[A-Za-z0-9_-]+(?:#[A-Za-z0-9_!\-]+)?/gi;
+const OLD_LINK_RE = /https?:\/\/mega\.(?:nz|co\.nz)\/#(?:F!|N!|!)?[A-Za-z0-9_-]+![A-Za-z0-9_!\-]+/gi;
 const MEGA_HOST_RE = /^https?:\/\/(?:www\.)?mega\.(?:nz|co\.nz|io)\//i;
 
 const AUTOSCAN_PATTERNS = [
@@ -72,48 +72,36 @@ function decodeLoose(s) {
 }
 function normalizeLink(link) {
   try {
-    link = String(link || '')
-      .trim()
-      .replace(/&amp;/g,'&')
-      .replace(/\\\//g,'/')
-      .replace(/[\])},.;]+$/g,'');
-
+    link = String(link || '').trim().replace(/&amp;/g,'&').replace(/\\\//g,'/').replace(/[\])},.;]+$/g,'');
     if (/^mega\./i.test(link)) link = 'https://' + link;
     if (/^www\.mega\./i.test(link)) link = 'https://' + link;
-
+    const old = link.match(OLD_LINK_RE);
+    if (old) return old[0].replace(/&.*$/,'');
     const u = new URL(link);
     if (!MEGA_HOST_RE.test(u.href)) return '';
     return u.href.replace(/&utm_[^#]+/g,'');
   } catch { return ''; }
 }
-function addMegaMatches(textValue, out) {
-  let m;
-  LINK_RE.lastIndex = 0;
-  while ((m = LINK_RE.exec(textValue)) !== null) {
-    const l = normalizeLink(m[2]);
-    if (l) out.set(l, l);
-  }
-  OLD_LINK_RE.lastIndex = 0;
-  while ((m = OLD_LINK_RE.exec(textValue)) !== null) {
-    const l = normalizeLink(m[2]);
-    if (l) out.set(l, l);
-  }
-}
-function extractMegaLinks(input, depth = 0) {
+function extractMegaLinks(input) {
   const raw = typeof input === 'string' ? input : JSON.stringify(input || {});
   const s = decodeLoose(raw);
   const out = new Map();
-  addMegaMatches(s, out);
-
+  let m;
+  LINK_RE.lastIndex = 0;
+  while ((m = LINK_RE.exec(s)) !== null) {
+    const l = normalizeLink(m[0]);
+    if (l) out.set(l, l);
+  }
+  OLD_LINK_RE.lastIndex = 0;
+  while ((m = OLD_LINK_RE.exec(s)) !== null) {
+    const l = normalizeLink(m[0]);
+    if (l) out.set(l, l);
+  }
   // Also catch links hidden in query parameters such as ?url=https%3A%2F%2Fmega.nz%2Ffolder...
-  // Depth is capped to prevent recursive loops from self-referential redirect URLs.
-  if (depth < 1) {
-    const urlLike = /(?:[?&]|^)(?:url|u|target|redirect|to|q)=([^&"'<>]+)/gi;
-    let m;
-    while ((m = urlLike.exec(raw)) !== null) {
-      const lks = extractMegaLinks(decodeLoose(m[1]), depth + 1);
-      for (const l of lks) out.set(l, l);
-    }
+  const urlLike = /(?:url|u|target|redirect|to|q)=([^&"'<>]+)/gi;
+  while ((m = urlLike.exec(raw)) !== null) {
+    const lks = extractMegaLinks(decodeLoose(m[1]));
+    for (const l of lks) out.set(l, l);
   }
   return [...out.values()];
 }
