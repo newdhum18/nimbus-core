@@ -1,3 +1,0 @@
--- Nimbus Core V27 Rewrite schema reference. The Worker auto-creates and repairs these tables.
--- D1 binding name required: DB
--- Table prefix: nimbus_v27_*
