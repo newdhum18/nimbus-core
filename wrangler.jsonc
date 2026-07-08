@@ -4,6 +4,7 @@
   "compatibility_date": "2025-08-01",
   "pages_build_output_dir": ".",
   "limits": {
+    "cpu_ms": 30000,
     "subrequests": 1000
   }
 }
