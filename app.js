@@ -14,6 +14,7 @@ async function init(){
 function bindTabs(){document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button,.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active');});}
 function bindButtons(){
   $('loginBtn').onclick=async()=>{const r=await api('/api/login',{pin:$('pin').value});show('loginOut',r); if(r.ok){token=r.token;localStorage.setItem(tokenKey,token);$('loginPanel').classList.add('hidden');$('app').classList.remove('hidden');refreshAll();}};
+  $('autoScanFullBtn').onclick=async()=>{const r=await api('/api/autoscan',{query:$('query').value,cycles:4,perCycle:25});show('scanOut',r);refreshAll();};
   $('autoScanBtn').onclick=async()=>{const r=await api('/api/search',{query:$('query').value,processLimit:20});show('scanOut',r);refreshAll();};
   $('processBtn').onclick=async()=>{const r=await api('/api/process-queue?limit=30');show('scanOut',r);refreshAll();};
   $('extractBtn').onclick=async()=>{const r=await api('/api/extract-url',{url:$('targetUrl').value});show('extractOut',r);refreshAll();};
@@ -22,7 +23,7 @@ function bindButtons(){
   $('queueRefreshBtn').onclick=loadQueue; $('queueProcessBtn').onclick=async()=>{show('settingsOut',await api('/api/process-queue?limit=40'));refreshAll();};
   $('archiveBtn').onclick=loadArchive; $('pagesBtn').onclick=loadPages; $('sourcesBtn').onclick=loadSources;
   $('saveSourceBtn').onclick=async()=>{show('settingsOut',await api('/api/upsert-source',{name:$('srcName').value,type:$('srcType').value,endpoint:$('srcEndpoint').value,enabled:1}));loadSources();};
-  $('exportJsonBtn').onclick=()=>location.href='/api/export?format=json'; $('exportCsvBtn').onclick=()=>location.href='/api/export?format=csv';
+  $('exportJsonBtn').onclick=()=>downloadExport('json'); $('exportCsvBtn').onclick=()=>downloadExport('csv');
   $('pingBtn').onclick=async()=>show('settingsOut',await api('/api/ping')); $('schemaBtn').onclick=async()=>{show('settingsOut',await api('/api/schema'));refreshAll();}; $('diagBtn').onclick=async()=>show('settingsOut',await api('/api/diagnostics'));
   $('cleanupBtn').onclick=async()=>{show('settingsOut',await api('/api/cleanup'));refreshAll();}; $('resetBtn').onclick=async()=>show('settingsOut',await api('/api/reset-cursor'));
   $('logoutBtn').onclick=()=>{localStorage.removeItem(tokenKey);location.reload();};
@@ -30,6 +31,7 @@ function bindButtons(){
 async function refreshAll(){await loadStats();await loadLatest();}
 async function loadStats(){const r=await api('/api/stats'); show('statsOut',r); const c=r.counts||{}; $('cLinks').textContent=c.mega_links||0; $('cAlive').textContent=c.alive_links||0; $('cDead').textContent=c.dead_links||0; $('cUnknown').textContent=c.unknown_links||0; $('cPages').textContent=c.pages||0; $('cQueue').textContent=c.queue_queued||0;}
 async function loadLatest(){const r=await api('/api/latest?limit=15'); $('latestList').innerHTML = (r.items||[]).map(linkCard).join('') || '<p class="muted">No links yet.</p>';}
+async function downloadExport(format){ const r=await fetch('/api/export?format='+format,{headers:{authorization:'Bearer '+token}}); const blob=await r.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='nimbus-core-v27-export.'+format; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);}
 function linkCard(x){return `<div class="item"><div>${healthBadge(x.health_status)} <b>${esc(x.link_type||'link')}</b> <span class="muted">score ${esc(x.confidence||0)}</span></div><a href="${esc(x.mega_url)}" target="_blank" rel="noreferrer">${esc(x.mega_url)}</a><small>${esc(x.source_domain||'')} · ${esc(x.title||'')}</small></div>`;}
 async function loadQueue(){const r=await api('/api/queue?limit=120'); $('queueList').innerHTML=(r.items||[]).map(x=>`<div class="item"><b>#${x.id} ${esc(x.task_type)}</b> <span class="badge">${esc(x.status)}</span><small>priority ${x.priority} · attempts ${x.attempts}/${x.max_attempts}</small><code>${esc(x.payload)}</code>${x.last_error?`<small class="err">${esc(x.last_error)}</small>`:''}</div>`).join('')||'<p class="muted">No queue.</p>';}
 async function loadArchive(){const q=encodeURIComponent($('archiveQ').value||'');const h=encodeURIComponent($('healthFilter').value||'');const r=await api(`/api/archive?limit=80&q=${q}&health=${h}`);$('archiveList').innerHTML=(r.items||[]).map(linkCard).join('')||'<p class="muted">No archive.</p>';}

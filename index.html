@@ -13,8 +13,8 @@
     <header>
       <div>
         <div class="eyebrow">NIMBUS CORE</div>
-        <h1>V27 Full Core Console</h1>
-        <p>Multi-source discovery, crawler queue, cache, health checks, and statistics dashboard.</p>
+        <h1>V27.1 Fixed AutoScan Console</h1>
+        <p>Fixed DB migration, AutoScan, multi-source discovery, crawler queue, cache, health checks, and statistics dashboard.</p>
       </div>
       <div class="status" id="status">Offline</div>
     </header>
@@ -55,9 +55,9 @@
 
       <section id="scan" class="tab">
         <div class="card">
-          <h2>Auto / Keyword Scan</h2>
+          <h2>AutoScan / Keyword Scan</h2>
           <p>Leave keyword empty for pattern rotation, or enter a specific keyword.</p>
-          <div class="row"><input id="query" placeholder="Optional keyword" /><button id="autoScanBtn">Start Scan</button><button id="processBtn">Process Queue</button></div>
+          <div class="row"><input id="query" placeholder="Optional keyword" /><button id="autoScanFullBtn">AutoScan</button><button id="autoScanBtn">Start Scan</button><button id="processBtn">Process Queue</button></div>
           <pre id="scanOut">Press Start Scan.</pre>
         </div>
         <div class="card">

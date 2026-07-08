@@ -1,4 +1,4 @@
-const VERSION = '27.0.0-full-core-build';
+const VERSION = '27.1.0-fixed-autoscan-build';
 const DB_PREFIX = 'nimbus_v27';
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7;
 const CACHE_TTL_SECONDS = 60 * 60 * 6;
@@ -73,6 +73,7 @@ async function handleApi(request, env, ctx) {
 
     if (path === '/api/schema') return json(await schema(env), 200, headers);
     if (path === '/api/search') return json(await startSearch(request, env, ctx), 200, headers);
+    if (path === '/api/autoscan') return json(await autoScan(request, env, ctx), 200, headers);
     if (path === '/api/process-queue') return json(await processQueue(env, { limit: Number(url.searchParams.get('limit') || DEFAULT_QUEUE_LIMIT), reason: 'manual' }), 200, headers);
     if (path === '/api/extract-url') return json(await extractFromUrl(request, env, ctx), 200, headers);
     if (path === '/api/health-check') return json(await healthCheck(request, env, ctx), 200, headers);
@@ -159,25 +160,68 @@ function btoaUrl(s) { return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').rep
 function atobUrl(s) { return atob(String(s).replace(/-/g, '+').replace(/_/g, '/')); }
 
 async function ensureSchema(env) {
+  // V27.1 is self-healing: it creates missing tables, adds missing columns,
+  // and rebuilds indexes. This fixes old V27 deployments where queue.available_at
+  // or other columns were missing.
+  await createCoreTables(env);
+  await migrateCoreColumns(env);
+  await createCoreIndexes(env);
+  await seedCoreDefaults(env);
+}
+
+async function createCoreTables(env) {
   const add = (name, sql, bind = []) => runIgnore(env, sql, bind);
   await add('links', `CREATE TABLE IF NOT EXISTS ${DB_PREFIX}_links (id INTEGER PRIMARY KEY AUTOINCREMENT, mega_url TEXT NOT NULL UNIQUE, normalized_url TEXT, link_type TEXT, source_url TEXT, source_domain TEXT, title TEXT, source_type TEXT, confidence INTEGER, confidence_reason TEXT, discovered_at TEXT, last_seen_at TEXT, health_status TEXT DEFAULT 'unknown', health_code INTEGER, health_message TEXT, health_checked_at TEXT, status TEXT, notes TEXT)`);
   await add('pages', `CREATE TABLE IF NOT EXISTS ${DB_PREFIX}_pages (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT NOT NULL UNIQUE, domain TEXT, title TEXT, parent_url TEXT, source_name TEXT, source_type TEXT, depth INTEGER DEFAULT 0, priority INTEGER DEFAULT 50, status TEXT DEFAULT 'new', retries INTEGER DEFAULT 0, discovered_at TEXT, last_fetch_at TEXT, next_fetch_at TEXT, http_status INTEGER, links_found INTEGER DEFAULT 0, pages_found INTEGER DEFAULT 0, error TEXT)`);
   await add('queue', `CREATE TABLE IF NOT EXISTS ${DB_PREFIX}_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, task_type TEXT NOT NULL, payload TEXT NOT NULL, priority INTEGER DEFAULT 50, status TEXT DEFAULT 'queued', attempts INTEGER DEFAULT 0, max_attempts INTEGER DEFAULT 3, available_at TEXT, locked_at TEXT, created_at TEXT, updated_at TEXT, last_error TEXT)`);
   await add('cache', `CREATE TABLE IF NOT EXISTS ${DB_PREFIX}_cache (cache_key TEXT PRIMARY KEY, value TEXT, expires_at INTEGER, created_at TEXT, updated_at TEXT)`);
   await add('sources', `CREATE TABLE IF NOT EXISTS ${DB_PREFIX}_sources (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, type TEXT NOT NULL, enabled INTEGER DEFAULT 1, endpoint TEXT NOT NULL, note TEXT, created_at TEXT, updated_at TEXT)`);
-  await add('logs', `CREATE TABLE IF NOT EXISTS ${DB_PREFIX}_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, mode TEXT, started_at TEXT, finished_at TEXT, pages_scanned INTEGER, pages_discovered INTEGER, links_found INTEGER, new_links INTEGER, alive_links INTEGER, dead_links INTEGER, unknown_links INTEGER, queue_processed INTEGER, errors TEXT)`);
+  await add('logs', `CREATE TABLE IF NOT EXISTS ${DB_PREFIX}_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, mode TEXT, started_at TEXT, finished_at TEXT, pages_scanned INTEGER DEFAULT 0, pages_discovered INTEGER DEFAULT 0, links_found INTEGER DEFAULT 0, new_links INTEGER DEFAULT 0, alive_links INTEGER DEFAULT 0, dead_links INTEGER DEFAULT 0, unknown_links INTEGER DEFAULT 0, queue_processed INTEGER DEFAULT 0, errors TEXT)`);
   await add('state', `CREATE TABLE IF NOT EXISTS ${DB_PREFIX}_state (name TEXT PRIMARY KEY, value TEXT, updated_at TEXT)`);
-  await add('idx_links_domain', `CREATE INDEX IF NOT EXISTS idx_${DB_PREFIX}_links_domain ON ${DB_PREFIX}_links(source_domain)`);
-  await add('idx_links_health', `CREATE INDEX IF NOT EXISTS idx_${DB_PREFIX}_links_health ON ${DB_PREFIX}_links(health_status)`);
-  await add('idx_links_time', `CREATE INDEX IF NOT EXISTS idx_${DB_PREFIX}_links_time ON ${DB_PREFIX}_links(discovered_at)`);
-  await add('idx_pages_status', `CREATE INDEX IF NOT EXISTS idx_${DB_PREFIX}_pages_status ON ${DB_PREFIX}_pages(status, priority)`);
-  await add('idx_queue_status', `CREATE INDEX IF NOT EXISTS idx_${DB_PREFIX}_queue_status ON ${DB_PREFIX}_queue(status, priority, available_at)`);
+}
+
+async function migrateCoreColumns(env) {
+  await ensureColumns(env, `${DB_PREFIX}_links`, {
+    normalized_url: 'TEXT', link_type: 'TEXT', source_url: 'TEXT', source_domain: 'TEXT', title: 'TEXT', source_type: 'TEXT', confidence: 'INTEGER', confidence_reason: 'TEXT', discovered_at: 'TEXT', last_seen_at: 'TEXT', health_status: "TEXT DEFAULT 'unknown'", health_code: 'INTEGER', health_message: 'TEXT', health_checked_at: 'TEXT', status: 'TEXT', notes: 'TEXT'
+  });
+  await ensureColumns(env, `${DB_PREFIX}_pages`, {
+    domain: 'TEXT', title: 'TEXT', parent_url: 'TEXT', source_name: 'TEXT', source_type: 'TEXT', depth: 'INTEGER DEFAULT 0', priority: 'INTEGER DEFAULT 50', status: "TEXT DEFAULT 'new'", retries: 'INTEGER DEFAULT 0', discovered_at: 'TEXT', last_fetch_at: 'TEXT', next_fetch_at: 'TEXT', http_status: 'INTEGER', links_found: 'INTEGER DEFAULT 0', pages_found: 'INTEGER DEFAULT 0', error: 'TEXT'
+  });
+  await ensureColumns(env, `${DB_PREFIX}_queue`, {
+    priority: 'INTEGER DEFAULT 50', status: "TEXT DEFAULT 'queued'", attempts: 'INTEGER DEFAULT 0', max_attempts: 'INTEGER DEFAULT 3', available_at: 'TEXT', locked_at: 'TEXT', created_at: 'TEXT', updated_at: 'TEXT', last_error: 'TEXT'
+  });
+  await ensureColumns(env, `${DB_PREFIX}_cache`, { value: 'TEXT', expires_at: 'INTEGER', created_at: 'TEXT', updated_at: 'TEXT' });
+  await ensureColumns(env, `${DB_PREFIX}_sources`, { type: 'TEXT', enabled: 'INTEGER DEFAULT 1', endpoint: 'TEXT', note: 'TEXT', created_at: 'TEXT', updated_at: 'TEXT' });
+  await ensureColumns(env, `${DB_PREFIX}_logs`, { mode: 'TEXT', started_at: 'TEXT', finished_at: 'TEXT', pages_scanned: 'INTEGER DEFAULT 0', pages_discovered: 'INTEGER DEFAULT 0', links_found: 'INTEGER DEFAULT 0', new_links: 'INTEGER DEFAULT 0', alive_links: 'INTEGER DEFAULT 0', dead_links: 'INTEGER DEFAULT 0', unknown_links: 'INTEGER DEFAULT 0', queue_processed: 'INTEGER DEFAULT 0', errors: 'TEXT' });
+  await runIgnore(env, `UPDATE ${DB_PREFIX}_queue SET available_at=COALESCE(available_at, created_at, ?), updated_at=COALESCE(updated_at, ?)`, [nowIso(), nowIso()]);
+  await runIgnore(env, `UPDATE ${DB_PREFIX}_links SET health_status=COALESCE(health_status,'unknown'), status=COALESCE(status,'active')`);
+}
+
+async function ensureColumns(env, table, columns) {
+  const info = rows(await all(env, `PRAGMA table_info(${table})`));
+  const existing = new Set(info.map(c => String(c.name).toLowerCase()));
+  for (const [name, type] of Object.entries(columns)) {
+    if (!existing.has(name.toLowerCase())) await runIgnore(env, `ALTER TABLE ${table} ADD COLUMN ${name} ${type}`);
+  }
+}
+
+async function createCoreIndexes(env) {
+  await runIgnore(env, `CREATE INDEX IF NOT EXISTS idx_${DB_PREFIX}_links_domain ON ${DB_PREFIX}_links(source_domain)`);
+  await runIgnore(env, `CREATE INDEX IF NOT EXISTS idx_${DB_PREFIX}_links_health ON ${DB_PREFIX}_links(health_status)`);
+  await runIgnore(env, `CREATE INDEX IF NOT EXISTS idx_${DB_PREFIX}_links_time ON ${DB_PREFIX}_links(discovered_at)`);
+  await runIgnore(env, `CREATE INDEX IF NOT EXISTS idx_${DB_PREFIX}_pages_status ON ${DB_PREFIX}_pages(status, priority)`);
+  await runIgnore(env, `CREATE INDEX IF NOT EXISTS idx_${DB_PREFIX}_pages_next ON ${DB_PREFIX}_pages(status, next_fetch_at, priority)`);
+  await runIgnore(env, `CREATE INDEX IF NOT EXISTS idx_${DB_PREFIX}_queue_status ON ${DB_PREFIX}_queue(status, priority, available_at)`);
+}
+
+async function seedCoreDefaults(env) {
   await run(env, `INSERT OR IGNORE INTO ${DB_PREFIX}_state (name,value,updated_at) VALUES ('auto_cursor','0',?)`, [nowIso()]);
   await run(env, `INSERT OR IGNORE INTO ${DB_PREFIX}_state (name,value,updated_at) VALUES ('last_run','{}',?)`, [nowIso()]);
   for (const src of DEFAULT_JSON_SOURCES) {
     await run(env, `INSERT OR IGNORE INTO ${DB_PREFIX}_sources (name,type,enabled,endpoint,note,created_at,updated_at) VALUES (?,?,?,?,?,?,?)`, [src.name, src.type, src.enabled, src.endpoint, src.note, nowIso(), nowIso()]);
   }
 }
+
 
 async function schema(env) {
   await ensureSchema(env);
@@ -203,6 +247,26 @@ async function getCounts(env) {
 }
 async function getState(env, name) { const r = await first(env, `SELECT value FROM ${DB_PREFIX}_state WHERE name=?`, [name]); return r?.value || null; }
 async function setState(env, name, value) { await run(env, `INSERT INTO ${DB_PREFIX}_state (name,value,updated_at) VALUES (?,?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`, [name, value, nowIso()]); }
+
+async function autoScan(request, env, ctx) {
+  await ensureSchema(env);
+  const body = await readJson(request);
+  const started = nowIso();
+  const query = String(body.query || '').trim();
+  const cycles = clamp(Number(body.cycles || 3), 1, 8);
+  const perCycle = clamp(Number(body.perCycle || 25), 5, 60);
+  const start = await startSearch(new Request('https://local/api/search', { method: 'POST', body: JSON.stringify({ query, processLimit: 0 }) }), env, null);
+  const runs = [];
+  for (let i = 0; i < cycles; i++) {
+    const r = await processQueue(env, { limit: perCycle, reason: `autoscan_cycle_${i + 1}` });
+    runs.push({ cycle: i + 1, processed: r.processed, counts: r.counts });
+    if (!r.processed) break;
+  }
+  const finalCounts = await getCounts(env);
+  await logRun(env, { mode: 'autoscan', started_at: started, finished_at: nowIso(), queue_processed: runs.reduce((a, r) => a + Number(r.processed || 0), 0), errors: [] });
+  await setState(env, 'last_run', JSON.stringify({ type: 'autoscan', query, start: start.summary, runs, counts: finalCounts, at: nowIso() }));
+  return { ok: true, version: VERSION, mode: 'autoscan', query: query || null, queued_start: start.summary, cycles: runs, counts: finalCounts };
+}
 
 async function startSearch(request, env, ctx) {
   await ensureSchema(env);
@@ -653,7 +717,7 @@ async function cleanup(env) {
   await run(env, `UPDATE ${DB_PREFIX}_queue SET status='queued', locked_at=NULL WHERE status='running'`);
   return { ok: true, version: VERSION, message: 'V27 cleanup complete', counts: await getCounts(env) };
 }
-async function resetCursor(env) { await ensureSchema(env); await setState(env, 'auto_cursor', '0'); return { ok: true, version: VERSION, message: 'cursor reset' }; }
+async function resetCursor(env) { await ensureSchema(env); await setState(env, 'auto_cursor', '0'); return { ok: true, version: VERSION, message: 'cursor reset', counts: await getCounts(env) }; }
 async function diagnostics(env) { await ensureSchema(env); return { ok: true, version: VERSION, status: await publicStatus(env), counts: await getCounts(env), stats: await stats(env) }; }
 async function deleteLink(request, env) { await ensureSchema(env); const body = await readJson(request); const id = Number(body.id || 0); const mega = body.mega_url ? normalizeMega(body.mega_url) : ''; if (id) await run(env, `DELETE FROM ${DB_PREFIX}_links WHERE id=?`, [id]); else if (mega) await run(env, `DELETE FROM ${DB_PREFIX}_links WHERE mega_url=?`, [mega]); else return { ok: false, version: VERSION, error: 'missing_id_or_url' }; return { ok: true, version: VERSION }; }
 async function logRun(env, data) { await run(env, `INSERT INTO ${DB_PREFIX}_logs (mode,started_at,finished_at,pages_scanned,pages_discovered,links_found,new_links,alive_links,dead_links,unknown_links,queue_processed,errors) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, [data.mode || '', data.started_at || nowIso(), data.finished_at || nowIso(), Number(data.pages_scanned || 0), Number(data.pages_discovered || 0), Number(data.links_found || 0), Number(data.new_links || 0), Number(data.alive_links || 0), Number(data.dead_links || 0), Number(data.unknown_links || 0), Number(data.queue_processed || 0), JSON.stringify(data.errors || [])]); }
@@ -669,7 +733,7 @@ function csvCell(v) { return `"${String(v ?? '').replace(/"/g, '""')}"`; }
 function safeJson(s) { try { return typeof s === 'string' ? JSON.parse(s || '{}') : (s || {}); } catch { return {}; } }
 function resetPage(url) {
   const v = url.searchParams.get('v') || '27';
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nimbus Reset</title><style>body{font-family:system-ui;margin:30px;background:#07111f;color:#e8eefc}.card{max-width:760px;margin:auto;background:#101b2e;border:1px solid #24324e;border-radius:18px;padding:24px}.ok{color:#67e8a5}code{background:#0b1323;padding:3px 6px;border-radius:6px}</style></head><body><div class="card"><h1>Nimbus Core V${escapeHtml(v)} Reset</h1><p class="ok">Reset page loaded.</p><p>Open the application, then run: Login → Check DB → Clean Data → Auto Scan → Process Queue → Check Link Health.</p><p><a href="/">Go to app</a></p><script>localStorage.clear();caches&&caches.keys&&caches.keys().then(keys=>keys.forEach(k=>caches.delete(k)));setTimeout(()=>location.href='/',1200);</script></div></body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nimbus Reset</title><style>body{font-family:system-ui;margin:30px;background:#07111f;color:#e8eefc}.card{max-width:760px;margin:auto;background:#101b2e;border:1px solid #24324e;border-radius:18px;padding:24px}.ok{color:#67e8a5}code{background:#0b1323;padding:3px 6px;border-radius:6px}</style></head><body><div class="card"><h1>Nimbus Core V${escapeHtml(v)} Reset</h1><p class="ok">Reset page loaded.</p><p>Open the application, then run: Login → Check DB → Clean Data → AutoScan → Process Queue → Check Link Health.</p><p><a href="/">Go to app</a></p><script>localStorage.clear();caches&&caches.keys&&caches.keys().then(keys=>keys.forEach(k=>caches.delete(k)));setTimeout(()=>location.href='/',1200);</script></div></body></html>`;
   return new Response(html, { headers: { 'content-type': 'text/html;charset=utf-8', 'cache-control': 'no-store' } });
 }
 function escapeHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }

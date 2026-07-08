@@ -1,40 +1,49 @@
-# Nimbus Core V27 Full Core Build
+# Nimbus Core V27.1 Fixed AutoScan Build
 
-V27 rebuild from the V26+ direction with a stronger technical core.
+This build fixes the D1 schema migration error reported in V27.0:
 
-## Included features
+`D1_ERROR: no such column: available_at`
 
-- Multi-source search engine support.
-- Result cleaning and duplicate removal.
-- New isolated database tables: `nimbus_v27_*`.
-- Improved dashboard UI.
-- Link Health Checker: Alive / Dead / Unknown.
-- Multi-page crawler with depth and discovered-page queue.
-- JSON Source Engine with plugin-style source registration.
-- Reddit public JSON deep scraper for posts and returned text fields.
-- Queue Manager with priority, retries, and task states.
-- Background processing via Cloudflare scheduled handler and `ctx.waitUntil`.
-- Cache System for search/source responses.
-- Statistics Dashboard: pages scanned, links found, health counts, success rate, recent logs.
-- CSV and JSON export.
+## What changed
 
-## Deploy
+- Self-healing database migration in `ensureSchema()`.
+- Adds missing columns with `ALTER TABLE` when upgrading an existing V27 database.
+- Fixes `queue.available_at`, `locked_at`, `updated_at`, and related queue fields.
+- Adds a visible **AutoScan** button.
+- Adds `/api/autoscan` to run search + several queue-processing cycles in one action.
+- Keeps `Start Scan` for adding tasks only.
+- Keeps `Process Queue` for manual queue processing.
+- Keeps Check DB, Diagnostics, Clean Data, Reset Cursor.
+- Fixes authenticated export using fetch instead of direct unauthenticated location redirect.
 
-Upload all files to the root of your GitHub repository, wait for Cloudflare Pages deployment, then open:
+## First run after upload
 
-`/reset?v=27&fresh=1`
+Open:
+
+`/reset?v=27.1&fresh=1`
 
 Then run:
 
 1. Login
-2. Settings > Check DB
-3. Settings > Clean Data
-4. Scan > Start Scan
-5. Scan > Process Queue
-6. Scan > Check Batch
+2. Check DB
+3. Clean Data
+4. AutoScan
+5. Process Queue if queue still has tasks
+6. Check Batch
 
-## Notes from referenced repositories
+## Features present
 
-- From `galloclaudio/mega-search-links`: direct-source idea, JSON-style source thinking, simple request wrapper, custom user-agent.
-- From `akosel/megalinks-scraper`: multi-source scraping idea, structured JSON storage/export, pagination/crawling concept.
-- From `Titoot/mega-checker`: link validity checking idea and batch checking workflow.
+- Multi-source engine
+- Deduplication cleaner
+- V27 D1 database schema
+- Improved UI
+- Link Health Checker
+- Multi-page crawler
+- JSON Source Engine
+- Simple plugin-style sources
+- Reddit public search scraper
+- Queue Manager
+- Background scheduled hook
+- Cache System
+- Statistics Dashboard
+- AutoScan
