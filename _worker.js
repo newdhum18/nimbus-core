@@ -2,7 +2,7 @@
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '27-sourceboost.1';
+const VERSION = '27-sourceboost.2';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -125,6 +125,14 @@ async function logEvent(env, level, message, meta = {}) {
   try { await q(env, `INSERT INTO ${T.events}(id,level,message,meta,created_at) VALUES(?,?,?,?,?)`, [uid('ev'), level, clamp(message,400), JSON.stringify(meta).slice(0,5000), nowIso()]); } catch {}
 }
 
+async function ensureColumn(env, table, column, ddl) {
+  try {
+    const cols = await all(env, `PRAGMA table_info(${table})`);
+    const rows = cols.results || [];
+    if (!rows.some(c => c.name === column)) await q(env, `ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+  } catch (e) { /* ignored during initial create */ }
+}
+
 async function ensureDb(env) {
   if (!env.DB) throw new Error('D1 binding DB not found. Add D1 binding name DB in Cloudflare Pages settings.');
   await q(env, `CREATE TABLE IF NOT EXISTS ${T.runs}(
@@ -139,10 +147,10 @@ async function ensureDb(env) {
     UNIQUE(run_id,url)
   )`);
   await q(env, `CREATE TABLE IF NOT EXISTS ${T.links}(
-    id TEXT PRIMARY KEY, run_id TEXT, mode TEXT, keyword TEXT, link TEXT NOT NULL, normalized TEXT NOT NULL,
+    id TEXT PRIMARY KEY, run_id TEXT, mode TEXT, keyword TEXT, keyword_key TEXT NOT NULL DEFAULT '', link TEXT NOT NULL, normalized TEXT NOT NULL,
     type TEXT, source TEXT, page_url TEXT, title TEXT, snippet TEXT, score INTEGER DEFAULT 0,
     health TEXT DEFAULT 'unknown', health_checked_at TEXT, first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL,
-    UNIQUE(mode, normalized, COALESCE(keyword,''))
+    UNIQUE(mode, normalized, keyword_key)
   )`);
   await q(env, `CREATE TABLE IF NOT EXISTS ${T.queue}(
     id TEXT PRIMARY KEY, run_id TEXT, mode TEXT, kind TEXT NOT NULL, url TEXT, keyword TEXT, source TEXT, priority INTEGER DEFAULT 50,
@@ -162,6 +170,8 @@ async function ensureDb(env) {
   await q(env, `CREATE TABLE IF NOT EXISTS ${T.settings}(
     key TEXT PRIMARY KEY, value TEXT, updated_at TEXT NOT NULL
   )`);
+  await ensureColumn(env, T.links, 'keyword_key', "TEXT NOT NULL DEFAULT ''");
+  await runIgnore(q(env, `UPDATE ${T.links} SET keyword_key=COALESCE(keyword,'') WHERE keyword_key IS NULL OR keyword_key=''`));
   const idx = [
     `CREATE INDEX IF NOT EXISTS idx_${T.links}_run ON ${T.links}(run_id)`,
     `CREATE INDEX IF NOT EXISTS idx_${T.links}_mode ON ${T.links}(mode, first_seen_at DESC)`,
@@ -265,12 +275,13 @@ async function saveLink(env, data) {
   const norm = normalizeLink(data.link);
   if (!norm) return false;
   const type = /\/folder\//i.test(norm) ? 'folder' : 'file';
-  const id = 'ln_' + hash((data.mode||'') + '|' + (data.keyword||'') + '|' + norm);
+  const keywordKey = String(data.keyword||'');
+  const id = 'ln_' + hash((data.mode||'') + '|' + keywordKey + '|' + norm);
   const score = scoreResult({link:norm, source:data.source, title:data.title, pageUrl:data.page_url, mode:data.mode});
-  await q(env, `INSERT INTO ${T.links}(id,run_id,mode,keyword,link,normalized,type,source,page_url,title,snippet,score,health,first_seen_at,last_seen_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(mode, normalized, COALESCE(keyword,'')) DO UPDATE SET last_seen_at=excluded.last_seen_at, score=max(score, excluded.score), source=excluded.source, page_url=excluded.page_url, title=COALESCE(excluded.title,title)`,
-    [id, data.run_id||'', data.mode||'search', data.keyword||'', norm, norm, type, data.source||'', data.page_url||'', data.title||'', data.snippet||'', score, 'unknown', nowIso(), nowIso()]);
+  await q(env, `INSERT INTO ${T.links}(id,run_id,mode,keyword,keyword_key,link,normalized,type,source,page_url,title,snippet,score,health,first_seen_at,last_seen_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(mode, normalized, keyword_key) DO UPDATE SET last_seen_at=excluded.last_seen_at, score=max(score, excluded.score), source=excluded.source, page_url=excluded.page_url, title=COALESCE(excluded.title,title)`,
+    [id, data.run_id||'', data.mode||'search', data.keyword||'', keywordKey, norm, norm, type, data.source||'', data.page_url||'', data.title||'', data.snippet||'', score, 'unknown', nowIso(), nowIso()]);
   return true;
 }
 async function enqueue(env, item) {
