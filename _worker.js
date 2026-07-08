@@ -2,7 +2,7 @@
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '27-sourceboost.4-wide1000';
+const VERSION = '27-sourceboost.5-auto-batch';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -17,12 +17,12 @@ const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Apple
 const TIMEOUT_MS = 11000;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 const HEALTH_TTL_MS = 1000 * 60 * 60 * 12;
-const DEFAULT_MAX_SOURCE_FETCHES = 120;
-const HARD_MAX_SOURCE_FETCHES = 240;
+const DEFAULT_MAX_SOURCE_FETCHES = 28;
+const HARD_MAX_SOURCE_FETCHES = 40;
 const MAX_CRAWL_PAGES = 120;
-const MAX_QUEUE_BATCH = 40;
+const MAX_QUEUE_BATCH = 14;
 const MAX_DEEP_ROUNDS = 200;
-const REQUEST_BUDGET_MS = 50000;
+const REQUEST_BUDGET_MS = 42000;
 const MAX_TEXT = 350000;
 const LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz|io)\/(?:file|folder)\/[A-Za-z0-9_-]+(?:#[A-Za-z0-9_!\-]+)?)/gi;
 const OLD_LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz)\/#(?:F!|N!|!)?[A-Za-z0-9_-]+![A-Za-z0-9_!\-]+)/gi;
@@ -229,7 +229,8 @@ async function ensureDb(env) {
     `CREATE INDEX IF NOT EXISTS idx_${T.cache}_expires ON ${T.cache}(expires_at)`
   ];
   for (const s of idx) await runIgnore(q(env, s));
-  await seedSources(env);
+  // Sources are no longer seeded into D1 during AutoScan.
+  // The 1000-source catalog is kept in memory and read directly, while D1 stores only runs/pages/results/queue.
 }
 function sourceRow(id, name, type, priority, template, config = {}) {
   return [id, name, type, priority, template, JSON.stringify(config)];
@@ -352,26 +353,31 @@ function buildQueries(keyword, mode) {
   ];
   return [...new Set(patterns.filter(Boolean))].slice(0, mode === 'autoscan' ? 80 : 48);
 }
-async function getSources(env) {
+function catalogSources() {
+  return builtInSources().map(s => ({
+    id:s[0], name:s[1], type:s[2], enabled:1, priority:s[3], template:s[4], config:s[5] || '{}'
+  }));
+}
+async function getSources(env, opts = {}) {
   const maxSources = intEnv(env, 'MAX_SOURCES_PER_RUN', 1000, 25, 1000);
-  const r = await all(env, `SELECT * FROM ${T.sources} WHERE enabled=1 ORDER BY priority DESC LIMIT ?`, [maxSources]);
-  return r.results || [];
+  let rows = catalogSources();
+  // Optional custom sources remain supported, but built-in sources are never seeded into D1.
+  try {
+    const r = await all(env, `SELECT * FROM ${T.sources} WHERE enabled=1 ORDER BY priority DESC LIMIT 200`);
+    rows = rows.concat(r.results || []);
+  } catch {}
+  rows.sort((a,b)=>(b.priority||0)-(a.priority||0));
+  return rows.slice(0, maxSources);
 }
 function sourceUrl(source, query) { return source.template.replace('{q}', encodeURIComponent(query)); }
 async function cachedFetch(env, url, sourceName) {
-  const key = hash(url);
-  const c = await first(env, `SELECT value,status,expires_at,hits FROM ${T.cache} WHERE key=?`, [key]);
-  if (c && new Date(c.expires_at).getTime() > Date.now()) {
-    await q(env, `UPDATE ${T.cache} SET hits=hits+1 WHERE key=?`, [key]);
-    return { fromCache:true, status:c.status, text:c.value || '' };
-  }
+  // D1 cache was intentionally removed from the hot path.
+  // Writing cache rows for every source consumed the Worker subrequest budget before searching began.
   try {
     const res = await fetchWithTimeout(url, {}, TIMEOUT_MS);
     const txt = await bodyText(res);
-    await q(env, `INSERT OR REPLACE INTO ${T.cache}(key,value,status,created_at,expires_at,hits) VALUES(?,?,?,?,?,?)`, [key, txt, res.status, nowIso(), new Date(Date.now()+CACHE_TTL_MS).toISOString(), 0]);
     return { fromCache:false, status:res.status, text:txt };
   } catch (e) {
-    await logEvent(env, 'warn', 'fetch_failed', { url, sourceName, error:String(e.message||e) });
     return { fromCache:false, status:0, text:'', error:String(e.message||e) };
   }
 }
@@ -460,43 +466,55 @@ async function runStats(env, runId) {
   const l = await first(env, `SELECT COUNT(*) links, SUM(CASE WHEN health='alive' THEN 1 ELSE 0 END) alive, SUM(CASE WHEN health='dead' THEN 1 ELSE 0 END) dead, SUM(CASE WHEN health='unknown' THEN 1 ELSE 0 END) unknown FROM ${T.links} WHERE run_id=?`, [runId]);
   return { pages:p?.pages||0, sources:p?.sources||0, links:l?.links||0, alive:l?.alive||0, dead:l?.dead||0, unknown:l?.unknown||0 };
 }
-async function runSearch(env, mode, keyword, quick = false) {
+async function runSearch(env, mode, keyword, quick = false, opts = {}) {
   const runId = await startRun(env, mode, keyword||'');
   const started = Date.now();
-  const sources = await getSources(env);
-  const maxSourceFetches = intEnv(env, 'MAX_SOURCE_FETCHES', DEFAULT_MAX_SOURCE_FETCHES, 12, HARD_MAX_SOURCE_FETCHES);
+  const allSources = await getSources(env);
+  const maxSourceFetches = Math.min(Number(opts.max_sources || 0) || intEnv(env, 'MAX_SOURCE_FETCHES', DEFAULT_MAX_SOURCE_FETCHES, 8, HARD_MAX_SOURCE_FETCHES), HARD_MAX_SOURCE_FETCHES);
+  const sourceOffset = Math.max(0, Number(opts.source_offset || 0) || 0) % Math.max(1, allSources.length);
+  const rotatedSources = allSources.slice(sourceOffset).concat(allSources.slice(0, sourceOffset));
   const queries = buildQueries(keyword, mode);
+  const queryOffset = Math.max(0, Number(opts.query_offset || 0) || 0) % Math.max(1, queries.length);
+  const rotatedQueries = queries.slice(queryOffset).concat(queries.slice(0, queryOffset));
   let sourceFetches = 0, direct = 0, queued = 0;
   const selected = [];
-  for (const query of queries) {
-    for (const src of sources) {
-      selected.push([src, query]);
-      if (selected.length >= maxSourceFetches) break;
-    }
+  // Balanced rotation: each button press covers a new slice instead of repeating the same first sources.
+  for (const src of rotatedSources) {
+    const query = rotatedQueries[selected.length % rotatedQueries.length];
+    selected.push([src, query]);
     if (selected.length >= maxSourceFetches) break;
   }
-  await Promise.all(selected.map(async ([src, query]) => {
-    sourceFetches++;
-    const url = sourceUrl(src, query);
-    const got = await cachedFetch(env, url, src.name);
-    const links = extractMegaLinks(got.text);
-    for (const link of links) {
-      if (await saveLink(env, { run_id:runId, mode, keyword:keyword||'', link, source:src.name, page_url:url, title:query, snippet:'direct from source response' })) direct++;
+  const concurrency = Math.min(6, selected.length || 1);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < selected.length && Date.now() - started < REQUEST_BUDGET_MS) {
+      const [src, query] = selected[cursor++];
+      sourceFetches++;
+      const url = sourceUrl(src, query);
+      const got = await cachedFetch(env, url, src.name);
+      const links = extractMegaLinks(got.text);
+      for (const link of links) {
+        if (await saveLink(env, { run_id:runId, mode, keyword:keyword||'', link, source:src.name, page_url:url, title:query, snippet:'direct from source response' })) direct++;
+      }
+      await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+        ['pg_'+hash(runId+url), runId, mode, src.name, url, query, got.status||0, 0, links.length, nowIso(), got.error||'']);
+      const targetLimit = quick ? 2 : (mode === 'autoscan' ? 4 : 3);
+      const targets = parseSearchTargets(got.text, src, url).slice(0, targetLimit);
+      for (const t of targets) {
+        await enqueue(env, { run_id:runId, mode, kind:'crawl', url:t, keyword:keyword||query, source:src.name, priority: src.priority || 50 });
+        queued++;
+      }
     }
-    await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
-      ['pg_'+hash(runId+url), runId, mode, src.name, url, query, got.status||0, 0, links.length, nowIso(), got.error||'']);
-    const targets = parseSearchTargets(got.text, src, url).slice(0, mode === 'autoscan' ? 10 : 7);
-    for (const t of targets) {
-      await enqueue(env, { run_id:runId, mode, kind:'crawl', url:t, keyword:keyword||query, source:src.name, priority: src.priority || 50 });
-      queued++;
-    }
-  }));
-  const rounds = quick ? 8 : intEnv(env, 'DEEP_ROUNDS', 160, 1, MAX_DEEP_ROUNDS);
-  const processed = await deepProcessQueue(env, runId, Math.min(rounds, MAX_DEEP_ROUNDS), quick ? 16 : MAX_QUEUE_BATCH, started);
-  const health = await checkBatch(env, runId, quick ? 10 : 60);
+  }
+  await Promise.all(Array.from({length:concurrency}, worker));
+  const rounds = quick ? 3 : Math.min(Number(opts.deep_rounds || 0) || 8, 20);
+  const processed = await deepProcessQueue(env, runId, rounds, quick ? 8 : MAX_QUEUE_BATCH, started);
+  const health = await checkBatch(env, runId, quick ? 5 : 15);
   await finishRun(env, runId);
   const results = await getResults(env, mode, keyword, 200);
-  return { ok:true, version:VERSION, run_id:runId, mode, keyword:keyword||'', source_fetches:sourceFetches, direct_links:direct, queued, processed, health, elapsed_ms:Date.now()-started, results:results.results, stats: await dashboardStats(env) };
+  const next_source_offset = (sourceOffset + sourceFetches) % Math.max(1, allSources.length);
+  const next_query_offset = (queryOffset + 1) % Math.max(1, queries.length);
+  return { ok:true, version:VERSION, run_id:runId, mode, keyword:keyword||'', source_fetches:sourceFetches, source_offset:sourceOffset, next_source_offset, next_query_offset, direct_links:direct, queued, processed, health, elapsed_ms:Date.now()-started, catalog_sources:allSources.length, auto_batch:true, results:results.results, stats: await dashboardStats(env) };
 }
 async function crawlPage(env, item) {
   const got = await cachedFetch(env, item.url, item.source);
@@ -509,7 +527,7 @@ async function crawlPage(env, item) {
     ['pg_'+hash((item.run_id||'')+item.url), item.run_id||'', item.mode||'', item.source||hostOf(item.url), item.url, item.keyword||'', got.status||0, 1, found, nowIso(), got.error||'']);
   const discovered = parseSearchTargets(got.text, {name:item.source||hostOf(item.url)}, item.url)
     .filter(u => !/\.(?:jpg|jpeg|png|gif|webp|css|ico|svg|woff2?)(?:$|[?#])/i.test(u))
-    .slice(0, 12);
+    .slice(0, 4);
   for (const u of discovered) {
     await enqueue(env, { run_id:item.run_id, mode:item.mode, kind:'crawl', url:u, keyword:item.keyword||'', source:item.source||hostOf(item.url), priority: Math.max(10,(item.priority||50)-10), max_attempts:2 });
     children++;
@@ -616,9 +634,10 @@ async function dashboardStats(env) {
   const runs = await first(env, `SELECT COUNT(*) total FROM ${T.runs}`);
   const queue = await first(env, `SELECT SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) pending, SUM(CASE WHEN status='running' THEN 1 ELSE 0 END) running, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) done, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed FROM ${T.queue}`);
   const cache = await first(env, `SELECT COUNT(*) total, SUM(hits) hits FROM ${T.cache}`);
-  const sources = await first(env, `SELECT COUNT(*) total, SUM(CASE WHEN enabled=1 THEN 1 ELSE 0 END) enabled FROM ${T.sources}`);
+  const customSources = await runIgnore(first(env, `SELECT COUNT(*) total, SUM(CASE WHEN enabled=1 THEN 1 ELSE 0 END) enabled FROM ${T.sources}`));
+  const builtins = catalogSources().length;
   const success = links?.total ? Math.round(((links.alive||0) / links.total) * 100) : 0;
-  return { links_total:links?.total||0, alive:links?.alive||0, dead:links?.dead||0, unknown:links?.unknown||0, pages_scanned:pages?.total||0, runs:runs?.total||0, queue_pending:queue?.pending||0, queue_running:queue?.running||0, queue_done:queue?.done||0, queue_failed:queue?.failed||0, cache_entries:cache?.total||0, cache_hits:cache?.hits||0, sources_total:sources?.total||0, sources_enabled:sources?.enabled||0, success_rate:success };
+  return { links_total:links?.total||0, alive:links?.alive||0, dead:links?.dead||0, unknown:links?.unknown||0, pages_scanned:pages?.total||0, runs:runs?.total||0, queue_pending:queue?.pending||0, queue_running:queue?.running||0, queue_done:queue?.done||0, queue_failed:queue?.failed||0, cache_entries:cache?.total||0, cache_hits:cache?.hits||0, sources_total:builtins + (customSources?.total||0), sources_enabled:builtins + (customSources?.enabled||0), success_rate:success };
 }
 async function diagnostics(env) {
   await ensureDb(env);
@@ -627,7 +646,7 @@ async function diagnostics(env) {
     const c = await first(env, `SELECT COUNT(*) c FROM ${t}`);
     tables[t] = c?.c ?? 0;
   }
-  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard'] };
+  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep'] };
 }
 function csvEscape(s) { s=String(s??''); return '"'+s.replace(/"/g,'""')+'"'; }
 async function exportData(env, fmt='json', mode='') {
@@ -652,15 +671,15 @@ async function handleApi(req, env, ctx) {
     if (path === '/api/db/reset') { await hardReset(env); return json({ok:true, version:VERSION, reset:true, diagnostics:await diagnostics(env)}); }
     if (path === '/api/db/clean') { await cleanData(env); return json({ok:true, version:VERSION, cleaned:true}); }
     if (path === '/api/diagnostics') return json(await diagnostics(env));
-    if (path === '/api/autoscan') { const b = await parseBody(req); const out = await runSearch(env, 'autoscan', b.keyword||'', false); return json(out); }
-    if (path === '/api/search') { const b = await parseBody(req); if (!String(b.keyword||'').trim()) return json({ok:false, error:'keyword_required'}, 400); const out = await runSearch(env, 'search', String(b.keyword||'').trim(), false); return json(out); }
+    if (path === '/api/autoscan') { const b = await parseBody(req); const out = await runSearch(env, 'autoscan', b.keyword||'', false, b); return json(out); }
+    if (path === '/api/search') { const b = await parseBody(req); if (!String(b.keyword||'').trim()) return json({ok:false, error:'keyword_required'}, 400); const out = await runSearch(env, 'search', String(b.keyword||'').trim(), false, b); return json(out); }
     if (path === '/api/extract') { const b = await parseBody(req); if (!b.url) return json({ok:false,error:'url_required'},400); return json(await extractFromUrl(env, b.url, b.mode||'url', b.keyword||'')); }
     if (path === '/api/queue/process') { const b = await parseBody(req); const out = await processQueue(env, b.run_id||'', Number(b.limit||MAX_QUEUE_BATCH)); return json({ok:true, version:VERSION, ...out, stats:await dashboardStats(env)}); }
     if (path === '/api/queue/deep') { const b = await parseBody(req); const out = await deepProcessQueue(env, b.run_id||'', Number(b.rounds||100), Number(b.limit||MAX_QUEUE_BATCH)); return json({ok:true, version:VERSION, ...out, stats:await dashboardStats(env), results:(await getResults(env,b.mode||'',b.keyword||'',200)).results}); }
     if (path === '/api/health/check') { const b = await parseBody(req); const out = await checkBatch(env, b.run_id||'', Number(b.limit||20)); return json({ok:true, version:VERSION, ...out, stats:await dashboardStats(env)}); }
     if (path === '/api/results') return json(await getResults(env, url.searchParams.get('mode')||'', url.searchParams.get('keyword')||'', Number(url.searchParams.get('limit')||100)));
     if (path === '/api/stats') return json({ok:true, version:VERSION, stats:await dashboardStats(env)});
-    if (path === '/api/sources') { await ensureDb(env); if (req.method==='GET') return json({ok:true, version:VERSION, sources:(await all(env,`SELECT * FROM ${T.sources} ORDER BY priority DESC`)).results||[]}); const b=await parseBody(req); await q(env,`INSERT OR REPLACE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,[b.id||uid('src'),b.name,b.type||'html',b.enabled?1:0,b.priority||50,b.template,JSON.stringify(b.config||{}),nowIso(),nowIso()]); return json({ok:true}); }
+    if (path === '/api/sources') { await ensureDb(env); if (req.method==='GET') return json({ok:true, version:VERSION, sources: await getSources(env)}); const b=await parseBody(req); await q(env,`INSERT OR REPLACE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,[b.id||uid('src'),b.name,b.type||'html',b.enabled?1:0,b.priority||50,b.template,JSON.stringify(b.config||{}),nowIso(),nowIso()]); return json({ok:true}); }
     if (path === '/api/export') return exportData(env, url.searchParams.get('format')||'json', url.searchParams.get('mode')||'');
     return json({ok:false, version:VERSION, error:'not_found'},404);
   } catch(e) {
@@ -670,7 +689,7 @@ async function handleApi(req, env, ctx) {
 }
 async function handleReset(req, env) { await hardReset(env); return json({ok:true, version:VERSION, message:'D1 hard reset complete', next:'/' }); }
 async function scheduled(event, env, ctx) {
-  ctx.waitUntil((async()=>{ await ensureDb(env); await runSearch(env, 'autoscan', '', true); await processQueue(env, '', 20); await checkBatch(env, '', 20); })());
+  ctx.waitUntil((async()=>{ await ensureDb(env); await runSearch(env, 'autoscan', '', true, { max_sources: 16 }); await processQueue(env, '', 20); await checkBatch(env, '', 20); })());
 }
 export default {
   async fetch(req, env, ctx) {

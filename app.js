@@ -1,5 +1,5 @@
 (() => {
-  const cfg = window.NIMBUS_CONFIG || { version: '27-sourceboost.4-wide1000', apiBase: '' };
+  const cfg = window.NIMBUS_CONFIG || { version: '27-sourceboost.5-auto-batch', apiBase: '' };
   const $ = (s) => document.querySelector(s);
   const out = $('#output') || $('#results') || null;
   const write = (data) => {
@@ -18,8 +18,8 @@
   window.NimbusCore = {
     version: cfg.version,
     status: () => api('/api/status?nocache=' + Date.now()),
-    autoscan: (body = {}) => api('/api/autoscan?nocache=' + Date.now(), { method: 'POST', body: JSON.stringify(body) }),
-    search: (keyword, body = {}) => api('/api/search?nocache=' + Date.now(), { method: 'POST', body: JSON.stringify({ keyword, ...body }) }),
+    autoscan: (body = {}) => api('/api/autoscan?nocache=' + Date.now(), { method: 'POST', body: JSON.stringify({ max_sources: 28, deep_rounds: 6, ...body }) }),
+    search: (keyword, body = {}) => api('/api/search?nocache=' + Date.now(), { method: 'POST', body: JSON.stringify({ keyword, max_sources: 28, deep_rounds: 6, ...body }) }),
     reset: () => fetch('/reset?nocache=' + Date.now(), { cache: 'no-store' }).then(r => r.text())
   };
   document.addEventListener('DOMContentLoaded', () => {
