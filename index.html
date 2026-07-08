@@ -1,150 +1,22 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<meta name="theme-color" content="#06111f" />
-<link rel="manifest" href="/manifest.webmanifest" />
-<link rel="apple-touch-icon" href="/assets/icon-192.png" />
-<title>Nimbus Core V27</title>
-<style>
-:root{--bg:#050b14;--panel:#0b1726;--panel2:#10243a;--line:#1f3958;--text:#edf6ff;--muted:#9db3c8;--accent:#42b7ff;--accent2:#2a6ead;--ok:#43d17a;--bad:#ff5c7a;--warn:#ffd166;--shadow:0 14px 34px rgba(0,0,0,.34);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#0b3151 0,#06111f 34%,#030813 100%);color:var(--text);min-height:100vh;padding:env(safe-area-inset-top) 14px 24px}button,input,select,textarea{font:inherit}button{border:0;border-radius:18px;padding:15px 16px;color:#fff;background:linear-gradient(180deg,#2d8bd0,#1a5d95);font-weight:800;box-shadow:inset 0 1px 0 rgba(255,255,255,.2);width:100%;min-height:56px}button.secondary{background:#15283d;border:1px solid var(--line)}button.danger{background:linear-gradient(180deg,#9b3341,#681e2a)}button:disabled{opacity:.5}.wrap{max-width:880px;margin:0 auto}.hero{padding:26px 10px 16px}.brand{letter-spacing:7px;color:#61c7ff;font-weight:900;font-size:15px}.title{font-size:44px;line-height:1;margin:12px 0 10px;font-weight:900}.pill{display:inline-block;padding:10px 16px;border:1px solid var(--line);border-radius:999px;color:var(--muted);background:rgba(8,18,31,.7);font-weight:700}.card{background:linear-gradient(180deg,rgba(16,36,58,.94),rgba(8,18,31,.96));border:1px solid var(--line);border-radius:26px;padding:20px;margin:14px 0;box-shadow:var(--shadow)}.card h2{margin:0 0 14px;font-size:28px}.muted{color:var(--muted);line-height:1.45}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.menu{display:grid;gap:10px}.input{width:100%;padding:16px;border-radius:18px;border:1px solid var(--line);background:#07111f;color:var(--text);outline:none}.textarea{min-height:90px;resize:vertical}.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{border:1px solid var(--line);background:#07111f;border-radius:18px;padding:14px}.stat b{font-size:24px;display:block}.tabs{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;position:sticky;top:0;background:linear-gradient(180deg,#06111f 85%,rgba(6,17,31,0));z-index:5}.tab{white-space:nowrap;width:auto;min-height:44px;padding:10px 14px;border-radius:999px;background:#10243a;border:1px solid var(--line);font-weight:800}.tab.active{background:linear-gradient(180deg,#2d8bd0,#1a5d95)}.panel{display:none}.panel.active{display:block}.result{padding:14px;border:1px solid var(--line);border-radius:18px;margin:10px 0;background:#07111f}.result a{color:#8bd8ff;word-break:break-all;font-weight:800}.bad{color:var(--bad)}.ok{color:var(--ok)}.warn{color:var(--warn)}pre{white-space:pre-wrap;word-break:break-word;background:#050b14;border:1px solid var(--line);border-radius:18px;padding:14px;max-height:360px;overflow:auto}.log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}.row{display:flex;gap:8px}.row>*{flex:1}.hide{display:none!important}@media(max-width:520px){body{padding-left:12px;padding-right:12px}.title{font-size:38px}.grid,.stats{grid-template-columns:1fr}.card{padding:18px;border-radius:24px}.hero{padding-top:22px}.brand{font-size:13px}.tabs{margin-left:-4px;margin-right:-4px}}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="hero">
-    <div class="brand">NIMBUS CORE</div>
-    <div class="title">V27 Complete</div>
-    <div class="pill" id="versionPill">API checking...</div>
-  </div>
-
-  <section id="loginCard" class="card">
-    <h2>Login</h2>
-    <p class="muted">Enter Nimbus PIN. Default is <b>0000</b>. Cloudflare variable can be <code>AUTH_PIN</code> or <code>NIMBUS_PIN</code>.</p>
-    <input id="pin" class="input" type="password" inputmode="numeric" placeholder="PIN" value="" />
-    <div style="height:10px"></div>
-    <button onclick="login()">Login</button>
-    <pre id="loginOut" class="log hide"></pre>
-  </section>
-
-  <main id="app" class="hide">
-    <div class="tabs">
-      <button class="tab active" onclick="showTab('dashboard',this)">Dashboard</button>
-      <button class="tab" onclick="showTab('scan',this)">AutoScan</button>
-      <button class="tab" onclick="showTab('extract',this)">Extract</button>
-      <button class="tab" onclick="showTab('results',this)">Results</button>
-      <button class="tab" onclick="showTab('sources',this)">Sources</button>
-      <button class="tab" onclick="showTab('tools',this)">Tools</button>
-    </div>
-
-    <section id="dashboard" class="panel active">
-      <div class="card">
-        <h2>Statistics</h2>
-        <div class="stats" id="statsBox"></div>
-        <div style="height:10px"></div>
-        <button onclick="refreshAll()">Refresh Dashboard</button>
-      </div>
-      <div class="card"><h2>Live Output</h2><pre id="out" class="log">Ready.</pre></div>
-    </section>
-
-    <section id="scan" class="panel">
-      <div class="card">
-        <h2>AutoScan</h2>
-        <p class="muted">Search public sources, crawl discovered pages, extract MEGA links, save results, and update dashboard in one workflow.</p>
-        <input id="keyword" class="input" placeholder="Optional keyword" />
-        <div style="height:10px"></div>
-        <div class="grid">
-          <button onclick="autoScan()">Start AutoScan</button>
-          <button onclick="processQueue()">Process Queue</button>
-          <button onclick="checkLinks()">Check Link Health</button>
-          <button onclick="refreshResults()">Load Results</button>
-        </div>
-      </div>
-    </section>
-
-    <section id="extract" class="panel">
-      <div class="card">
-        <h2>Extract From URL</h2>
-        <p class="muted">Paste a public page URL. Nimbus fetches the page, extracts MEGA links from HTML/text/embedded data, and stores them in Results.</p>
-        <input id="targetUrl" class="input" placeholder="https://example.com/page" />
-        <div style="height:10px"></div>
-        <button onclick="extractUrl()">Extract Links</button>
-      </div>
-    </section>
-
-    <section id="results" class="panel">
-      <div class="card">
-        <h2>Results</h2>
-        <input id="filterQ" class="input" placeholder="Search results" oninput="debouncedResults()" />
-        <div style="height:10px"></div>
-        <div class="row">
-          <select id="filterStatus" class="input" onchange="refreshResults()"><option value="">All</option><option value="alive">Alive</option><option value="dead">Dead</option><option value="unknown">Unknown</option></select>
-          <button onclick="copyResults()">Copy</button>
-        </div>
-        <div style="height:10px"></div>
-        <div class="row"><button onclick="location.href='/api/export.csv'">CSV</button><button onclick="location.href='/api/export.json'">JSON</button></div>
-        <div id="resultsList"></div>
-      </div>
-    </section>
-
-    <section id="sources" class="panel">
-      <div class="card">
-        <h2>Source Manager</h2>
-        <div id="sourceList"></div>
-      </div>
-      <div class="card">
-        <h2>Add / Update Source</h2>
-        <input id="srcId" class="input" placeholder="source_id" />
-        <div style="height:8px"></div><input id="srcName" class="input" placeholder="Source name" />
-        <div style="height:8px"></div><select id="srcType" class="input"><option>html</option><option>json</option><option>rss</option><option>xml</option></select>
-        <div style="height:8px"></div><input id="srcPriority" class="input" type="number" placeholder="Priority" value="50" />
-        <div style="height:8px"></div><input id="srcTemplate" class="input" placeholder="https://example.com/search?q={query}" />
-        <div style="height:10px"></div><button onclick="saveSource()">Save Source</button>
-      </div>
-    </section>
-
-    <section id="tools" class="panel">
-      <div class="card">
-        <h2>Diagnostics</h2>
-        <div class="grid">
-          <button onclick="ping()">Ping API</button>
-          <button onclick="checkDb()">Check / Repair DB</button>
-          <button onclick="cleanData()">Clean Data</button>
-          <button onclick="hardReset()" class="danger">Hard Reset V27</button>
-          <button onclick="logout()" class="secondary">Logout</button>
-        </div>
-      </div>
-    </section>
-  </main>
-</div>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Nimbus Core V27</title><link rel="manifest" href="/manifest.webmanifest"><style>
+:root{--bg:#050b14;--panel:#0d1929;--panel2:#0f2136;--line:#203653;--text:#eef6ff;--muted:#96a9bf;--blue:#2f96ff;--cyan:#66d9ff;--ok:#4ade80;--bad:#fb7185;--warn:#fbbf24;--shadow:0 18px 50px rgba(0,0,0,.35);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#0d3353 0,#050b14 35%,#03070e 100%);color:var(--text);min-height:100vh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}.app{max-width:760px;margin:0 auto;padding:22px 16px 120px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin:10px 0 18px}.brand{letter-spacing:6px;color:var(--cyan);font-weight:800;font-size:13px}.title{font-size:42px;line-height:1;margin:10px 0 8px;font-weight:900}.pill{display:inline-flex;gap:8px;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:999px;color:var(--muted);background:rgba(9,20,34,.75);font-weight:700}.card{background:linear-gradient(180deg,rgba(18,34,55,.96),rgba(8,17,29,.96));border:1px solid var(--line);border-radius:28px;box-shadow:var(--shadow);padding:18px;margin:14px 0}.card h2{font-size:26px;margin:0 0 10px}.sub{color:var(--muted);font-size:15px;line-height:1.45}.tabs{position:fixed;left:0;right:0;bottom:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(3,8,15,.82);backdrop-filter:blur(18px);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);gap:7px;z-index:5}.tab{border:1px solid #1f3654;background:#071323;color:#a9bad0;border-radius:18px;padding:10px 6px;font-size:12px;font-weight:800}.tab.active{background:linear-gradient(180deg,#2389eb,#14518c);color:white;border-color:#3aa7ff}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.stat{background:#081424;border:1px solid #1c314d;border-radius:20px;padding:14px}.stat b{font-size:24px;display:block}.stat span{color:var(--muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px}input,select,textarea{width:100%;background:#06111f;border:1px solid #243a58;color:var(--text);border-radius:18px;padding:15px;font-size:16px;outline:none}textarea{min-height:95px}button{width:100%;border:0;border-radius:18px;padding:15px 16px;margin:8px 0;background:linear-gradient(180deg,#2f96ff,#1765ad);color:white;font-size:16px;font-weight:900;box-shadow:0 10px 22px rgba(31,118,206,.22)}button.secondary{background:#102238;color:#dbeafe;border:1px solid #263d5c;box-shadow:none}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hidden{display:none!important}.log{white-space:pre-wrap;background:#030b15;border:1px solid #1e314a;border-radius:18px;padding:14px;color:#d8e9ff;max-height:260px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}.result{background:#071222;border:1px solid #1e344f;border-radius:20px;padding:13px;margin:10px 0}.rhead{display:flex;justify-content:space-between;gap:10px;align-items:center}.tag{padding:5px 9px;border-radius:999px;background:#11233a;color:#b7c9df;font-size:11px;font-weight:900}.tag.alive{color:#052e16;background:#86efac}.tag.dead{color:#4c0519;background:#fda4af}.tag.unknown{color:#422006;background:#fde68a}.link{color:#91d5ff;word-break:break-all;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}.muted{color:var(--muted)}.actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:8px}.actions button{font-size:12px;padding:10px;margin:0;border-radius:13px}.section{display:none}.section.active{display:block}.progress{height:10px;background:#07111e;border:1px solid #213650;border-radius:999px;overflow:hidden}.bar{height:100%;width:0;background:linear-gradient(90deg,#2f96ff,#66d9ff);transition:.25s}.split{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}@media(max-width:420px){.title{font-size:38px}.card{border-radius:24px}.grid{grid-template-columns:repeat(2,1fr)}.tabs{grid-template-columns:repeat(5,1fr)}.tab{font-size:11px;padding:9px 4px}.app{padding-left:14px;padding-right:14px}.row{grid-template-columns:1fr}}
+</style></head><body><main class="app"><div class="top"><div><div class="brand">NIMBUS CORE</div><div class="title">V27 Source Boost</div><div class="pill" id="ver">API checking...</div></div></div>
+<section id="login" class="card"><h2>Login</h2><p class="sub">Enter your PIN. Uses AUTH_PIN or NIMBUS_PIN. Default is 0000.</p><input id="pin" type="password" inputmode="numeric" placeholder="PIN"><button onclick="login()">Login</button><pre id="loginLog" class="log hidden"></pre></section>
+<div id="main" class="hidden">
+<section id="dash" class="section active"><div class="card"><div class="split"><div><h2>Dashboard</h2><p class="sub">Live counts from D1 database.</p></div><button class="secondary" onclick="refreshStats()">Refresh</button></div><div class="grid" id="stats"></div><div class="progress"><div class="bar" id="bar"></div></div></div><div class="card"><h2>Quick Actions</h2><div class="row"><button onclick="repairDb()">Repair DB</button><button class="secondary" onclick="diagnostics()">Diagnostics</button></div><div class="row"><button class="secondary" onclick="processQueue()">Process Queue</button><button class="secondary" onclick="checkBatch()">Check Batch</button></div><pre id="dashLog" class="log"></pre></div></section>
+<section id="auto" class="section"><div class="card"><h2>AutoScan</h2><p class="sub">AutoScan is separated from keyword search. Leave empty for pattern rotation or add an optional seed.</p><input id="autoKeyword" placeholder="Optional seed"><button onclick="runAutoScan()">Start AutoScan</button><div class="row"><button class="secondary" onclick="loadResults('autoscan')">Refresh AutoScan Results</button><button class="secondary" onclick="exportMode('autoscan','csv')">Export CSV</button></div><pre id="autoLog" class="log hidden"></pre></div><div class="card"><h2>AutoScan Results</h2><div id="autoResults"></div></div></section>
+<section id="search" class="section"><div class="card"><h2>Keyword Search</h2><p class="sub">This page has its own results below. Extraction is integrated in the search flow.</p><input id="searchKeyword" placeholder="Enter keyword"><button onclick="runKeywordSearch()">Search Keyword</button><div class="row"><button class="secondary" onclick="loadResults('search')">Refresh Search Results</button><button class="secondary" onclick="exportMode('search','json')">Export JSON</button></div><pre id="searchLog" class="log hidden"></pre></div><div class="card"><h2>Keyword Results</h2><div id="searchResults"></div></div></section>
+<section id="extract" class="section"><div class="card"><h2>Extract From URL</h2><p class="sub">Paste any public page URL. It fetches the page and extracts MEGA links directly.</p><input id="urlInput" placeholder="https://example.com/page"><button onclick="extractUrl()">Extract Links</button><pre id="extractLog" class="log hidden"></pre></div><div class="card"><h2>URL Results</h2><div id="urlResults"></div></div></section>
+<section id="tools" class="section"><div class="card"><h2>Sources</h2><p class="sub">Built-in sources include Bing RSS, DuckDuckGo HTML, Yahoo, Reddit JSON, GitHub web search, Archive, Pastebin, Rentry, Ahmia, Meawfy web, and Linktree web. You can add JSON/HTML/RSS source templates.</p><button onclick="loadSources()">Load Sources</button><pre id="sourcesLog" class="log"></pre></div><div class="card"><h2>Add Source</h2><input id="srcName" placeholder="Source name"><select id="srcType"><option>html</option><option>json</option><option>rss</option><option>xml</option></select><input id="srcTpl" placeholder="https://example.com/search?q={q}"><button onclick="addSource()">Add Source</button></div><div class="card"><h2>Maintenance</h2><div class="row"><button class="secondary" onclick="cleanData()">Clean Data</button><button class="secondary" onclick="hardReset()">Hard Reset DB</button></div><div class="row"><button class="secondary" onclick="ping()">Ping API</button><button class="secondary" onclick="logout()">Logout</button></div><pre id="toolsLog" class="log"></pre></div></section>
+</div></main><nav id="tabs" class="tabs hidden"><button class="tab active" onclick="show('dash',this)">Dashboard</button><button class="tab" onclick="show('auto',this)">AutoScan</button><button class="tab" onclick="show('search',this)">Search</button><button class="tab" onclick="show('extract',this)">Extract</button><button class="tab" onclick="show('tools',this)">Tools</button></nav>
 <script>
-let lastResults=[];let timer=null;
-const $=id=>document.getElementById(id);
-function showOut(x){$('out').textContent=typeof x==='string'?x:JSON.stringify(x,null,2)}
-async function api(path,opts={}){const r=await fetch(path,{credentials:'same-origin',headers:{'content-type':'application/json'},...opts});const text=await r.text();let data;try{data=JSON.parse(text)}catch{data={ok:false,raw:text}};if(!r.ok)throw data;return data}
-async function boot(){try{const p=await api('/api/ping');$('versionPill').textContent='API '+p.version}catch(e){$('versionPill').textContent='API offline'}try{await refreshStats();$('loginCard').classList.add('hide');$('app').classList.remove('hide');await refreshSources();await refreshResults()}catch(e){}}
-async function login(){try{const data=await api('/api/login',{method:'POST',body:JSON.stringify({pin:$('pin').value})});$('loginCard').classList.add('hide');$('app').classList.remove('hide');showOut(data);await refreshAll()}catch(e){$('loginOut').classList.remove('hide');$('loginOut').textContent=JSON.stringify(e,null,2);alert(e.error||'Login failed')}}
-async function logout(){await api('/api/logout',{method:'POST'});location.reload()}
-function showTab(id,el){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));$(id).classList.add('active');el.classList.add('active')}
-async function refreshStats(){const d=await api('/api/stats');renderStats(d.stats);return d}
-function renderStats(s){$('statsBox').innerHTML=[['Links',s.total_links],['Alive',s.alive],['Dead',s.dead],['Unknown',s.unknown],['Success %',s.success_rate+'%'],['Sources',s.sources],['Queue',s.queue_queued],['Cache',s.cache_items],['Scans',s.scans]].map(x=>`<div class="stat"><span class="muted">${x[0]}</span><b>${x[1]}</b></div>`).join('')}
-async function refreshAll(){const [st,src,res]=await Promise.all([refreshStats(),refreshSources(),refreshResults()]);showOut(st)}
-async function autoScan(){showOut('AutoScan running...');const d=await api('/api/autoscan',{method:'POST',body:JSON.stringify({keyword:$('keyword').value})});showOut(d);await refreshAll()}
-async function processQueue(){showOut('Processing queue...');const d=await api('/api/process-queue?limit=40',{method:'POST'});showOut(d);await refreshAll()}
-async function checkLinks(){showOut('Checking links...');const d=await api('/api/check-links?limit=40',{method:'POST'});showOut(d);await refreshAll()}
-async function extractUrl(){const url=$('targetUrl').value.trim();if(!url)return alert('Enter URL');showOut('Extracting...');const d=await api('/api/extract-url',{method:'POST',body:JSON.stringify({url})});showOut(d);await refreshAll()}
-function debouncedResults(){clearTimeout(timer);timer=setTimeout(refreshResults,350)}
-async function refreshResults(){const q=encodeURIComponent($('filterQ')?.value||'');const st=encodeURIComponent($('filterStatus')?.value||'');const d=await api(`/api/results?q=${q}&status=${st}&limit=200`);lastResults=d.results||[];renderResults(lastResults);return d}
-function renderResults(rows){$('resultsList').innerHTML=rows.length?rows.map(r=>`<div class="result"><div><a href="${r.url}" target="_blank" rel="noopener">${r.url}</a></div><div class="muted">${r.source_id||''} · score ${r.score} · <span class="${r.status==='alive'?'ok':r.status==='dead'?'bad':'warn'}">${r.status}</span></div></div>`).join(''):'<p class="muted">No results yet.</p>'}
-async function copyResults(){await navigator.clipboard.writeText(lastResults.map(r=>r.url).join('\n'));alert('Copied '+lastResults.length+' links')}
-async function refreshSources(){const d=await api('/api/sources');$('sourceList').innerHTML=(d.sources||[]).map(s=>`<div class="result"><b>${s.name}</b><div class="muted">${s.id} · ${s.type} · priority ${s.priority} · ${s.enabled?'enabled':'disabled'}</div><div class="muted">${s.template}</div></div>`).join('');return d}
-async function saveSource(){const d=await api('/api/sources',{method:'POST',body:JSON.stringify({id:$('srcId').value,name:$('srcName').value,type:$('srcType').value,priority:Number($('srcPriority').value||50),template:$('srcTemplate').value,enabled:true})});showOut(d);await refreshSources()}
-async function ping(){const d=await api('/api/ping');showOut(d)}
-async function checkDb(){const d=await api('/api/check-db');showOut(d);await refreshAll()}
-async function cleanData(){const d=await api('/api/clean',{method:'POST'});showOut(d);await refreshAll()}
-async function hardReset(){if(!confirm('Hard reset all V27 data?'))return;const d=await api('/api/reset-all',{method:'POST'});showOut(d);await refreshAll()}
-boot();
-</script>
-</body>
-</html>
+let token=localStorage.getItem('nimbus_token')||'';const $=id=>document.getElementById(id);function setLog(id,obj){const e=$(id);e.classList.remove('hidden');e.textContent=typeof obj==='string'?obj:JSON.stringify(obj,null,2)}async function api(path,body){const r=await fetch(path,{method:body?'POST':'GET',headers:{'content-type':'application/json',authorization:token?'Bearer '+token:''},body:body?JSON.stringify(body):undefined});const ct=r.headers.get('content-type')||'';if(ct.includes('json')){const j=await r.json();if(!r.ok||j.ok===false)throw j;return j}return r.text()}function show(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');if(id==='dash')refreshStats();if(id==='auto')loadResults('autoscan');if(id==='search')loadResults('search');}
+async function ping(){try{const j=await api('/api/ping');$('ver').textContent='API '+j.version;setLog('toolsLog',j)}catch(e){$('ver').textContent='API error';}}
+async function login(){try{const j=await api('/api/login',{pin:$('pin').value});token=j.token;localStorage.setItem('nimbus_token',token);$('login').classList.add('hidden');$('main').classList.remove('hidden');$('tabs').classList.remove('hidden');await repairDb();await refreshStats();}catch(e){setLog('loginLog',e.error||e.message||e)}}function logout(){localStorage.removeItem('nimbus_token');location.reload()}
+async function repairDb(){try{const j=await api('/api/db/repair');setLog('dashLog',j);await refreshStats()}catch(e){setLog('dashLog',e)}}async function diagnostics(){try{setLog('dashLog',await api('/api/diagnostics'))}catch(e){setLog('dashLog',e)}}async function hardReset(){if(!confirm('Reset all V27 Source Boost tables?'))return;try{setLog('toolsLog',await api('/api/db/reset',{yes:true}));await refreshStats()}catch(e){setLog('toolsLog',e)}}async function cleanData(){if(!confirm('Clean run data, results, queue and cache?'))return;try{setLog('toolsLog',await api('/api/db/clean',{yes:true}));await refreshStats()}catch(e){setLog('toolsLog',e)}}
+async function refreshStats(){try{const j=await api('/api/stats');renderStats(j.stats);$('bar').style.width=Math.min(100,j.stats.success_rate||0)+'%'}catch(e){setLog('dashLog',e)}}function renderStats(s){const map=[['Links',s.links_total],['Alive',s.alive],['Dead',s.dead],['Unknown',s.unknown],['Pages',s.pages_scanned],['Runs',s.runs],['Queue',s.queue_pending],['Cache Hits',s.cache_hits],['Sources',s.sources_enabled],['Success %',s.success_rate+'%']];$('stats').innerHTML=map.map(x=>`<div class="stat"><b>${x[1]??0}</b><span>${x[0]}</span></div>`).join('')}
+async function runAutoScan(){setLog('autoLog','Running AutoScan...');try{const j=await api('/api/autoscan',{keyword:$('autoKeyword').value});setLog('autoLog',j);renderResults('autoResults',j.results);await refreshStats()}catch(e){setLog('autoLog',e)}}async function runKeywordSearch(){const kw=$('searchKeyword').value.trim();if(!kw)return alert('Enter keyword');setLog('searchLog','Searching...');try{const j=await api('/api/search',{keyword:kw});setLog('searchLog',j);renderResults('searchResults',j.results);await refreshStats()}catch(e){setLog('searchLog',e)}}async function extractUrl(){const url=$('urlInput').value.trim();if(!url)return alert('Enter URL');setLog('extractLog','Extracting...');try{const j=await api('/api/extract',{url,mode:'url'});setLog('extractLog',j);renderResults('urlResults',j.results);await refreshStats()}catch(e){setLog('extractLog',e)}}async function processQueue(){try{setLog('dashLog',await api('/api/queue/process',{limit:20}));await refreshStats()}catch(e){setLog('dashLog',e)}}async function checkBatch(){try{setLog('dashLog',await api('/api/health/check',{limit:30}));await refreshStats()}catch(e){setLog('dashLog',e)}}
+async function loadResults(mode){try{const j=await api('/api/results?mode='+encodeURIComponent(mode)+'&limit=100');renderResults(mode==='autoscan'?'autoResults':mode==='search'?'searchResults':'urlResults',j.results)}catch(e){console.error(e)}}function renderResults(id,rows){rows=rows||[];$(id).innerHTML=rows.length?rows.map(r=>`<div class="result"><div class="rhead"><span class="tag ${r.health}">${r.health||'unknown'}</span><span class="tag">${r.type||''} · ${r.score||0}</span></div><div class="link">${esc(r.link)}</div><div class="muted">${esc(r.source||'')} · ${esc(r.keyword||'')}</div><div class="actions"><button class="secondary" onclick="copyText('${enc(r.link)}')">Copy</button><button class="secondary" onclick="open('${enc(r.link)}')">Open</button><button class="secondary" onclick="open('${enc(r.page_url||r.link)}')">Source</button></div></div>`).join(''):'<p class="sub">No results yet.</p>'}function esc(s){return String(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}function enc(s){return encodeURIComponent(s||'')}function open(s){location.href=decodeURIComponent(s)}async function copyText(s){await navigator.clipboard.writeText(decodeURIComponent(s));alert('Copied')}
+async function loadSources(){try{setLog('sourcesLog',await api('/api/sources'))}catch(e){setLog('sourcesLog',e)}}async function addSource(){try{setLog('sourcesLog',await api('/api/sources',{name:$('srcName').value,type:$('srcType').value,template:$('srcTpl').value,enabled:true,priority:55}))}catch(e){setLog('sourcesLog',e)}}function exportMode(mode,fmt){location.href='/api/export?mode='+encodeURIComponent(mode)+'&format='+fmt+'&token='+encodeURIComponent(token)}
+(async()=>{await ping();if(token){$('login').classList.add('hidden');$('main').classList.remove('hidden');$('tabs').classList.remove('hidden');await refreshStats();loadResults('autoscan')}})();
+</script></body></html>

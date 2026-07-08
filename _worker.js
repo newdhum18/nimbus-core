@@ -1,549 +1,495 @@
-/* Nimbus Core V27 Complete Zero Build
- * Fresh Cloudflare Pages Worker + D1 backend.
- * Public-source MEGA link discovery, extraction, queue, crawler, cache, health, stats, exports.
+/* Nimbus Core V27 Source Boost
+ * Fresh Cloudflare Pages Worker + D1 app.
+ * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-
-const VERSION = '27-complete-zero.1';
-const TABLE_PREFIX = 'nimbus_v27';
-const DEFAULT_PIN = '0000';
-const MAX_FETCH_BYTES = 900000;
-const CACHE_TTL_MS = 1000 * 60 * 60 * 12;
-const HEALTH_TTL_MS = 1000 * 60 * 60 * 6;
-const DEFAULT_USER_AGENT = 'Mozilla/5.0 (compatible; NimbusCore/27; +https://pages.cloudflare.com)';
-
-const JSON_HEADERS = {
-  'content-type': 'application/json; charset=utf-8',
-  'cache-control': 'no-store'
+const VERSION = '27-sourceboost.1';
+const T = {
+  runs: 'nimbus_v27sb_runs',
+  pages: 'nimbus_v27sb_pages',
+  links: 'nimbus_v27sb_links',
+  queue: 'nimbus_v27sb_queue',
+  cache: 'nimbus_v27sb_cache',
+  events: 'nimbus_v27sb_events',
+  sources: 'nimbus_v27sb_sources',
+  settings: 'nimbus_v27sb_settings'
 };
+const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 NimbusCore/27';
+const TIMEOUT_MS = 11000;
+const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
+const HEALTH_TTL_MS = 1000 * 60 * 60 * 12;
+const MAX_SOURCE_FETCHES = 12;
+const MAX_CRAWL_PAGES = 18;
+const MAX_QUEUE_BATCH = 16;
+const MAX_TEXT = 350000;
+const LINK_RE = /https?:\/\/(?:www\.)?mega\.(?:nz|co\.nz|io)\/(?:file|folder)\/[A-Za-z0-9_-]+(?:#[A-Za-z0-9_!\-]+)?/gi;
+const MEGA_HOST_RE = /^https?:\/\/(?:www\.)?mega\.(?:nz|co\.nz|io)\//i;
 
-const HTML_HEADERS = {
-  'content-type': 'text/html; charset=utf-8',
-  'cache-control': 'no-store'
-};
-
-const MEGA_RE = /https?:\/\/(?:www\.)?mega\.(?:nz|io)\/(?:file|folder)\/[A-Za-z0-9_-]+(?:#[A-Za-z0-9_-]+)?/gi;
-const GENERIC_URL_RE = /https?:\/\/[^\s"'<>\\)\]]+/gi;
-
-const CORE_SOURCES = [
-  { id: 'bing_rss', name: 'Bing RSS', type: 'rss', enabled: 1, priority: 90, template: 'https://www.bing.com/search?format=rss&q={query}' },
-  { id: 'duckduckgo_html', name: 'DuckDuckGo HTML', type: 'html', enabled: 1, priority: 80, template: 'https://duckduckgo.com/html/?q={query}' },
-  { id: 'reddit_search', name: 'Reddit Public JSON', type: 'json', enabled: 1, priority: 70, template: 'https://www.reddit.com/search.json?q={query}&sort=relevance&t=all&limit=25' },
-  { id: 'github_search_page', name: 'GitHub Web Search', type: 'html', enabled: 1, priority: 50, template: 'https://github.com/search?q={query}&type=code' },
-  { id: 'archive_search', name: 'Archive.org Search', type: 'json', enabled: 1, priority: 40, template: 'https://archive.org/advancedsearch.php?q={query}&fl[]=identifier&fl[]=title&rows=25&page=1&output=json' }
+const AUTOSCAN_PATTERNS = [
+  'mega.nz/folder',
+  'mega.nz/file',
+  '"mega.nz/folder"',
+  '"mega.nz/file"',
+  '"mega.nz" "folder"',
+  '"mega.nz" "file"',
+  'site:pastebin.com mega.nz',
+  'site:rentry.co mega.nz',
+  'site:reddit.com mega.nz',
+  'site:github.com mega.nz',
+  'site:archive.org mega.nz',
+  'site:linktr.ee mega.nz',
+  'site:meawfy.com mega.nz',
+  '"mega.nz/folder" "index"',
+  '"mega.nz/file" "key"'
 ];
 
-const QUERY_PATTERNS = [
-  '"{keyword}" "mega.nz/file"',
-  '"{keyword}" "mega.nz/folder"',
-  '"{keyword}" "mega.nz"',
-  'site:pastebin.com "{keyword}" "mega.nz"',
-  'site:rentry.co "{keyword}" "mega.nz"',
-  'site:reddit.com "{keyword}" "mega.nz"',
-  'site:github.com "{keyword}" "mega.nz"',
-  'site:archive.org "{keyword}" "mega.nz"',
-  '"mega.nz/file" "key"',
-  '"mega.nz/folder" "index"'
-];
-
-const DEMO_HTML = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nimbus Core V27</title></head><body><h1>Nimbus Core V27</h1><p>Static asset fallback.</p></body></html>`;
-
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET,POST,OPTIONS',
+      'access-control-allow-headers': 'content-type,authorization'
+    }
+  });
+}
+function text(data, type = 'text/plain; charset=utf-8') { return new Response(data, { headers: { 'content-type': type, 'cache-control': 'no-store' } }); }
 function nowIso() { return new Date().toISOString(); }
-function nowMs() { return Date.now(); }
-function uuid() { return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
-function normalizeWhitespace(s) { return String(s || '').replace(/\s+/g, ' ').trim(); }
-function safeJson(obj, status = 200) { return new Response(JSON.stringify(obj, null, 2), { status, headers: JSON_HEADERS }); }
-function safeText(text, status = 200, headers = HTML_HEADERS) { return new Response(text, { status, headers }); }
-function encodeQ(s) { return encodeURIComponent(String(s || '').trim()); }
-function shaKey(input) { return String(input || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 180) || 'empty'; }
-function requireDb(env) { if (!env.DB) throw new Error('D1 binding DB is missing. Add D1 database binding named DB in Cloudflare Pages settings.'); return env.DB; }
-function pinValue(env) { return String(env.AUTH_PIN || env.NIMBUS_PIN || DEFAULT_PIN); }
-function scoreUrl(url, source = '', context = '') {
-  let score = 40;
-  if (/mega\.(nz|io)\/folder\//i.test(url)) score += 25;
-  if (/mega\.(nz|io)\/file\//i.test(url)) score += 20;
-  if (/#/.test(url)) score += 10;
-  if (/reddit|github|pastebin|rentry|archive/i.test(source + ' ' + context)) score += 8;
-  if (url.length > 40) score += 4;
+function uid(prefix='id') { return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,10); }
+function hash(s) { let h=2166136261; for (let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)} return (h>>>0).toString(16); }
+function clamp(s, n) { s = String(s ?? ''); return s.length > n ? s.slice(0,n) : s; }
+function safeUrl(u, base) { try { return new URL(u, base).href; } catch { return ''; } }
+function originOf(u) { try { return new URL(u).origin; } catch { return ''; } }
+function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./,''); } catch { return ''; } }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function normalizeLink(link) {
+  try {
+    link = String(link || '').trim().replace(/&amp;/g,'&').replace(/[\])},.;]+$/g,'');
+    const u = new URL(link);
+    if (!MEGA_HOST_RE.test(u.href)) return '';
+    u.hash = u.hash ? u.hash : '';
+    return u.href;
+  } catch { return ''; }
+}
+function extractMegaLinks(input) {
+  const s = typeof input === 'string' ? input : JSON.stringify(input || {});
+  const out = new Map();
+  let m;
+  while ((m = LINK_RE.exec(s)) !== null) {
+    const l = normalizeLink(m[0]);
+    if (l) out.set(l, l);
+  }
+  return [...out.values()];
+}
+function extractPageUrls(html, base) {
+  const urls = new Set();
+  const re = /(?:href|src)\s*=\s*["']([^"'#<>\s]+)["']/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const u = safeUrl(m[1], base);
+    if (!u) continue;
+    if (!/^https?:/i.test(u)) continue;
+    urls.add(u);
+  }
+  return [...urls];
+}
+function snippetFrom(s) {
+  s = String(s||'').replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+  return clamp(s, 260);
+}
+function scoreResult({link, source, title, pageUrl, mode}) {
+  let score = 50;
+  if (/\/folder\//i.test(link)) score += 10;
+  if (/#/.test(link)) score += 8;
+  if (/reddit|github|pastebin|rentry|archive|meawfy/i.test(source || pageUrl || '')) score += 8;
+  if (title && title.length > 8) score += 4;
+  if (mode === 'autoscan') score += 2;
   return Math.min(100, score);
 }
-function normalizeMegaUrl(url) {
-  if (!url) return '';
-  let clean = String(url).trim();
-  clean = clean.replace(/&amp;/g, '&');
-  clean = clean.replace(/[),.;]+$/g, '');
-  clean = clean.replace(/^http:\/\//i, 'https://');
-  clean = clean.replace(/https:\/\/www\.mega\./i, 'https://mega.');
-  return clean;
-}
-function extractMegaLinks(text) {
-  const out = new Map();
-  const raw = String(text || '');
-  for (const match of raw.matchAll(MEGA_RE)) {
-    const url = normalizeMegaUrl(match[0]);
-    if (url) out.set(url.toLowerCase(), url);
-  }
-  return Array.from(out.values());
-}
-function extractGenericUrls(text) {
-  const out = new Set();
-  const raw = String(text || '');
-  for (const match of raw.matchAll(GENERIC_URL_RE)) {
-    let url = match[0].replace(/[),.;]+$/g, '');
-    if (url.startsWith('http')) out.add(url);
-  }
-  return Array.from(out).slice(0, 80);
-}
-function htmlToText(html) {
-  return String(html || '')
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>');
-}
-async function fetchText(url, timeoutMs = 12000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort('timeout'), timeoutMs);
+async function runIgnore(promise) { try { return await promise; } catch (e) { return null; } }
+async function fetchWithTimeout(url, init = {}, timeout = TIMEOUT_MS) {
+  const ac = new AbortController();
+  const id = setTimeout(() => ac.abort('timeout'), timeout);
   try {
-    const res = await fetch(url, { headers: { 'user-agent': DEFAULT_USER_AGENT, 'accept': 'text/html,application/json,application/rss+xml,*/*;q=0.8' }, signal: controller.signal, redirect: 'follow' });
-    const status = res.status;
-    const ct = res.headers.get('content-type') || '';
-    let text = await res.text();
-    if (text.length > MAX_FETCH_BYTES) text = text.slice(0, MAX_FETCH_BYTES);
-    return { ok: res.ok, status, contentType: ct, text, finalUrl: res.url };
-  } finally { clearTimeout(timer); }
+    const res = await fetch(url, { ...init, signal: ac.signal, headers: { 'user-agent': DEFAULT_UA, 'accept': '*/*', ...(init.headers||{}) } });
+    return res;
+  } finally { clearTimeout(id); }
 }
-async function fetchJson(url) {
-  const got = await fetchText(url);
-  let json = null;
-  try { json = JSON.parse(got.text); } catch (_) {}
-  return { ...got, json };
+async function bodyText(res) { const t = await res.text(); return clamp(t, MAX_TEXT); }
+
+async function q(env, sql, params = []) { return env.DB.prepare(sql).bind(...params).run(); }
+async function all(env, sql, params = []) { return env.DB.prepare(sql).bind(...params).all(); }
+async function first(env, sql, params = []) { return env.DB.prepare(sql).bind(...params).first(); }
+async function logEvent(env, level, message, meta = {}) {
+  try { await q(env, `INSERT INTO ${T.events}(id,level,message,meta,created_at) VALUES(?,?,?,?,?)`, [uid('ev'), level, clamp(message,400), JSON.stringify(meta).slice(0,5000), nowIso()]); } catch {}
 }
-async function runIgnore(db, sql, binds = []) {
-  try { return await db.prepare(sql).bind(...binds).run(); } catch (e) { return { error: String(e && e.message || e) }; }
-}
-async function allIgnore(db, sql, binds = []) {
-  try { const r = await db.prepare(sql).bind(...binds).all(); return r.results || []; } catch (_) { return []; }
-}
-async function oneIgnore(db, sql, binds = []) {
-  try { return await db.prepare(sql).bind(...binds).first(); } catch (_) { return null; }
-}
-async function tableColumns(db, table) {
-  const rows = await allIgnore(db, `PRAGMA table_info(${table})`);
-  return new Set(rows.map(r => r.name));
-}
-async function ensureColumn(db, table, column, def) {
-  const cols = await tableColumns(db, table);
-  if (!cols.has(column)) await runIgnore(db, `ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
-}
+
 async function ensureDb(env) {
-  const db = requireDb(env);
-  await runIgnore(db, `CREATE TABLE IF NOT EXISTS ${TABLE_PREFIX}_meta (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT NOT NULL)`);
-  await runIgnore(db, `CREATE TABLE IF NOT EXISTS ${TABLE_PREFIX}_sources (
-    id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, priority INTEGER NOT NULL DEFAULT 50,
-    template TEXT NOT NULL, config_json TEXT DEFAULT '{}', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+  if (!env.DB) throw new Error('D1 binding DB not found. Add D1 binding name DB in Cloudflare Pages settings.');
+  await q(env, `CREATE TABLE IF NOT EXISTS ${T.runs}(
+    id TEXT PRIMARY KEY, mode TEXT NOT NULL, keyword TEXT, status TEXT NOT NULL DEFAULT 'running',
+    started_at TEXT NOT NULL, finished_at TEXT, elapsed_ms INTEGER DEFAULT 0,
+    pages_scanned INTEGER DEFAULT 0, links_found INTEGER DEFAULT 0, links_alive INTEGER DEFAULT 0, links_dead INTEGER DEFAULT 0, links_unknown INTEGER DEFAULT 0,
+    sources_used INTEGER DEFAULT 0, notes TEXT
   )`);
-  await runIgnore(db, `CREATE TABLE IF NOT EXISTS ${TABLE_PREFIX}_scans (
-    id TEXT PRIMARY KEY, keyword TEXT, status TEXT NOT NULL DEFAULT 'new', started_at TEXT, finished_at TEXT,
-    pages_scanned INTEGER DEFAULT 0, links_found INTEGER DEFAULT 0, alive_count INTEGER DEFAULT 0, dead_count INTEGER DEFAULT 0, unknown_count INTEGER DEFAULT 0,
-    elapsed_ms INTEGER DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+  await q(env, `CREATE TABLE IF NOT EXISTS ${T.pages}(
+    id TEXT PRIMARY KEY, run_id TEXT, mode TEXT, source TEXT, url TEXT, title TEXT, status INTEGER DEFAULT 0,
+    depth INTEGER DEFAULT 0, links_found INTEGER DEFAULT 0, scanned_at TEXT NOT NULL, error TEXT,
+    UNIQUE(run_id,url)
   )`);
-  await runIgnore(db, `CREATE TABLE IF NOT EXISTS ${TABLE_PREFIX}_queue (
-    id TEXT PRIMARY KEY, scan_id TEXT, kind TEXT NOT NULL, url TEXT, source_id TEXT, payload TEXT,
-    status TEXT NOT NULL DEFAULT 'queued', priority INTEGER NOT NULL DEFAULT 50, attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 3,
-    available_at TEXT NOT NULL, locked_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, last_error TEXT
+  await q(env, `CREATE TABLE IF NOT EXISTS ${T.links}(
+    id TEXT PRIMARY KEY, run_id TEXT, mode TEXT, keyword TEXT, link TEXT NOT NULL, normalized TEXT NOT NULL,
+    type TEXT, source TEXT, page_url TEXT, title TEXT, snippet TEXT, score INTEGER DEFAULT 0,
+    health TEXT DEFAULT 'unknown', health_checked_at TEXT, first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL,
+    UNIQUE(mode, normalized, COALESCE(keyword,''))
   )`);
-  await runIgnore(db, `CREATE TABLE IF NOT EXISTS ${TABLE_PREFIX}_results (
-    id TEXT PRIMARY KEY, scan_id TEXT, url TEXT NOT NULL UNIQUE, source_id TEXT, source_url TEXT, title TEXT, context TEXT,
-    status TEXT NOT NULL DEFAULT 'unknown', score INTEGER NOT NULL DEFAULT 0, health_checked_at TEXT, first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL,
-    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+  await q(env, `CREATE TABLE IF NOT EXISTS ${T.queue}(
+    id TEXT PRIMARY KEY, run_id TEXT, mode TEXT, kind TEXT NOT NULL, url TEXT, keyword TEXT, source TEXT, priority INTEGER DEFAULT 50,
+    status TEXT DEFAULT 'pending', attempts INTEGER DEFAULT 0, max_attempts INTEGER DEFAULT 3,
+    available_at TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, error TEXT
   )`);
-  await runIgnore(db, `CREATE TABLE IF NOT EXISTS ${TABLE_PREFIX}_cache (
-    key TEXT PRIMARY KEY, url TEXT, status INTEGER, content_type TEXT, body TEXT, created_at TEXT NOT NULL, expires_at TEXT NOT NULL
+  await q(env, `CREATE TABLE IF NOT EXISTS ${T.cache}(
+    key TEXT PRIMARY KEY, value TEXT, status INTEGER DEFAULT 0, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, hits INTEGER DEFAULT 0
   )`);
-  await runIgnore(db, `CREATE TABLE IF NOT EXISTS ${TABLE_PREFIX}_logs (
-    id TEXT PRIMARY KEY, level TEXT NOT NULL, event TEXT NOT NULL, message TEXT, data_json TEXT, created_at TEXT NOT NULL
+  await q(env, `CREATE TABLE IF NOT EXISTS ${T.events}(
+    id TEXT PRIMARY KEY, level TEXT, message TEXT, meta TEXT, created_at TEXT NOT NULL
   )`);
-  await runIgnore(db, `CREATE TABLE IF NOT EXISTS ${TABLE_PREFIX}_settings (
+  await q(env, `CREATE TABLE IF NOT EXISTS ${T.sources}(
+    id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, enabled INTEGER DEFAULT 1, priority INTEGER DEFAULT 50,
+    template TEXT NOT NULL, config TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+  )`);
+  await q(env, `CREATE TABLE IF NOT EXISTS ${T.settings}(
     key TEXT PRIMARY KEY, value TEXT, updated_at TEXT NOT NULL
   )`);
-
-  const migrations = [
-    ['sources','created_at','TEXT'], ['sources','updated_at','TEXT'], ['sources','config_json',"TEXT DEFAULT '{}"],
-    ['scans','created_at','TEXT'], ['scans','updated_at','TEXT'], ['scans','elapsed_ms','INTEGER DEFAULT 0'],
-    ['queue','scan_id','TEXT'], ['queue','available_at','TEXT'], ['queue','created_at','TEXT'], ['queue','updated_at','TEXT'], ['queue','last_error','TEXT'],
-    ['results','scan_id','TEXT'], ['results','created_at','TEXT'], ['results','updated_at','TEXT'], ['results','source_url','TEXT'], ['results','health_checked_at','TEXT'],
-    ['cache','created_at','TEXT'], ['cache','expires_at','TEXT'], ['logs','created_at','TEXT']
+  const idx = [
+    `CREATE INDEX IF NOT EXISTS idx_${T.links}_run ON ${T.links}(run_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_${T.links}_mode ON ${T.links}(mode, first_seen_at DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_${T.links}_health ON ${T.links}(health)`,
+    `CREATE INDEX IF NOT EXISTS idx_${T.queue}_status ON ${T.queue}(status, priority DESC, available_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_${T.pages}_run ON ${T.pages}(run_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_${T.cache}_expires ON ${T.cache}(expires_at)`
   ];
-  for (const [short, col, def] of migrations) await ensureColumn(db, `${TABLE_PREFIX}_${short}`, col, def);
-  await runIgnore(db, `CREATE INDEX IF NOT EXISTS idx_v27_queue_status ON ${TABLE_PREFIX}_queue(status, priority, available_at)`);
-  await runIgnore(db, `CREATE INDEX IF NOT EXISTS idx_v27_results_status ON ${TABLE_PREFIX}_results(status, score)`);
-  await runIgnore(db, `CREATE INDEX IF NOT EXISTS idx_v27_results_scan ON ${TABLE_PREFIX}_results(scan_id)`);
-  await runIgnore(db, `CREATE INDEX IF NOT EXISTS idx_v27_logs_created ON ${TABLE_PREFIX}_logs(created_at)`);
-
-  const current = nowIso();
-  await runIgnore(db, `INSERT OR REPLACE INTO ${TABLE_PREFIX}_meta(key,value,updated_at) VALUES('version',?,?)`, [VERSION, current]);
-  for (const s of CORE_SOURCES) {
-    await runIgnore(db, `INSERT OR IGNORE INTO ${TABLE_PREFIX}_sources(id,name,type,enabled,priority,template,config_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`, [s.id, s.name, s.type, s.enabled, s.priority, s.template, '{}', current, current]);
-  }
-  return db;
+  for (const s of idx) await runIgnore(q(env, s));
+  await seedSources(env);
 }
-async function logEvent(db, level, event, message = '', data = {}) {
-  await runIgnore(db, `INSERT INTO ${TABLE_PREFIX}_logs(id,level,event,message,data_json,created_at) VALUES(?,?,?,?,?,?)`, [uuid(), level, event, message, JSON.stringify(data).slice(0, 4000), nowIso()]);
+async function seedSources(env) {
+  const n = await first(env, `SELECT COUNT(*) c FROM ${T.sources}`);
+  if (n && n.c > 0) return;
+  const sources = [
+    ['bing_rss','Bing RSS','rss',1,100,'https://www.bing.com/search?format=rss&q={q}'],
+    ['duckduckgo_html','DuckDuckGo HTML','html',1,95,'https://duckduckgo.com/html/?q={q}'],
+    ['yahoo_search','Yahoo Search','html',1,80,'https://search.yahoo.com/search?p={q}'],
+    ['reddit_search_json','Reddit Search JSON','json',1,90,'https://www.reddit.com/search.json?q={q}&limit=25&sort=new'],
+    ['reddit_megalinks_json','Reddit Megalinks JSON','json',1,88,'https://www.reddit.com/r/megalinks/search.json?q={q}&restrict_sr=1&limit=25&sort=new'],
+    ['github_search','GitHub Web Search','html',1,76,'https://github.com/search?q={q}&type=code'],
+    ['archive_search','Archive Search','html',1,70,'https://archive.org/search?query={q}'],
+    ['pastebin_web','Pastebin Web','html',1,65,'https://pastebin.com/search?q={q}'],
+    ['rentry_web','Rentry Web','html',1,65,'https://rentry.co/search?q={q}'],
+    ['ahmia','Ahmia Web','html',1,60,'https://ahmia.fi/search/?q={q}'],
+    ['meawfy_web','Meawfy Web','html',1,60,'https://meawfy.com/search?q={q}'],
+    ['linktree_web','Linktree Web','html',1,45,'https://linktr.ee/search?q={q}']
+  ];
+  for (const s of sources) {
+    await q(env, `INSERT OR IGNORE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`, [...s, '{}', nowIso(), nowIso()]);
+  }
 }
 async function hardReset(env) {
-  const db = requireDb(env);
-  const tables = ['meta','sources','scans','queue','results','cache','logs','settings'];
-  for (const t of tables) await runIgnore(db, `DROP TABLE IF EXISTS ${TABLE_PREFIX}_${t}`);
+  const tables = Object.values(T);
+  for (const t of tables) await runIgnore(q(env, `DROP TABLE IF EXISTS ${t}`));
   await ensureDb(env);
-  await logEvent(db, 'info', 'reset', 'Hard reset completed', { version: VERSION });
-  return { ok: true, version: VERSION, reset: true };
 }
 async function cleanData(env) {
-  const db = await ensureDb(env);
-  await runIgnore(db, `DELETE FROM ${TABLE_PREFIX}_queue`);
-  await runIgnore(db, `DELETE FROM ${TABLE_PREFIX}_cache WHERE expires_at < ?`, [nowIso()]);
-  await logEvent(db, 'info', 'clean', 'Queue cleared and expired cache removed');
-  return { ok: true, version: VERSION };
+  await ensureDb(env);
+  for (const t of [T.runs,T.pages,T.links,T.queue,T.cache,T.events]) await q(env, `DELETE FROM ${t}`);
 }
-function buildQueries(keyword) {
-  const kw = normalizeWhitespace(keyword || '');
-  if (kw) return QUERY_PATTERNS.map(p => p.replaceAll('{keyword}', kw));
-  return [
-    '"mega.nz/file"',
-    '"mega.nz/folder"',
-    '"mega.nz" "folder"',
-    '"mega.nz" "file"',
-    'site:pastebin.com "mega.nz"',
-    'site:rentry.co "mega.nz"',
-    'site:reddit.com "mega.nz"',
-    'site:github.com "mega.nz"',
-    'site:archive.org "mega.nz"'
-  ];
+async function getPin(env) { return String(env.AUTH_PIN || env.NIMBUS_PIN || '0000'); }
+function tokenFor(pin) { return 'nimbus_' + hash('pin:' + pin + ':v27'); }
+async function requireAuth(req, env) {
+  const url = new URL(req.url);
+  if (url.pathname.startsWith('/api/login') || url.pathname.startsWith('/api/ping') || url.pathname.startsWith('/reset')) return true;
+  const pin = await getPin(env);
+  const auth = req.headers.get('authorization') || '';
+  const token = auth.replace(/^Bearer\s+/i,'') || url.searchParams.get('token') || '';
+  if (token === tokenFor(pin)) return true;
+  return false;
 }
-async function getSources(db) {
-  let rows = await allIgnore(db, `SELECT * FROM ${TABLE_PREFIX}_sources WHERE enabled=1 ORDER BY priority DESC, name ASC`);
-  if (!rows.length) {
-    const current = nowIso();
-    for (const s of CORE_SOURCES) await runIgnore(db, `INSERT OR IGNORE INTO ${TABLE_PREFIX}_sources(id,name,type,enabled,priority,template,config_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`, [s.id, s.name, s.type, s.enabled, s.priority, s.template, '{}', current, current]);
-    rows = await allIgnore(db, `SELECT * FROM ${TABLE_PREFIX}_sources WHERE enabled=1 ORDER BY priority DESC, name ASC`);
+async function parseBody(req) { try { return await req.json(); } catch { return {}; } }
+
+function buildQueries(keyword, mode) {
+  const base = String(keyword || '').trim();
+  const patterns = mode === 'autoscan' && !base ? AUTOSCAN_PATTERNS : [base, `"${base}" mega.nz`, `${base} mega.nz`, `site:reddit.com ${base} mega.nz`, `site:github.com ${base} mega.nz`, `site:pastebin.com ${base} mega.nz`, `site:rentry.co ${base} mega.nz`, `site:archive.org ${base} mega.nz`, `"mega.nz/folder" ${base}`, `"mega.nz/file" ${base}`];
+  return [...new Set(patterns.filter(Boolean))].slice(0, mode === 'autoscan' ? 16 : 12);
+}
+async function getSources(env) {
+  const r = await all(env, `SELECT * FROM ${T.sources} WHERE enabled=1 ORDER BY priority DESC LIMIT 50`);
+  return r.results || [];
+}
+function sourceUrl(source, query) { return source.template.replace('{q}', encodeURIComponent(query)); }
+async function cachedFetch(env, url, sourceName) {
+  const key = hash(url);
+  const c = await first(env, `SELECT value,status,expires_at,hits FROM ${T.cache} WHERE key=?`, [key]);
+  if (c && new Date(c.expires_at).getTime() > Date.now()) {
+    await q(env, `UPDATE ${T.cache} SET hits=hits+1 WHERE key=?`, [key]);
+    return { fromCache:true, status:c.status, text:c.value || '' };
   }
-  return rows;
-}
-async function queueTask(db, task) {
-  const current = nowIso();
-  const id = task.id || uuid();
-  await runIgnore(db, `INSERT OR IGNORE INTO ${TABLE_PREFIX}_queue(id,scan_id,kind,url,source_id,payload,status,priority,attempts,max_attempts,available_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, [
-    id, task.scan_id || '', task.kind, task.url || '', task.source_id || '', JSON.stringify(task.payload || {}), 'queued', task.priority || 50, 0, task.max_attempts || 3, task.available_at || current, current, current
-  ]);
-  return id;
-}
-async function upsertResult(db, result) {
-  const current = nowIso();
-  const url = normalizeMegaUrl(result.url);
-  if (!url) return null;
-  const id = 'r_' + shaKey(url);
-  const score = result.score ?? scoreUrl(url, result.source_id, result.context);
-  await runIgnore(db, `INSERT INTO ${TABLE_PREFIX}_results(id,scan_id,url,source_id,source_url,title,context,status,score,first_seen_at,last_seen_at,created_at,updated_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(url) DO UPDATE SET
-      scan_id=COALESCE(excluded.scan_id, scan_id), source_id=excluded.source_id, source_url=excluded.source_url, title=excluded.title,
-      context=excluded.context, score=MAX(score, excluded.score), last_seen_at=excluded.last_seen_at, updated_at=excluded.updated_at`, [
-    id, result.scan_id || '', url, result.source_id || '', result.source_url || '', (result.title || '').slice(0, 300), (result.context || '').slice(0, 900), result.status || 'unknown', score, current, current, current, current
-  ]);
-  return id;
-}
-async function cacheGet(db, key) {
-  const row = await oneIgnore(db, `SELECT * FROM ${TABLE_PREFIX}_cache WHERE key=? AND expires_at>?`, [key, nowIso()]);
-  return row || null;
-}
-async function cacheSet(db, key, url, got, ttlMs = CACHE_TTL_MS) {
-  const current = nowIso();
-  const expires = new Date(Date.now() + ttlMs).toISOString();
-  await runIgnore(db, `INSERT OR REPLACE INTO ${TABLE_PREFIX}_cache(key,url,status,content_type,body,created_at,expires_at) VALUES(?,?,?,?,?,?,?)`, [key, url, got.status || 0, got.contentType || '', (got.text || '').slice(0, MAX_FETCH_BYTES), current, expires]);
-}
-async function cachedFetch(db, url) {
-  const key = 'fetch_' + shaKey(url);
-  const cached = await cacheGet(db, key);
-  if (cached) return { ok: true, status: cached.status || 200, contentType: cached.content_type || '', text: cached.body || '', finalUrl: cached.url || url, cached: true };
-  const got = await fetchText(url);
-  if (got.ok || got.text) await cacheSet(db, key, url, got);
-  return { ...got, cached: false };
-}
-function parseSearchResultsFromHtml(text) {
-  const urls = extractGenericUrls(text).filter(u => !/bing\.com\/search|duckduckgo\.com\/html|google\.com\/search/i.test(u));
-  return urls.slice(0, 25);
-}
-function parseRssLinks(text) {
-  const out = [];
-  const itemRe = /<item>[\s\S]*?<\/item>/gi;
-  const linkRe = /<link><!\[CDATA\[([\s\S]*?)\]\]><\/link>|<link>([\s\S]*?)<\/link>/i;
-  for (const item of text.match(itemRe) || []) {
-    const m = item.match(linkRe);
-    if (m) out.push((m[1] || m[2] || '').trim());
+  try {
+    const res = await fetchWithTimeout(url, {}, TIMEOUT_MS);
+    const txt = await bodyText(res);
+    await q(env, `INSERT OR REPLACE INTO ${T.cache}(key,value,status,created_at,expires_at,hits) VALUES(?,?,?,?,?,?)`, [key, txt, res.status, nowIso(), new Date(Date.now()+CACHE_TTL_MS).toISOString(), 0]);
+    return { fromCache:false, status:res.status, text:txt };
+  } catch (e) {
+    await logEvent(env, 'warn', 'fetch_failed', { url, sourceName, error:String(e.message||e) });
+    return { fromCache:false, status:0, text:'', error:String(e.message||e) };
   }
-  return out.length ? out : extractGenericUrls(text).slice(0, 25);
 }
-function flattenJson(obj, limit = 120000) {
-  const seen = new Set();
-  let out = '';
-  function walk(v) {
-    if (out.length > limit) return;
-    if (v == null) return;
-    if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') { out += ' ' + String(v); return; }
-    if (typeof v !== 'object') return;
-    if (seen.has(v)) return;
-    seen.add(v);
-    if (Array.isArray(v)) { for (const x of v) walk(x); return; }
-    for (const k of Object.keys(v)) { out += ' ' + k; walk(v[k]); }
+function parseSearchTargets(text, source, baseUrl) {
+  const urls = new Set();
+  // Direct MEGA links are handled elsewhere, these are pages to crawl.
+  for (const u of extractPageUrls(text, baseUrl)) {
+    const h = hostOf(u);
+    if (!h) continue;
+    if (h.includes('bing.com') || h.includes('duckduckgo.com') || h.includes('yahoo.com')) continue;
+    urls.add(u);
+    if (urls.size >= 25) break;
   }
-  walk(obj);
-  return out;
-}
-async function processSourceSearch(db, scanId, source, query) {
-  const searchUrl = source.template.replace('{query}', encodeQ(query));
-  const got = source.type === 'json' ? await fetchJson(searchUrl) : await cachedFetch(db, searchUrl);
-  let text = got.text || '';
-  let links = [];
-  let pageUrls = [];
-  if (source.type === 'json') {
-    text = got.json ? flattenJson(got.json) : text;
-    pageUrls = extractGenericUrls(text).slice(0, 25);
-  } else if (source.type === 'rss') {
-    pageUrls = parseRssLinks(text);
-  } else {
-    pageUrls = parseSearchResultsFromHtml(text);
+  // RSS link tags
+  const linkRe = /<link>([\s\S]*?)<\/link>/gi; let m;
+  while ((m = linkRe.exec(text)) !== null && urls.size < 30) {
+    const u = safeUrl(m[1].replace(/<!\[CDATA\[|\]\]>/g,''), baseUrl);
+    if (u && /^https?:/i.test(u)) urls.add(u);
   }
-  links = extractMegaLinks(text);
-  for (const link of links) await upsertResult(db, { scan_id: scanId, url: link, source_id: source.id, source_url: searchUrl, context: query });
-  for (const pageUrl of pageUrls) {
-    if (/mega\.(nz|io)\/(file|folder)\//i.test(pageUrl)) await upsertResult(db, { scan_id: scanId, url: pageUrl, source_id: source.id, source_url: searchUrl, context: query });
-    else if (/^https?:\/\//i.test(pageUrl)) await queueTask(db, { scan_id: scanId, kind: 'crawl', url: pageUrl, source_id: source.id, priority: source.priority || 50, payload: { depth: 0, query, ref: searchUrl } });
+  return [...urls];
+}
+async function saveLink(env, data) {
+  const norm = normalizeLink(data.link);
+  if (!norm) return false;
+  const type = /\/folder\//i.test(norm) ? 'folder' : 'file';
+  const id = 'ln_' + hash((data.mode||'') + '|' + (data.keyword||'') + '|' + norm);
+  const score = scoreResult({link:norm, source:data.source, title:data.title, pageUrl:data.page_url, mode:data.mode});
+  await q(env, `INSERT INTO ${T.links}(id,run_id,mode,keyword,link,normalized,type,source,page_url,title,snippet,score,health,first_seen_at,last_seen_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(mode, normalized, COALESCE(keyword,'')) DO UPDATE SET last_seen_at=excluded.last_seen_at, score=max(score, excluded.score), source=excluded.source, page_url=excluded.page_url, title=COALESCE(excluded.title,title)`,
+    [id, data.run_id||'', data.mode||'search', data.keyword||'', norm, norm, type, data.source||'', data.page_url||'', data.title||'', data.snippet||'', score, 'unknown', nowIso(), nowIso()]);
+  return true;
+}
+async function enqueue(env, item) {
+  const id = item.id || 'q_' + hash([item.kind,item.url,item.keyword,item.mode].join('|'));
+  await q(env, `INSERT OR IGNORE INTO ${T.queue}(id,run_id,mode,kind,url,keyword,source,priority,status,attempts,max_attempts,available_at,created_at,updated_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [id, item.run_id||'', item.mode||'search', item.kind, item.url||'', item.keyword||'', item.source||'', item.priority||50, 'pending', 0, item.max_attempts||3, item.available_at||nowIso(), nowIso(), nowIso(), '']);
+}
+async function startRun(env, mode, keyword) {
+  await ensureDb(env);
+  const runId = uid('run');
+  await q(env, `INSERT INTO ${T.runs}(id,mode,keyword,status,started_at,notes) VALUES(?,?,?,?,?,?)`, [runId, mode, keyword||'', 'running', nowIso(), '']);
+  return runId;
+}
+async function finishRun(env, runId) {
+  const stats = await runStats(env, runId);
+  const run = await first(env, `SELECT started_at FROM ${T.runs} WHERE id=?`, [runId]);
+  const elapsed = run ? Date.now() - new Date(run.started_at).getTime() : 0;
+  await q(env, `UPDATE ${T.runs} SET status='done', finished_at=?, elapsed_ms=?, pages_scanned=?, links_found=?, links_alive=?, links_dead=?, links_unknown=?, sources_used=? WHERE id=?`,
+    [nowIso(), elapsed, stats.pages, stats.links, stats.alive, stats.dead, stats.unknown, stats.sources, runId]);
+}
+async function runStats(env, runId) {
+  const p = await first(env, `SELECT COUNT(*) pages, COUNT(DISTINCT source) sources FROM ${T.pages} WHERE run_id=?`, [runId]);
+  const l = await first(env, `SELECT COUNT(*) links, SUM(CASE WHEN health='alive' THEN 1 ELSE 0 END) alive, SUM(CASE WHEN health='dead' THEN 1 ELSE 0 END) dead, SUM(CASE WHEN health='unknown' THEN 1 ELSE 0 END) unknown FROM ${T.links} WHERE run_id=?`, [runId]);
+  return { pages:p?.pages||0, sources:p?.sources||0, links:l?.links||0, alive:l?.alive||0, dead:l?.dead||0, unknown:l?.unknown||0 };
+}
+async function runSearch(env, mode, keyword, quick = false) {
+  const runId = await startRun(env, mode, keyword||'');
+  const started = Date.now();
+  const sources = await getSources(env);
+  const queries = buildQueries(keyword, mode);
+  let sourceFetches = 0, direct = 0, queued = 0;
+  const selected = [];
+  for (const query of queries) {
+    for (const src of sources) {
+      selected.push([src, query]);
+      if (selected.length >= MAX_SOURCE_FETCHES) break;
+    }
+    if (selected.length >= MAX_SOURCE_FETCHES) break;
   }
-  await logEvent(db, 'info', 'source_search', `${source.id} query processed`, { query, direct_links: links.length, queued_pages: pageUrls.length });
-  return { source: source.id, query, direct_links: links.length, queued_pages: pageUrls.length };
-}
-async function autoScan(env, keyword = '') {
-  const db = await ensureDb(env);
-  const scanId = uuid();
-  const start = nowMs();
-  const current = nowIso();
-  await runIgnore(db, `INSERT INTO ${TABLE_PREFIX}_scans(id,keyword,status,started_at,created_at,updated_at) VALUES(?,?,?,?,?,?)`, [scanId, keyword || '', 'running', current, current, current]);
-  const sources = await getSources(db);
-  const queries = buildQueries(keyword).slice(0, 12);
-  const tasks = [];
-  for (const query of queries) for (const source of sources) tasks.push(processSourceSearch(db, scanId, source, query).catch(e => ({ error: String(e.message || e), source: source.id, query })));
-  const settled = await Promise.all(tasks);
-  const processSummary = await processQueue(env, 18, scanId);
-  const stats = await scanStats(db, scanId);
-  const elapsed = nowMs() - start;
-  await runIgnore(db, `UPDATE ${TABLE_PREFIX}_scans SET status='done', finished_at=?, pages_scanned=?, links_found=?, alive_count=?, dead_count=?, unknown_count=?, elapsed_ms=?, updated_at=? WHERE id=?`, [nowIso(), stats.pages_scanned, stats.links_found, stats.alive, stats.dead, stats.unknown, elapsed, nowIso(), scanId]);
-  await logEvent(db, 'info', 'autoscan', 'AutoScan complete', { scanId, keyword, elapsed });
-  return { ok: true, version: VERSION, scan_id: scanId, keyword, sources: sources.length, queries: queries.length, source_results: settled, queue: processSummary, stats: await globalStats(db) };
-}
-async function scanStats(db, scanId) {
-  const links = await oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_results WHERE scan_id=?`, [scanId]);
-  const alive = await oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_results WHERE scan_id=? AND status='alive'`, [scanId]);
-  const dead = await oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_results WHERE scan_id=? AND status='dead'`, [scanId]);
-  const unknown = await oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_results WHERE scan_id=? AND status='unknown'`, [scanId]);
-  const pages = await oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_queue WHERE scan_id=? AND kind='crawl'`, [scanId]);
-  return { pages_scanned: pages?.c || 0, links_found: links?.c || 0, alive: alive?.c || 0, dead: dead?.c || 0, unknown: unknown?.c || 0 };
-}
-function discoverNextUrls(pageUrl, text, depth) {
-  if (depth >= 2) return [];
-  const urls = extractGenericUrls(text);
-  const base = new URL(pageUrl);
-  const sameHost = urls.filter(u => {
-    try { const x = new URL(u); return x.hostname === base.hostname && !/\.(jpg|jpeg|png|gif|webp|svg|pdf|zip|rar|7z|mp4|mp3)$/i.test(x.pathname); } catch { return false; }
-  });
-  const nextish = sameHost.filter(u => /page=|p=|next|older|after|offset|start|\/page\/\d+/i.test(u));
-  return Array.from(new Set([...nextish, ...sameHost])).slice(0, 8);
-}
-async function crawlPage(db, task) {
-  const payload = JSON.parse(task.payload || '{}');
-  const depth = Number(payload.depth || 0);
-  const got = await cachedFetch(db, task.url);
-  const text = (got.text || '') + ' ' + htmlToText(got.text || '');
-  const links = extractMegaLinks(text);
-  for (const link of links) await upsertResult(db, { scan_id: task.scan_id, url: link, source_id: task.source_id || 'crawler', source_url: task.url, context: normalizeWhitespace(text).slice(0, 600) });
-  const nextUrls = discoverNextUrls(task.url, text, depth);
-  for (const u of nextUrls) await queueTask(db, { scan_id: task.scan_id, kind: 'crawl', url: u, source_id: task.source_id || 'crawler', priority: Math.max(10, (task.priority || 50) - 10), payload: { depth: depth + 1, parent: task.url } });
-  return { links: links.length, next: nextUrls.length };
-}
-async function processQueue(env, limit = 25, scanId = '') {
-  const db = await ensureDb(env);
-  const rows = await allIgnore(db, `SELECT * FROM ${TABLE_PREFIX}_queue WHERE status='queued' AND available_at<=? ${scanId ? 'AND scan_id=?' : ''} ORDER BY priority DESC, created_at ASC LIMIT ?`, scanId ? [nowIso(), scanId, limit] : [nowIso(), limit]);
-  let done = 0, failed = 0, links = 0, next = 0;
-  await Promise.all(rows.map(async row => {
-    await runIgnore(db, `UPDATE ${TABLE_PREFIX}_queue SET status='running', locked_at=?, attempts=attempts+1, updated_at=? WHERE id=?`, [nowIso(), nowIso(), row.id]);
-    try {
-      let result = { links: 0, next: 0 };
-      if (row.kind === 'crawl') result = await crawlPage(db, row);
-      else if (row.kind === 'health') result = await checkOneResult(db, row.url);
-      await runIgnore(db, `UPDATE ${TABLE_PREFIX}_queue SET status='done', updated_at=? WHERE id=?`, [nowIso(), row.id]);
-      done++; links += result.links || 0; next += result.next || 0;
-    } catch (e) {
-      const attempts = Number(row.attempts || 0) + 1;
-      const retry = attempts < Number(row.max_attempts || 3);
-      const nextTime = new Date(Date.now() + Math.min(60_000 * attempts, 300_000)).toISOString();
-      await runIgnore(db, `UPDATE ${TABLE_PREFIX}_queue SET status=?, available_at=?, last_error=?, updated_at=? WHERE id=?`, [retry ? 'queued' : 'failed', nextTime, String(e.message || e).slice(0, 500), nowIso(), row.id]);
-      failed++;
+  await Promise.all(selected.map(async ([src, query]) => {
+    sourceFetches++;
+    const url = sourceUrl(src, query);
+    const got = await cachedFetch(env, url, src.name);
+    const links = extractMegaLinks(got.text);
+    for (const link of links) {
+      if (await saveLink(env, { run_id:runId, mode, keyword:keyword||'', link, source:src.name, page_url:url, title:query, snippet:'direct from source response' })) direct++;
+    }
+    await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+      ['pg_'+hash(runId+url), runId, mode, src.name, url, query, got.status||0, 0, links.length, nowIso(), got.error||'']);
+    const targets = parseSearchTargets(got.text, src, url).slice(0, mode === 'autoscan' ? 10 : 7);
+    for (const t of targets) {
+      await enqueue(env, { run_id:runId, mode, kind:'crawl', url:t, keyword:keyword||query, source:src.name, priority: src.priority || 50 });
+      queued++;
     }
   }));
-  await logEvent(db, 'info', 'queue', 'Queue processed', { picked: rows.length, done, failed, links, next });
-  return { ok: true, version: VERSION, picked: rows.length, done, failed, links, next };
+  const processed = await processQueue(env, runId, quick ? 8 : 14);
+  await checkBatch(env, runId, 8);
+  await finishRun(env, runId);
+  const results = await getResults(env, mode, keyword, 80);
+  return { ok:true, version:VERSION, run_id:runId, mode, keyword:keyword||'', source_fetches:sourceFetches, direct_links:direct, queued, processed, elapsed_ms:Date.now()-started, results:results.results, stats: await dashboardStats(env) };
 }
-async function checkOneResult(db, url) {
-  const normalized = normalizeMegaUrl(url);
-  let status = 'unknown';
-  let httpStatus = 0;
+async function crawlPage(env, item) {
+  const got = await cachedFetch(env, item.url, item.source);
+  let found = 0, children = 0;
+  const links = extractMegaLinks(got.text);
+  for (const link of links) {
+    if (await saveLink(env, { run_id:item.run_id, mode:item.mode, keyword:item.keyword||'', link, source:item.source||hostOf(item.url), page_url:item.url, title:item.keyword||'', snippet:snippetFrom(got.text) })) found++;
+  }
+  await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+    ['pg_'+hash((item.run_id||'')+item.url), item.run_id||'', item.mode||'', item.source||hostOf(item.url), item.url, item.keyword||'', got.status||0, 1, found, nowIso(), got.error||'']);
+  const sameOrigin = originOf(item.url);
+  const discovered = extractPageUrls(got.text, item.url).filter(u => originOf(u) === sameOrigin).slice(0, 5);
+  for (const u of discovered) {
+    await enqueue(env, { run_id:item.run_id, mode:item.mode, kind:'crawl', url:u, keyword:item.keyword||'', source:item.source||hostOf(item.url), priority: Math.max(10,(item.priority||50)-10), max_attempts:2 });
+    children++;
+  }
+  return { found, children, status:got.status||0 };
+}
+async function processQueue(env, runId = '', limit = MAX_QUEUE_BATCH) {
+  await ensureDb(env);
+  const rows = await all(env, `SELECT * FROM ${T.queue} WHERE status='pending' AND available_at<=? ${runId?'AND run_id=?':''} ORDER BY priority DESC, created_at ASC LIMIT ?`, runId ? [nowIso(), runId, limit] : [nowIso(), limit]);
+  let processed=0, found=0, failed=0;
+  for (const item of (rows.results||[])) {
+    await q(env, `UPDATE ${T.queue} SET status='running', attempts=attempts+1, updated_at=? WHERE id=?`, [nowIso(), item.id]);
+    try {
+      let r = {found:0};
+      if (item.kind === 'crawl') r = await crawlPage(env, item);
+      else if (item.kind === 'health') r = await healthOne(env, item.url);
+      found += r.found || 0;
+      await q(env, `UPDATE ${T.queue} SET status='done', updated_at=?, error='' WHERE id=?`, [nowIso(), item.id]);
+      processed++;
+    } catch (e) {
+      failed++;
+      const attempts = (item.attempts||0)+1;
+      const status = attempts >= (item.max_attempts||3) ? 'failed' : 'pending';
+      const next = new Date(Date.now() + Math.min(300000, 15000 * attempts)).toISOString();
+      await q(env, `UPDATE ${T.queue} SET status=?, attempts=?, available_at=?, updated_at=?, error=? WHERE id=?`, [status, attempts, next, nowIso(), String(e.message||e).slice(0,400), item.id]);
+    }
+  }
+  return { processed, found, failed };
+}
+async function healthOne(env, link) {
+  const norm = normalizeLink(link);
+  if (!norm) return { health:'unknown' };
+  const existing = await first(env, `SELECT health,health_checked_at FROM ${T.links} WHERE normalized=? ORDER BY first_seen_at DESC LIMIT 1`, [norm]);
+  if (existing?.health_checked_at && Date.now() - new Date(existing.health_checked_at).getTime() < HEALTH_TTL_MS) return { health: existing.health };
+  let health = 'unknown';
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort('timeout'), 9000);
-    let res = await fetch(normalized, { method: 'HEAD', redirect: 'follow', headers: { 'user-agent': DEFAULT_USER_AGENT }, signal: controller.signal });
-    clearTimeout(timer);
-    httpStatus = res.status;
-    if (res.status >= 200 && res.status < 400) status = 'alive';
-    else if (res.status === 404 || res.status === 410) status = 'dead';
-    else status = 'unknown';
-  } catch (_) { status = 'unknown'; }
-  await runIgnore(db, `UPDATE ${TABLE_PREFIX}_results SET status=?, health_checked_at=?, updated_at=? WHERE url=?`, [status, nowIso(), nowIso(), normalized]);
-  return { url: normalized, status, httpStatus };
+    const res = await fetchWithTimeout(norm, { method:'HEAD', redirect:'follow' }, 8000);
+    if (res.status >= 200 && res.status < 400) health = 'alive';
+    else if ([404,410].includes(res.status)) health = 'dead';
+    else health = 'unknown';
+  } catch {
+    try {
+      const res = await fetchWithTimeout(norm, { method:'GET', redirect:'follow', headers:{ range:'bytes=0-0' } }, 8000);
+      if (res.status >= 200 && res.status < 400) health = 'alive'; else if ([404,410].includes(res.status)) health='dead';
+    } catch { health = 'unknown'; }
+  }
+  await q(env, `UPDATE ${T.links} SET health=?, health_checked_at=? WHERE normalized=?`, [health, nowIso(), norm]);
+  return { health };
 }
-async function checkLinks(env, limit = 25) {
-  const db = await ensureDb(env);
-  const threshold = new Date(Date.now() - HEALTH_TTL_MS).toISOString();
-  const rows = await allIgnore(db, `SELECT url FROM ${TABLE_PREFIX}_results WHERE health_checked_at IS NULL OR health_checked_at < ? ORDER BY score DESC, last_seen_at DESC LIMIT ?`, [threshold, limit]);
-  const checked = await Promise.all(rows.map(r => checkOneResult(db, r.url)));
-  await logEvent(db, 'info', 'health', 'Health check batch complete', { count: checked.length });
-  return { ok: true, version: VERSION, checked, stats: await globalStats(db) };
+async function checkBatch(env, runId='', limit=20) {
+  await ensureDb(env);
+  const rows = await all(env, `SELECT normalized FROM ${T.links} WHERE (health_checked_at IS NULL OR health_checked_at='') ${runId?'AND run_id=?':''} ORDER BY score DESC LIMIT ?`, runId ? [runId, limit] : [limit]);
+  let alive=0, dead=0, unknown=0;
+  await Promise.all((rows.results||[]).map(async r => {
+    const h = (await healthOne(env, r.normalized)).health;
+    if (h==='alive') alive++; else if (h==='dead') dead++; else unknown++;
+  }));
+  return { checked:(rows.results||[]).length, alive, dead, unknown };
 }
-async function extractFromUrl(env, targetUrl) {
-  const db = await ensureDb(env);
-  const got = await cachedFetch(db, targetUrl);
-  const text = (got.text || '') + ' ' + htmlToText(got.text || '');
-  const links = extractMegaLinks(text);
-  for (const link of links) await upsertResult(db, { scan_id: '', url: link, source_id: 'manual_extract', source_url: targetUrl, context: normalizeWhitespace(text).slice(0, 600) });
-  await logEvent(db, 'info', 'extract_url', 'Manual URL extracted', { targetUrl, links: links.length });
-  return { ok: true, version: VERSION, target_url: targetUrl, found: links.length, links };
+async function extractFromUrl(env, url, mode='url', keyword='') {
+  await ensureDb(env);
+  const runId = await startRun(env, mode, keyword||url);
+  const got = await cachedFetch(env, url, 'Manual URL');
+  const links = extractMegaLinks(got.text);
+  let saved = 0;
+  for (const link of links) if (await saveLink(env, {run_id:runId, mode, keyword, link, source:'Manual URL', page_url:url, title:url, snippet:snippetFrom(got.text)})) saved++;
+  await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, ['pg_'+hash(runId+url),runId,mode,'Manual URL',url,url,got.status||0,0,saved,nowIso(),got.error||'']);
+  await finishRun(env, runId);
+  return { ok:true, version:VERSION, run_id:runId, url, found:saved, links, results:(await getResults(env, mode, keyword, 100)).results };
 }
-async function globalStats(db) {
-  const rows = await Promise.all([
-    oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_sources WHERE enabled=1`),
-    oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_results`),
-    oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_results WHERE status='alive'`),
-    oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_results WHERE status='dead'`),
-    oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_results WHERE status='unknown'`),
-    oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_queue WHERE status='queued'`),
-    oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_queue WHERE status='done'`),
-    oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_cache WHERE expires_at>?`, [nowIso()]),
-    oneIgnore(db, `SELECT COUNT(*) c FROM ${TABLE_PREFIX}_scans`),
-  ]);
-  const [sources, total, alive, dead, unknown, queued, qdone, cache, scans] = rows.map(r => r?.c || 0);
-  const success = total ? Math.round((alive / total) * 100) : 0;
-  return { version: VERSION, sources, total_links: total, alive, dead, unknown, success_rate: success, queue_queued: queued, queue_done: qdone, cache_items: cache, scans };
+async function getResults(env, mode='', keyword='', limit=100) {
+  await ensureDb(env);
+  const params=[]; let where='1=1';
+  if (mode) { where += ' AND mode=?'; params.push(mode); }
+  if (keyword) { where += ' AND keyword=?'; params.push(keyword); }
+  params.push(limit);
+  const r = await all(env, `SELECT * FROM ${T.links} WHERE ${where} ORDER BY score DESC, last_seen_at DESC LIMIT ?`, params);
+  return { ok:true, version:VERSION, results:r.results||[] };
+}
+async function dashboardStats(env) {
+  await ensureDb(env);
+  const links = await first(env, `SELECT COUNT(*) total, SUM(CASE WHEN health='alive' THEN 1 ELSE 0 END) alive, SUM(CASE WHEN health='dead' THEN 1 ELSE 0 END) dead, SUM(CASE WHEN health='unknown' THEN 1 ELSE 0 END) unknown FROM ${T.links}`);
+  const pages = await first(env, `SELECT COUNT(*) total FROM ${T.pages}`);
+  const runs = await first(env, `SELECT COUNT(*) total FROM ${T.runs}`);
+  const queue = await first(env, `SELECT SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) pending, SUM(CASE WHEN status='running' THEN 1 ELSE 0 END) running, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) done, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed FROM ${T.queue}`);
+  const cache = await first(env, `SELECT COUNT(*) total, SUM(hits) hits FROM ${T.cache}`);
+  const sources = await first(env, `SELECT COUNT(*) total, SUM(CASE WHEN enabled=1 THEN 1 ELSE 0 END) enabled FROM ${T.sources}`);
+  const success = links?.total ? Math.round(((links.alive||0) / links.total) * 100) : 0;
+  return { links_total:links?.total||0, alive:links?.alive||0, dead:links?.dead||0, unknown:links?.unknown||0, pages_scanned:pages?.total||0, runs:runs?.total||0, queue_pending:queue?.pending||0, queue_running:queue?.running||0, queue_done:queue?.done||0, queue_failed:queue?.failed||0, cache_entries:cache?.total||0, cache_hits:cache?.hits||0, sources_total:sources?.total||0, sources_enabled:sources?.enabled||0, success_rate:success };
 }
 async function diagnostics(env) {
-  const db = await ensureDb(env);
-  const sources = await getSources(db);
-  const cols = {};
-  for (const t of ['sources','scans','queue','results','cache','logs','settings']) cols[t] = Array.from(await tableColumns(db, `${TABLE_PREFIX}_${t}`));
-  return { ok: true, version: VERSION, db_bound: true, auth_pin_configured: Boolean(env.AUTH_PIN || env.NIMBUS_PIN), sources: sources.map(s => ({ id:s.id, type:s.type, enabled:s.enabled, priority:s.priority })), columns: cols, stats: await globalStats(db) };
-}
-async function listResults(env, url) {
-  const db = await ensureDb(env);
-  const q = url.searchParams.get('q') || '';
-  const status = url.searchParams.get('status') || '';
-  const limit = Math.min(Number(url.searchParams.get('limit') || 100), 500);
-  const where = [];
-  const binds = [];
-  if (q) { where.push('(url LIKE ? OR title LIKE ? OR context LIKE ?)'); binds.push(`%${q}%`, `%${q}%`, `%${q}%`); }
-  if (status) { where.push('status=?'); binds.push(status); }
-  binds.push(limit);
-  const sql = `SELECT * FROM ${TABLE_PREFIX}_results ${where.length ? 'WHERE '+where.join(' AND ') : ''} ORDER BY score DESC, last_seen_at DESC LIMIT ?`;
-  const rows = await allIgnore(db, sql, binds);
-  return { ok: true, version: VERSION, results: rows, stats: await globalStats(db) };
-}
-async function exportResults(env, format) {
-  const db = await ensureDb(env);
-  const rows = await allIgnore(db, `SELECT url,status,score,source_id,source_url,first_seen_at,last_seen_at FROM ${TABLE_PREFIX}_results ORDER BY score DESC,last_seen_at DESC LIMIT 2000`);
-  if (format === 'csv') {
-    const esc = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
-    const csv = ['url,status,score,source_id,source_url,first_seen_at,last_seen_at', ...rows.map(r => [r.url,r.status,r.score,r.source_id,r.source_url,r.first_seen_at,r.last_seen_at].map(esc).join(','))].join('\n');
-    return new Response(csv, { headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="nimbus-v27-results.csv"' } });
+  await ensureDb(env);
+  const tables = {};
+  for (const [k,t] of Object.entries(T)) {
+    const c = await first(env, `SELECT COUNT(*) c FROM ${t}`);
+    tables[t] = c?.c ?? 0;
   }
-  return safeJson({ ok: true, version: VERSION, results: rows });
+  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair'] };
 }
-async function updateSource(env, body) {
-  const db = await ensureDb(env);
-  const current = nowIso();
-  if (!body.id || !body.name || !body.template) throw new Error('id, name and template are required');
-  await runIgnore(db, `INSERT INTO ${TABLE_PREFIX}_sources(id,name,type,enabled,priority,template,config_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(id) DO UPDATE SET name=excluded.name,type=excluded.type,enabled=excluded.enabled,priority=excluded.priority,template=excluded.template,config_json=excluded.config_json,updated_at=excluded.updated_at`, [
-    body.id, body.name, body.type || 'html', body.enabled ? 1 : 0, Number(body.priority || 50), body.template, JSON.stringify(body.config || {}), current, current
-  ]);
-  return { ok: true, version: VERSION };
+function csvEscape(s) { s=String(s??''); return '"'+s.replace(/"/g,'""')+'"'; }
+async function exportData(env, fmt='json', mode='') {
+  const r = await getResults(env, mode, '', 1000);
+  if (fmt === 'csv') {
+    const header = ['mode','keyword','type','health','score','source','page_url','link','first_seen_at'];
+    const rows = [header.join(',')].concat(r.results.map(x => header.map(h => csvEscape(x[h])).join(',')));
+    return text(rows.join('\n'), 'text/csv; charset=utf-8');
+  }
+  return json(r);
 }
-function isAuthed(req) {
-  const cookie = req.headers.get('cookie') || '';
-  return /nimbus_session=ok/.test(cookie);
-}
-async function readBody(req) {
-  if (req.method === 'GET') return {};
-  const text = await req.text();
-  if (!text) return {};
-  try { return JSON.parse(text); } catch { return Object.fromEntries(new URLSearchParams(text)); }
-}
-async function api(req, env, ctx) {
+
+async function handleApi(req, env, ctx) {
   const url = new URL(req.url);
+  if (req.method === 'OPTIONS') return json({ok:true});
+  if (!(await requireAuth(req, env))) return json({ok:false, version:VERSION, error:'unauthorized'}, 401);
   const path = url.pathname;
   try {
-    if (path === '/api/login') {
-      const body = await readBody(req);
-      if (String(body.pin || '') === pinValue(env)) {
-        return new Response(JSON.stringify({ ok: true, version: VERSION }), { headers: { ...JSON_HEADERS, 'set-cookie': 'nimbus_session=ok; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800' } });
-      }
-      return safeJson({ ok: false, version: VERSION, error: 'invalid_pin' }, 401);
-    }
-    if (path === '/api/logout') return new Response(JSON.stringify({ ok: true, version: VERSION }), { headers: { ...JSON_HEADERS, 'set-cookie': 'nimbus_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax' } });
-    if (path === '/api/ping') return safeJson({ ok: true, version: VERSION, time: nowIso(), db_bound: Boolean(env.DB) });
-    if (path === '/reset') return safeJson(await hardReset(env));
-    if (!isAuthed(req) && !['/api/diagnostics'].includes(path)) return safeJson({ ok: false, version: VERSION, error: 'auth_required' }, 401);
-    if (path === '/api/check-db' || path === '/api/repair-db') return safeJson(await diagnostics(env));
-    if (path === '/api/diagnostics') return safeJson(await diagnostics(env));
-    if (path === '/api/clean') return safeJson(await cleanData(env));
-    if (path === '/api/reset-all') return safeJson(await hardReset(env));
-    if (path === '/api/autoscan') { const body = await readBody(req); return safeJson(await autoScan(env, body.keyword || url.searchParams.get('keyword') || '')); }
-    if (path === '/api/process-queue') return safeJson(await processQueue(env, Number(url.searchParams.get('limit') || 25)));
-    if (path === '/api/check-links') return safeJson(await checkLinks(env, Number(url.searchParams.get('limit') || 25)));
-    if (path === '/api/extract-url') { const body = await readBody(req); return safeJson(await extractFromUrl(env, body.url || url.searchParams.get('url'))); }
-    if (path === '/api/results') return safeJson(await listResults(env, url));
-    if (path === '/api/stats') { const db = await ensureDb(env); return safeJson({ ok: true, version: VERSION, stats: await globalStats(db) }); }
-    if (path === '/api/sources' && req.method === 'GET') { const db = await ensureDb(env); return safeJson({ ok:true, version:VERSION, sources: await getSources(db) }); }
-    if (path === '/api/sources' && req.method === 'POST') return safeJson(await updateSource(env, await readBody(req)));
-    if (path === '/api/export.csv') return exportResults(env, 'csv');
-    if (path === '/api/export.json') return exportResults(env, 'json');
-    return safeJson({ ok: false, version: VERSION, error: 'not_found', path }, 404);
-  } catch (e) {
-    return safeJson({ ok: false, version: VERSION, error: String(e.message || e), stack: String(e.stack || '') }, 500);
+    if (path === '/api/ping') return json({ ok:true, version:VERSION, time:nowIso(), db_bound:!!env.DB });
+    if (path === '/api/login') { const b = await parseBody(req); const pin = await getPin(env); if (String(b.pin||'') === pin) return json({ok:true, version:VERSION, token:tokenFor(pin)}); return json({ok:false, version:VERSION, error:'invalid_pin'}, 403); }
+    if (path === '/api/db/repair') { await ensureDb(env); return json(await diagnostics(env)); }
+    if (path === '/api/db/reset') { await hardReset(env); return json({ok:true, version:VERSION, reset:true, diagnostics:await diagnostics(env)}); }
+    if (path === '/api/db/clean') { await cleanData(env); return json({ok:true, version:VERSION, cleaned:true}); }
+    if (path === '/api/diagnostics') return json(await diagnostics(env));
+    if (path === '/api/autoscan') { const b = await parseBody(req); const out = await runSearch(env, 'autoscan', b.keyword||'', false); return json(out); }
+    if (path === '/api/search') { const b = await parseBody(req); if (!String(b.keyword||'').trim()) return json({ok:false, error:'keyword_required'}, 400); const out = await runSearch(env, 'search', String(b.keyword||'').trim(), false); return json(out); }
+    if (path === '/api/extract') { const b = await parseBody(req); if (!b.url) return json({ok:false,error:'url_required'},400); return json(await extractFromUrl(env, b.url, b.mode||'url', b.keyword||'')); }
+    if (path === '/api/queue/process') { const b = await parseBody(req); const out = await processQueue(env, b.run_id||'', Number(b.limit||MAX_QUEUE_BATCH)); return json({ok:true, version:VERSION, ...out, stats:await dashboardStats(env)}); }
+    if (path === '/api/health/check') { const b = await parseBody(req); const out = await checkBatch(env, b.run_id||'', Number(b.limit||20)); return json({ok:true, version:VERSION, ...out, stats:await dashboardStats(env)}); }
+    if (path === '/api/results') return json(await getResults(env, url.searchParams.get('mode')||'', url.searchParams.get('keyword')||'', Number(url.searchParams.get('limit')||100)));
+    if (path === '/api/stats') return json({ok:true, version:VERSION, stats:await dashboardStats(env)});
+    if (path === '/api/sources') { await ensureDb(env); if (req.method==='GET') return json({ok:true, version:VERSION, sources:(await all(env,`SELECT * FROM ${T.sources} ORDER BY priority DESC`)).results||[]}); const b=await parseBody(req); await q(env,`INSERT OR REPLACE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,[b.id||uid('src'),b.name,b.type||'html',b.enabled?1:0,b.priority||50,b.template,JSON.stringify(b.config||{}),nowIso(),nowIso()]); return json({ok:true}); }
+    if (path === '/api/export') return exportData(env, url.searchParams.get('format')||'json', url.searchParams.get('mode')||'');
+    return json({ok:false, version:VERSION, error:'not_found'},404);
+  } catch(e) {
+    await logEvent(env, 'error', 'api_exception', { path, error:String(e.message||e), stack:e.stack });
+    return json({ok:false, version:VERSION, error:String(e.message||e), stack:e.stack}, 500);
   }
+}
+async function handleReset(req, env) { await hardReset(env); return json({ok:true, version:VERSION, message:'D1 hard reset complete', next:'/' }); }
+async function scheduled(event, env, ctx) {
+  ctx.waitUntil((async()=>{ await ensureDb(env); await runSearch(env, 'autoscan', '', true); await processQueue(env, '', 20); await checkBatch(env, '', 20); })());
 }
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
-    if (url.pathname.startsWith('/api/') || url.pathname === '/reset') return api(req, env, ctx);
-    if (env.ASSETS) return env.ASSETS.fetch(req);
-    return safeText(DEMO_HTML);
+    if (url.pathname.startsWith('/api/')) return handleApi(req, env, ctx);
+    if (url.pathname === '/reset') return handleReset(req, env);
+    return env.ASSETS ? env.ASSETS.fetch(req) : text('Nimbus Core V27 Source Boost');
   },
-  async scheduled(event, env, ctx) {
-    ctx.waitUntil((async () => {
-      await ensureDb(env);
-      await autoScan(env, '');
-      await processQueue(env, 30);
-      await checkLinks(env, 30);
-    })());
-  }
+  scheduled
 };
