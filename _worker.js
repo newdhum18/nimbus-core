@@ -2,7 +2,7 @@
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '27-sourceboost.6-autopilot';
+const VERSION = '27-sourceboost.7-stable-drain';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -27,6 +27,9 @@ const MAX_TEXT = 350000;
 const LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz|io)\/(?:file|folder)\/[A-Za-z0-9_-]+#[A-Za-z0-9_!\-]{8,})/gi;
 const OLD_LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz)\/#(?:F!|N!|!)?[A-Za-z0-9_-]+![A-Za-z0-9_!\-]+)/gi;
 const MEGA_HOST_RE = /^https?:\/\/(?:www\.)?mega\.(?:nz|co\.nz|io)\//i;
+const COMPLETE_MEGA_RE = /^https?:\/\/(?:www\.)?mega\.(?:nz|io)\/(?:file|folder)\/[A-Za-z0-9_-]{4,}#[A-Za-z0-9_!\-]{8,}$/i;
+const COMPLETE_OLD_MEGA_RE = /^https?:\/\/(?:www\.)?mega\.(?:nz|co\.nz)\/#(?:F!|N!|!)?[A-Za-z0-9_-]{4,}![A-Za-z0-9_!\-]{8,}$/i;
+function isCompleteMegaLink(u){ u=String(u||''); return COMPLETE_MEGA_RE.test(u) || COMPLETE_OLD_MEGA_RE.test(u); }
 
 const AUTOSCAN_PATTERNS = [
   'mega.nz/folder', 'mega.nz/file', 'mega.nz/#F!', 'mega.co.nz/#F!',
@@ -326,6 +329,12 @@ async function cleanData(env) {
   await ensureDb(env);
   for (const t of [T.runs,T.pages,T.links,T.queue,T.cache,T.events]) await q(env, `DELETE FROM ${t}`);
 }
+async function cleanInvalidLinks(env) {
+  await ensureDb(env);
+  await q(env, `DELETE FROM ${T.links} WHERE normalized NOT LIKE '%#%' AND normalized NOT LIKE '%mega.co.nz/#%'`);
+  await q(env, `DELETE FROM ${T.links} WHERE (normalized LIKE '%/folder/%' OR normalized LIKE '%/file/%') AND normalized NOT LIKE '%#%'`);
+  return { ok:true, version:VERSION, stats:await dashboardStats(env) };
+}
 async function getPin(env) { return String(env.AUTH_PIN || env.NIMBUS_PIN || '0000'); }
 function tokenFor(pin) { return 'nimbus_' + hash('pin:' + pin + ':v27'); }
 async function requireAuth(req, env) {
@@ -514,7 +523,7 @@ async function runSearch(env, mode, keyword, quick = false, opts = {}) {
   await Promise.all(Array.from({length:concurrency}, worker));
   const rounds = quick ? 4 : Math.min(Number(opts.deep_rounds || 0) || 12, 24);
   const processed = await deepProcessQueue(env, runId, rounds, quick ? 8 : MAX_QUEUE_BATCH, started);
-  const health = await checkBatch(env, runId, quick ? 5 : 15);
+  const health = await checkBatch(env, runId, quick ? 3 : 5);
   await finishRun(env, runId);
   const results = await getResults(env, mode, keyword, 1000);
   const next_source_offset = (sourceOffset + sourceFetches) % Math.max(1, allSources.length);
@@ -615,17 +624,26 @@ async function checkBatch(env, runId='', limit=20) {
 async function extractFromUrl(env, url, mode='url', keyword='') {
   await ensureDb(env);
   const runId = await startRun(env, mode, keyword||url);
+  // If the user pasted a MEGA URL, do not fetch mega.nz. Save it directly.
+  // Fetching MEGA pages from the Worker can exceed Cloudflare limits and returns HTML error pages.
+  const pastedLinks = extractMegaLinks(url);
+  if (pastedLinks.length) {
+    let saved = 0;
+    for (const link of pastedLinks) if (await saveLink(env, {run_id:runId, mode, keyword, link, source:'Manual Paste', page_url:link, title:'Manual MEGA link', snippet:'direct pasted mega link'})) saved++;
+    await finishRun(env, runId);
+    return { ok:true, version:VERSION, run_id:runId, url, found:saved, links:pastedLinks, direct_paste:true, results:(await getResults(env, mode, keyword, 1000)).results };
+  }
   const got = await cachedFetch(env, url, 'Manual URL');
   const links = extractMegaLinks(got.text);
   let saved = 0;
   for (const link of links) if (await saveLink(env, {run_id:runId, mode, keyword, link, source:'Manual URL', page_url:url, title:url, snippet:snippetFrom(got.text)})) saved++;
   await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, ['pg_'+hash(runId+url),runId,mode,'Manual URL',url,url,got.status||0,0,saved,nowIso(),got.error||'']);
   await finishRun(env, runId);
-  return { ok:true, version:VERSION, run_id:runId, url, found:saved, links, results:(await getResults(env, mode, keyword, 100)).results };
+  return { ok:true, version:VERSION, run_id:runId, url, found:saved, links, results:(await getResults(env, mode, keyword, 1000)).results };
 }
 async function getResults(env, mode='', keyword='', limit=100) {
   await ensureDb(env);
-  const params=[]; let where="1=1 AND (normalized LIKE '%#%' OR normalized LIKE '%mega.co.nz/%')";
+  const params=[]; let where="1=1 AND ((normalized LIKE '%/folder/%#%' OR normalized LIKE '%/file/%#%') OR normalized LIKE '%mega.co.nz/#%')";
   if (mode) { where += ' AND mode=?'; params.push(mode); }
   if (keyword) { where += ' AND keyword=?'; params.push(keyword); }
   params.push(limit);
