@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nimbus-core",
+  "compatibility_date": "2025-08-01",
+  "pages_build_output_dir": ".",
+  "limits": {
+    "subrequests": 1000
+  }
+}
