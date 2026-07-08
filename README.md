@@ -1,16 +1,12 @@
-# Nimbus Core V27 SourceBoost 5 Auto Batch
+# Nimbus Core V28 HyperSearch
 
-Version: 27-sourceboost.5-auto-batch
+Balanced one-button public indexed MEGA URL discovery.
 
-Main changes:
-- One-button AutoScan now automatically splits work into many safe requests from the browser.
-- 1000 built-in source catalog remains available without D1 seeding during every run.
-- D1 is no longer used as a hot-path cache for every source fetch.
-- Balanced source rotation prevents repeating the same first sources.
-- Deep processing uses smaller safer batches across repeated calls.
-- Designed to avoid Cloudflare Worker "Too many API requests by single Worker invocation" while preserving wide coverage.
+## V28 changes
+- Virtual Queue + Batch Scheduler via D1/job ticks.
+- Round-robin source groups so each run covers paste, rentry, reddit, code, archive, link hubs and search engines.
+- Safer MEGA open behavior for iPhone Safari/Brave.
+- Results load up to 1000 and retain valid complete MEGA links only.
+- D1 stores state/results but source catalog remains in memory to avoid DB hot-path seeding.
 
-Recommended Cloudflare setup:
-- For Pages with _worker.js: Build command empty, Output directory '.', Root directory '/'.
-- For Workers deploy screen: Deploy command `npx wrangler deploy`.
-- Keep D1 binding name as `DB`.
+Public indexed discovery only. No bypass of logins, ads, paywalls, unlockers or protected systems.

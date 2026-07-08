@@ -1,8 +1,8 @@
-/* Nimbus Core V27 Source Boost
+/* Nimbus Core V28 HyperSearch
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '27-sourceboost.7-stable-drain';
+const VERSION = '28-hypersearch-scheduler';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -17,12 +17,12 @@ const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Apple
 const TIMEOUT_MS = 11000;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 const HEALTH_TTL_MS = 1000 * 60 * 60 * 12;
-const DEFAULT_MAX_SOURCE_FETCHES = 36;
-const HARD_MAX_SOURCE_FETCHES = 48;
-const MAX_CRAWL_PAGES = 120;
-const MAX_QUEUE_BATCH = 16;
-const MAX_DEEP_ROUNDS = 200;
-const REQUEST_BUDGET_MS = 45000;
+const DEFAULT_MAX_SOURCE_FETCHES = 44;
+const HARD_MAX_SOURCE_FETCHES = 72;
+const MAX_CRAWL_PAGES = 240;
+const MAX_QUEUE_BATCH = 10;
+const MAX_DEEP_ROUNDS = 300;
+const REQUEST_BUDGET_MS = 26000;
 const MAX_TEXT = 350000;
 const LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz|io)\/(?:file|folder)\/[A-Za-z0-9_-]+#[A-Za-z0-9_!\-]{8,})/gi;
 const OLD_LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz)\/#(?:F!|N!|!)?[A-Za-z0-9_-]+![A-Za-z0-9_!\-]+)/gi;
@@ -41,7 +41,11 @@ const AUTOSCAN_PATTERNS = [
   'site:meawfy.com mega.nz', 'site:telegra.ph mega.nz', 'site:medium.com mega.nz',
   'site:substack.com mega.nz', 'site:notion.site mega.nz', 'site:paste.ee mega.nz',
   'site:justpaste.it mega.nz', 'site:controlc.com mega.nz', 'site:hastebin.com mega.nz',
-  'site:anonpaste.org mega.nz', 'site:ghostbin.co mega.nz', 'site:txti.es mega.nz'
+  'site:anonpaste.org mega.nz', 'site:ghostbin.co mega.nz', 'site:txti.es mega.nz',
+  'site:0bin.net mega.nz', 'site:dpaste.org mega.nz', 'site:pastelink.net mega.nz',
+  'site:privnote.com mega.nz', 'site:github.io mega.nz', 'site:raw.githubusercontent.com mega.nz',
+  'site:discourse.org mega.nz', 'site:t.me mega.nz', 'site:telegram.me mega.nz',
+  'site:vk.com mega.nz', 'site:x.com mega.nz', 'site:threads.net mega.nz'
 ];
 
 function json(data, status = 200) {
@@ -352,7 +356,7 @@ function buildQueries(keyword, mode) {
   const base = safeSearchTerm(keyword);
   let patterns;
   if (mode === 'autoscan' && !base) {
-    const domains = ['pastebin.com','rentry.co','reddit.com','github.com','gist.github.com','archive.org','gitlab.com','bitbucket.org','linktr.ee','meawfy.com','telegra.ph','medium.com','substack.com','notion.site','justpaste.it','paste.ee','controlc.com','hastebin.com','blogspot.com','wordpress.com','tumblr.com','sites.google.com','docs.google.com','carrd.co','beacons.ai'];
+    const domains = ['rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastelink.net','reddit.com','old.reddit.com','github.com','gist.github.com','raw.githubusercontent.com','github.io','archive.org','gitlab.com','bitbucket.org','linktr.ee','linktree.com','meawfy.com','telegra.ph','medium.com','substack.com','notion.site','blogspot.com','wordpress.com','tumblr.com','sites.google.com','docs.google.com','carrd.co','beacons.ai','bio.link','solo.to','heylink.me','lnk.bio','t.me','telegram.me','vk.com'];
     const needles = ['mega.nz/folder','mega.nz/file','mega.co.nz/#F!','\"mega.nz/folder\"','\"mega.nz/file\"','\"mega.nz/folder\" \"index\"','\"mega.nz/file\" \"key\"'];
     patterns = [...AUTOSCAN_PATTERNS];
     for (const d of domains) for (const n of needles) patterns.push(`site:${d} ${n}`);
@@ -365,23 +369,57 @@ function buildQueries(keyword, mode) {
     `site:gitlab.com ${base} mega.nz`, `site:linktr.ee ${base} mega.nz`, `site:meawfy.com ${base} mega.nz`,
     `"mega.nz/folder" ${base}`, `"mega.nz/file" ${base}`, `"mega.co.nz/#F!" ${base}`
   ];
-  return [...new Set(patterns.filter(Boolean))].slice(0, mode === 'autoscan' ? 80 : 48);
+  return [...new Set(patterns.filter(Boolean))].slice(0, mode === 'autoscan' ? 220 : 80);
 }
 function catalogSources() {
   return builtInSources().map(s => ({
     id:s[0], name:s[1], type:s[2], enabled:1, priority:s[3], template:s[4], config:s[5] || '{}'
   }));
 }
+function sourceGroup(src) {
+  const n = String(src.name||src.id||src.template||'').toLowerCase();
+  const t = String(src.type||'').toLowerCase();
+  if (/reddit/.test(n)) return 'reddit';
+  if (/github|gist|gitlab|bitbucket|raw\.githubusercontent/.test(n)) return 'code';
+  if (/rentry|paste|controlc|haste|txti|dpaste|0bin/.test(n)) return 'paste';
+  if (/archive/.test(n)) return 'archive';
+  if (/meawfy|linktree|linktr|beacons|bio\.link|solo\.to|carrd|heylink|lnk/.test(n)) return 'linkhub';
+  if (/bing|duck|yahoo|brave|mojeek|qwant|startpage|yandex/.test(n)) return 'engine';
+  if (t === 'json' || t === 'rss') return 'structured';
+  return 'web';
+}
+function balancedSources(rows, offset=0) {
+  const groups = {};
+  for (const r of rows) {
+    const g = sourceGroup(r);
+    (groups[g] ||= []).push(r);
+  }
+  for (const k of Object.keys(groups)) groups[k].sort((a,b)=>(b.priority||0)-(a.priority||0));
+  const order = ['paste','reddit','code','archive','linkhub','structured','engine','web'];
+  const out = [];
+  let more = true, i = 0;
+  while (more && out.length < rows.length) {
+    more = false;
+    for (const g of order) {
+      const list = groups[g] || [];
+      if (i < list.length) { out.push(list[i]); more = true; }
+    }
+    i++;
+  }
+  if (!out.length) return rows;
+  offset = Math.max(0, offset||0) % out.length;
+  return out.slice(offset).concat(out.slice(0, offset));
+}
 async function getSources(env, opts = {}) {
   const maxSources = intEnv(env, 'MAX_SOURCES_PER_RUN', 1000, 25, 1000);
   let rows = catalogSources();
-  // Optional custom sources remain supported, but built-in sources are never seeded into D1.
   try {
-    const r = await all(env, `SELECT * FROM ${T.sources} WHERE enabled=1 ORDER BY priority DESC LIMIT 200`);
+    const r = await all(env, `SELECT * FROM ${T.sources} WHERE enabled=1 ORDER BY priority DESC LIMIT 300`);
     rows = rows.concat(r.results || []);
   } catch {}
-  rows.sort((a,b)=>(b.priority||0)-(a.priority||0));
-  return rows.slice(0, maxSources);
+  const seen = new Set();
+  rows = rows.filter(r => { const k=String(r.id||r.name||r.template); if(seen.has(k)) return false; seen.add(k); return true; });
+  return balancedSources(rows, Number(opts.offset||0)).slice(0, maxSources);
 }
 function sourceUrl(source, query) { return source.template.replace('{q}', encodeURIComponent(query)); }
 async function cachedFetch(env, url, sourceName) {
@@ -483,10 +521,10 @@ async function runStats(env, runId) {
 async function runSearch(env, mode, keyword, quick = false, opts = {}) {
   const runId = await startRun(env, mode, keyword||'');
   const started = Date.now();
-  const allSources = await getSources(env);
+  const allSources = await getSources(env, {offset: Number(opts.source_offset || 0) || 0});
   const maxSourceFetches = Math.min(Number(opts.max_sources || 0) || intEnv(env, 'MAX_SOURCE_FETCHES', DEFAULT_MAX_SOURCE_FETCHES, 8, HARD_MAX_SOURCE_FETCHES), HARD_MAX_SOURCE_FETCHES);
   const sourceOffset = Math.max(0, Number(opts.source_offset || 0) || 0) % Math.max(1, allSources.length);
-  const rotatedSources = allSources.slice(sourceOffset).concat(allSources.slice(0, sourceOffset));
+  const rotatedSources = allSources;
   const queries = buildQueries(keyword, mode);
   const queryOffset = Math.max(0, Number(opts.query_offset || 0) || 0) % Math.max(1, queries.length);
   const rotatedQueries = queries.slice(queryOffset).concat(queries.slice(0, queryOffset));
@@ -498,7 +536,7 @@ async function runSearch(env, mode, keyword, quick = false, opts = {}) {
     selected.push([src, query]);
     if (selected.length >= maxSourceFetches) break;
   }
-  const concurrency = Math.min(6, selected.length || 1);
+  const concurrency = Math.min(4, selected.length || 1);
   let cursor = 0;
   async function worker() {
     while (cursor < selected.length && Date.now() - started < REQUEST_BUDGET_MS) {
@@ -508,22 +546,22 @@ async function runSearch(env, mode, keyword, quick = false, opts = {}) {
       const got = await cachedFetch(env, url, src.name);
       const links = extractMegaLinks(got.text);
       for (const link of links) {
-        if (await saveLink(env, { run_id:runId, mode, keyword:keyword||'', link, source:src.name, page_url:url, title:query, snippet:'direct from source response' })) direct++;
+        if (await saveLink(env, { run_id:runId, mode, keyword:keyword||'', link, source:(hostOf(url)||src.name), page_url:url, title:query, snippet:'direct from source response' })) direct++;
       }
       await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
         ['pg_'+hash(runId+url), runId, mode, src.name, url, query, got.status||0, 0, links.length, nowIso(), got.error||'']);
-      const targetLimit = quick ? 3 : (mode === 'autoscan' ? 8 : 5);
+      const targetLimit = quick ? 2 : (mode === 'autoscan' ? 5 : 4);
       const targets = parseSearchTargets(got.text, src, url).slice(0, targetLimit);
       for (const t of targets) {
-        await enqueue(env, { run_id:runId, mode, kind:'crawl', url:t, keyword:keyword||query, source:src.name, priority: src.priority || 50 });
+        await enqueue(env, { run_id:runId, mode, kind:'crawl', url:t, keyword:keyword||query, source:hostOf(t)||src.name, priority: src.priority || 50 });
         queued++;
       }
     }
   }
   await Promise.all(Array.from({length:concurrency}, worker));
-  const rounds = quick ? 4 : Math.min(Number(opts.deep_rounds || 0) || 12, 24);
-  const processed = await deepProcessQueue(env, runId, rounds, quick ? 8 : MAX_QUEUE_BATCH, started);
-  const health = await checkBatch(env, runId, quick ? 3 : 5);
+  const rounds = quick ? 3 : Math.min(Number(opts.deep_rounds || 0) || 8, 18);
+  const processed = await deepProcessQueue(env, runId, rounds, quick ? 5 : MAX_QUEUE_BATCH, started);
+  const health = {checked:0, alive:0, dead:0, unknown:0, skipped:'health checks moved out of search hot path'};
   await finishRun(env, runId);
   const results = await getResults(env, mode, keyword, 1000);
   const next_source_offset = (sourceOffset + sourceFetches) % Math.max(1, allSources.length);
@@ -535,15 +573,15 @@ async function crawlPage(env, item) {
   let found = 0, children = 0;
   const links = extractMegaLinks(got.text);
   for (const link of links) {
-    if (await saveLink(env, { run_id:item.run_id, mode:item.mode, keyword:item.keyword||'', link, source:item.source||hostOf(item.url), page_url:item.url, title:item.keyword||'', snippet:snippetFrom(got.text) })) found++;
+    if (await saveLink(env, { run_id:item.run_id, mode:item.mode, keyword:item.keyword||'', link, source:hostOf(item.url)||item.source, page_url:item.url, title:item.keyword||'', snippet:snippetFrom(got.text) })) found++;
   }
   await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
-    ['pg_'+hash((item.run_id||'')+item.url), item.run_id||'', item.mode||'', item.source||hostOf(item.url), item.url, item.keyword||'', got.status||0, 1, found, nowIso(), got.error||'']);
+    ['pg_'+hash((item.run_id||'')+item.url), item.run_id||'', item.mode||'', hostOf(item.url)||item.source, item.url, item.keyword||'', got.status||0, 1, found, nowIso(), got.error||'']);
   const discovered = parseSearchTargets(got.text, {name:item.source||hostOf(item.url)}, item.url)
     .filter(u => !/\.(?:jpg|jpeg|png|gif|webp|css|ico|svg|woff2?)(?:$|[?#])/i.test(u))
     .slice(0, 4);
   for (const u of discovered) {
-    await enqueue(env, { run_id:item.run_id, mode:item.mode, kind:'crawl', url:u, keyword:item.keyword||'', source:item.source||hostOf(item.url), priority: Math.max(10,(item.priority||50)-10), max_attempts:2 });
+    await enqueue(env, { run_id:item.run_id, mode:item.mode, kind:'crawl', url:u, keyword:item.keyword||'', source:hostOf(u)||hostOf(item.url)||item.source, priority: Math.max(10,(item.priority||50)-12), max_attempts:2 });
     children++;
   }
   return { found, children, status:got.status||0 };
@@ -669,8 +707,26 @@ async function diagnostics(env) {
     const c = await first(env, `SELECT COUNT(*) c FROM ${t}`);
     tables[t] = c?.c ?? 0;
   }
-  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend'] };
+  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open'] };
 }
+
+async function startV28Job(env, mode='autoscan', keyword='') {
+  await ensureDb(env);
+  const runId = await startRun(env, mode, keyword||'');
+  return { ok:true, version:VERSION, run_id:runId, mode, keyword:keyword||'', message:'V28 job started. Client will call /api/v28/tick until done.' };
+}
+async function tickV28Job(env, runId, mode='autoscan', keyword='', opts={}) {
+  const started = Date.now();
+  const r = await runSearch(env, mode, keyword||'', false, {
+    source_offset: Number(opts.source_offset||0)||0,
+    query_offset: Number(opts.query_offset||0)||0,
+    max_sources: Number(opts.max_sources||44)||44,
+    deep_rounds: Number(opts.deep_rounds||8)||8
+  });
+  const pending = await queueCount(env, '');
+  return { ok:true, version:VERSION, parent_run_id:runId||'', tick_run_id:r.run_id, elapsed_ms:Date.now()-started, pending, ...r };
+}
+
 function csvEscape(s) { s=String(s??''); return '"'+s.replace(/"/g,'""')+'"'; }
 async function exportData(env, fmt='json', mode='') {
   const r = await getResults(env, mode, '', 1000);
@@ -693,7 +749,10 @@ async function handleApi(req, env, ctx) {
     if (path === '/api/db/repair') { await ensureDb(env); return json(await diagnostics(env)); }
     if (path === '/api/db/reset') { await hardReset(env); return json({ok:true, version:VERSION, reset:true, diagnostics:await diagnostics(env)}); }
     if (path === '/api/db/clean') { await cleanData(env); return json({ok:true, version:VERSION, cleaned:true}); }
+    if (path === '/api/db/clean-invalid') { const out = await cleanInvalidLinks(env); return json({ok:true, version:VERSION, ...out}); }
     if (path === '/api/diagnostics') return json(await diagnostics(env));
+    if (path === '/api/v28/start') { const b=await parseBody(req); return json(await startV28Job(env, b.mode||'autoscan', b.keyword||'')); }
+    if (path === '/api/v28/tick') { const b=await parseBody(req); return json(await tickV28Job(env, b.run_id||'', b.mode||'autoscan', b.keyword||'', b)); }
     if (path === '/api/autoscan') { const b = await parseBody(req); const out = await runSearch(env, 'autoscan', b.keyword||'', false, b); return json(out); }
     if (path === '/api/search') { const b = await parseBody(req); if (!String(b.keyword||'').trim()) return json({ok:false, error:'keyword_required'}, 400); const out = await runSearch(env, 'search', String(b.keyword||'').trim(), false, b); return json(out); }
     if (path === '/api/extract') { const b = await parseBody(req); if (!b.url) return json({ok:false,error:'url_required'},400); return json(await extractFromUrl(env, b.url, b.mode||'url', b.keyword||'')); }
@@ -719,7 +778,7 @@ export default {
     const url = new URL(req.url);
     if (url.pathname.startsWith('/api/')) return handleApi(req, env, ctx);
     if (url.pathname === '/reset') return handleReset(req, env);
-    return env.ASSETS ? env.ASSETS.fetch(req) : text('Nimbus Core V27 Source Boost');
+    return env.ASSETS ? env.ASSETS.fetch(req) : text('Nimbus Core V28 HyperSearch');
   },
   scheduled
 };

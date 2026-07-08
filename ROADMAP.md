@@ -1,5 +1,3 @@
-Next improvements:
-- Add Cloudflare Queues for server-side background continuation.
-- Add source health scoring based on historical link yield.
-- Add adaptive pause/retry for rate-limited search engines.
-- Add export of AutoScan session progress.
+# Roadmap
+
+Next: real Cloudflare Queues optional binding, Durable Object job state, scheduled background continuation, and source health scoring.

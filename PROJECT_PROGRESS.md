@@ -1,5 +1,3 @@
-Nimbus Core progress
+# V28 HyperSearch
 
-Current version: 27-sourceboost.5-auto-batch
-
-Fixed the previous failure where AutoScan tried to seed 1000 sources into D1 during the same Worker invocation. The source catalog now stays in code and the UI automatically distributes the scan over multiple safe invocations from one button press.
+Built from V27 StableDrain after testing showed weak results, Brave-heavy attribution and Safari open issues. V28 adds balanced source groups, virtual job ticks, safer MEGA opening, and lower per-request resource pressure.
