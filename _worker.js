@@ -2,7 +2,7 @@
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '27-sourceboost.3-deep';
+const VERSION = '27-sourceboost.4-wide1000';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -17,14 +17,15 @@ const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Apple
 const TIMEOUT_MS = 11000;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 const HEALTH_TTL_MS = 1000 * 60 * 60 * 12;
-const MAX_SOURCE_FETCHES = 48;
+const DEFAULT_MAX_SOURCE_FETCHES = 120;
+const HARD_MAX_SOURCE_FETCHES = 240;
 const MAX_CRAWL_PAGES = 120;
 const MAX_QUEUE_BATCH = 40;
-const MAX_DEEP_ROUNDS = 100;
-const REQUEST_BUDGET_MS = 42000;
+const MAX_DEEP_ROUNDS = 200;
+const REQUEST_BUDGET_MS = 50000;
 const MAX_TEXT = 350000;
-const LINK_RE = /(?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz|io)\/(?:file|folder)\/[A-Za-z0-9_-]+(?:#[A-Za-z0-9_!\-]+)?/gi;
-const OLD_LINK_RE = /https?:\/\/mega\.(?:nz|co\.nz)\/#(?:F!|N!|!)?[A-Za-z0-9_-]+![A-Za-z0-9_!\-]+/gi;
+const LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz|io)\/(?:file|folder)\/[A-Za-z0-9_-]+(?:#[A-Za-z0-9_!\-]+)?)/gi;
+const OLD_LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz)\/#(?:F!|N!|!)?[A-Za-z0-9_-]+![A-Za-z0-9_!\-]+)/gi;
 const MEGA_HOST_RE = /^https?:\/\/(?:www\.)?mega\.(?:nz|co\.nz|io)\//i;
 
 const AUTOSCAN_PATTERNS = [
@@ -61,6 +62,18 @@ function safeUrl(u, base) { try { return new URL(u, base).href; } catch { return
 function originOf(u) { try { return new URL(u).origin; } catch { return ''; } }
 function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./,''); } catch { return ''; } }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function intEnv(env, key, fallback, min, max) {
+  const n = Number(env && env[key]);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(n)));
+}
+function safeSearchTerm(s) {
+  return String(s || '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\b(?:pirate|crack|warez|torrent|leak|leaked|stolen|password|combo|account)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 function decodeLoose(s) {
   s = String(s || '');
   const variants = new Set([s]);
@@ -68,40 +81,52 @@ function decodeLoose(s) {
   variants.add(html);
   try { variants.add(decodeURIComponent(html)); } catch {}
   try { variants.add(decodeURIComponent(decodeURIComponent(html))); } catch {}
-  return [...variants].join('\\n');
+  return [...variants].join('\n');
 }
 function normalizeLink(link) {
   try {
-    link = String(link || '').trim().replace(/&amp;/g,'&').replace(/\\\//g,'/').replace(/[\])},.;]+$/g,'');
+    link = String(link || '')
+      .trim()
+      .replace(/&amp;/g,'&')
+      .replace(/\\\//g,'/')
+      .replace(/[\])},.;]+$/g,'');
+
     if (/^mega\./i.test(link)) link = 'https://' + link;
     if (/^www\.mega\./i.test(link)) link = 'https://' + link;
-    const old = link.match(OLD_LINK_RE);
-    if (old) return old[0].replace(/&.*$/,'');
+
     const u = new URL(link);
     if (!MEGA_HOST_RE.test(u.href)) return '';
     return u.href.replace(/&utm_[^#]+/g,'');
   } catch { return ''; }
 }
-function extractMegaLinks(input) {
-  const raw = typeof input === 'string' ? input : JSON.stringify(input || {});
-  const s = decodeLoose(raw);
-  const out = new Map();
+function addMegaMatches(textValue, out) {
   let m;
   LINK_RE.lastIndex = 0;
-  while ((m = LINK_RE.exec(s)) !== null) {
-    const l = normalizeLink(m[0]);
+  while ((m = LINK_RE.exec(textValue)) !== null) {
+    const l = normalizeLink(m[2]);
     if (l) out.set(l, l);
   }
   OLD_LINK_RE.lastIndex = 0;
-  while ((m = OLD_LINK_RE.exec(s)) !== null) {
-    const l = normalizeLink(m[0]);
+  while ((m = OLD_LINK_RE.exec(textValue)) !== null) {
+    const l = normalizeLink(m[2]);
     if (l) out.set(l, l);
   }
+}
+function extractMegaLinks(input, depth = 0) {
+  const raw = typeof input === 'string' ? input : JSON.stringify(input || {});
+  const s = decodeLoose(raw);
+  const out = new Map();
+  addMegaMatches(s, out);
+
   // Also catch links hidden in query parameters such as ?url=https%3A%2F%2Fmega.nz%2Ffolder...
-  const urlLike = /(?:url|u|target|redirect|to|q)=([^&"'<>]+)/gi;
-  while ((m = urlLike.exec(raw)) !== null) {
-    const lks = extractMegaLinks(decodeLoose(m[1]));
-    for (const l of lks) out.set(l, l);
+  // Depth is capped to prevent recursive loops from self-referential redirect URLs.
+  if (depth < 1) {
+    const urlLike = /(?:[?&]|^)(?:url|u|target|redirect|to|q)=([^&"'<>]+)/gi;
+    let m;
+    while ((m = urlLike.exec(raw)) !== null) {
+      const lks = extractMegaLinks(decodeLoose(m[1]), depth + 1);
+      for (const l of lks) out.set(l, l);
+    }
   }
   return [...out.values()];
 }
@@ -206,37 +231,84 @@ async function ensureDb(env) {
   for (const s of idx) await runIgnore(q(env, s));
   await seedSources(env);
 }
+function sourceRow(id, name, type, priority, template, config = {}) {
+  return [id, name, type, priority, template, JSON.stringify(config)];
+}
+function builtInSources() {
+  const rows = [];
+  const add = (id, name, type, priority, template, config={}) => rows.push(sourceRow(id, name, type, priority, template, config));
+  const engines = [
+    ['bing_rss','Bing RSS','rss',130,'https://www.bing.com/search?format=rss&q={q}'],
+    ['bing_web','Bing Web','html',118,'https://www.bing.com/search?q={q}&count=50'],
+    ['duckduckgo_html','DuckDuckGo HTML','html',116,'https://duckduckgo.com/html/?q={q}'],
+    ['yahoo_search','Yahoo Search','html',108,'https://search.yahoo.com/search?p={q}&n=30'],
+    ['brave_web','Brave Web','html',96,'https://search.brave.com/search?q={q}'],
+    ['mojeek','Mojeek','html',92,'https://www.mojeek.com/search?q={q}'],
+    ['qwant','Qwant','html',82,'https://www.qwant.com/?q={q}&t=web'],
+    ['startpage','Startpage','html',78,'https://www.startpage.com/sp/search?query={q}'],
+    ['yandex','Yandex','html',70,'https://yandex.com/search/?text={q}']
+  ];
+  for (const e of engines) add(...e);
+  const apiLike = [
+    ['reddit_search_json','Reddit Search JSON','json',112,'https://www.reddit.com/search.json?q={q}&limit=100&sort=new'],
+    ['reddit_all_url_json','Reddit URL JSON','json',106,'https://www.reddit.com/search.json?q={q}%20url%3Amega.nz&limit=100&sort=new'],
+    ['reddit_megalinks_json','Reddit Megalinks JSON','json',84,'https://www.reddit.com/r/megalinks/search.json?q={q}&restrict_sr=1&limit=100&sort=new'],
+    ['hn_algolia','HN Algolia','json',35,'https://hn.algolia.com/api/v1/search?query={q}%20mega.nz&tags=story,comment'],
+    ['github_code','GitHub Code Web','html',104,'https://github.com/search?q={q}+mega.nz&type=code'],
+    ['github_issues','GitHub Issues Web','html',94,'https://github.com/search?q={q}+mega.nz&type=issues'],
+    ['github_repos','GitHub Repos Web','html',86,'https://github.com/search?q={q}+mega.nz&type=repositories'],
+    ['gist_search','Gist Search','html',90,'https://gist.github.com/search?q={q}+mega.nz'],
+    ['gitlab_search','GitLab Search','html',80,'https://gitlab.com/search?search={q}%20mega.nz'],
+    ['bitbucket_search','Bitbucket Search','html',68,'https://bitbucket.org/repo/all?name={q}%20mega.nz'],
+    ['archive_search','Archive Search','html',86,'https://archive.org/search?query={q}%20mega.nz'],
+    ['archive_fulltext','Archive Full Text','html',70,'https://archive.org/advancedsearch.php?q={q}%20mega.nz&fl%5B%5D=identifier&rows=50&output=json'],
+    ['meawfy_web','Meawfy Web','html',100,'https://meawfy.com/search?q={q}'],
+    ['ahmia','Ahmia Web','html',44,'https://ahmia.fi/search/?q={q}%20mega.nz']
+  ];
+  for (const a of apiLike) add(...a);
+  const domains = [
+    'pastebin.com','rentry.co','paste.ee','justpaste.it','controlc.com','hastebin.com','gist.github.com','github.com','gitlab.com','bitbucket.org','reddit.com','old.reddit.com','archive.org','linktr.ee','linktree.com','meawfy.com','telegra.ph','medium.com','substack.com','notion.site','notion.so','docs.google.com','sites.google.com','blogspot.com','wordpress.com','tumblr.com','wixsite.com','weebly.com','carrd.co','beacons.ai','bio.link','solo.to','msha.ke','taplink.cc','allmylinks.com','instabio.cc','heylink.me','lnk.bio','flow.page','about.me','deviantart.com','patreon.com','ko-fi.com','gumroad.com','itch.io','npmjs.com','pypi.org','rubygems.org','nuget.org','docker.com','hub.docker.com','sourceforge.net','gitbook.io','readthedocs.io','readme.io','stackexchange.com','stackoverflow.com','superuser.com','askubuntu.com','quora.com','slideshare.net','scribd.com','academia.edu','researchgate.net','issuu.com','calameo.com','4shared.com','mediafire.com','mega.nz'
+  ];
+  const patterns = [
+    ['web','https://www.bing.com/search?q=site%3A{domain}%20{q}%20mega.nz&count=30',64],
+    ['rss','https://www.bing.com/search?format=rss&q=site%3A{domain}%20{q}%20mega.nz',62],
+    ['ddg','https://duckduckgo.com/html/?q=site%3A{domain}%20{q}%20mega.nz',58],
+    ['yahoo','https://search.yahoo.com/search?p=site%3A{domain}%20{q}%20mega.nz&n=20',54],
+    ['file','https://www.bing.com/search?q=site%3A{domain}%20{q}%20%22mega.nz%2Ffile%22&count=30',70],
+    ['folder','https://www.bing.com/search?q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22&count=30',72]
+  ];
+  let idx = 0;
+  for (const d of domains) {
+    for (const [kind,tpl,pri] of patterns) {
+      add('src_'+(++idx)+'_'+kind+'_'+d.replace(/[^a-z0-9]+/gi,'_').slice(0,36), d+' '+kind, kind === 'rss' ? 'rss' : 'html', pri, tpl.replace('{domain}', d));
+    }
+  }
+  const genericNeedles = ['"mega.nz/folder"','"mega.nz/file"','"mega.co.nz/#F!"','"mega.nz" "folder"','"mega.nz" "file"','"mega.nz/folder" "index"','"mega.nz/file" "key"'];
+  for (const needle of genericNeedles) {
+    add('generic_bing_'+hash(needle), 'Generic Bing '+needle, 'html', 60, 'https://www.bing.com/search?q='+encodeURIComponent(needle)+'%20{q}&count=50');
+    add('generic_rss_'+hash(needle), 'Generic RSS '+needle, 'rss', 58, 'https://www.bing.com/search?format=rss&q='+encodeURIComponent(needle)+'%20{q}');
+    add('generic_ddg_'+hash(needle), 'Generic DDG '+needle, 'html', 52, 'https://duckduckgo.com/html/?q='+encodeURIComponent(needle)+'%20{q}');
+  }
+  // Fill the catalog to 1000 deterministic source templates using safe public search variations.
+  const safeFacets = ['file','folder','index','key','public','shared','download','cloud','archive','mirror','collection','backup','docs','links','resources','dataset','media','software','video','audio'];
+  let filler = 0;
+  while (rows.length < 1000) {
+    const facet = safeFacets[filler % safeFacets.length];
+    const domain = domains[filler % domains.length];
+    const engine = filler % 3;
+    const id = 'wide_'+String(filler+1).padStart(4,'0')+'_'+facet+'_'+domain.replace(/[^a-z0-9]+/gi,'_').slice(0,32);
+    if (engine === 0) add(id, 'Wide '+facet+' '+domain, 'html', 35 + (filler % 20), `https://www.bing.com/search?q=site%3A${domain}%20{q}%20mega.nz%20${encodeURIComponent(facet)}&count=20`);
+    else if (engine === 1) add(id, 'Wide RSS '+facet+' '+domain, 'rss', 33 + (filler % 20), `https://www.bing.com/search?format=rss&q=site%3A${domain}%20{q}%20mega.nz%20${encodeURIComponent(facet)}`);
+    else add(id, 'Wide DDG '+facet+' '+domain, 'html', 30 + (filler % 20), `https://duckduckgo.com/html/?q=site%3A${domain}%20{q}%20mega.nz%20${encodeURIComponent(facet)}`);
+    filler++;
+  }
+  const seen = new Set();
+  return rows.filter(r => { if (seen.has(r[0])) return false; seen.add(r[0]); return true; }).slice(0, 1000);
+}
 async function seedSources(env) {
-  const n = await first(env, `SELECT COUNT(*) c FROM ${T.sources}`);
-  if (n && n.c > 0) return;
-  const sources = [
-    ['bing_rss','Bing RSS','rss',120,'https://www.bing.com/search?format=rss&q={q}'],
-    ['bing_web','Bing Web','html',108,'https://www.bing.com/search?q={q}&count=50'],
-    ['duckduckgo_html','DuckDuckGo HTML','html',110,'https://duckduckgo.com/html/?q={q}'],
-    ['yahoo_search','Yahoo Search','html',95,'https://search.yahoo.com/search?p={q}&n=30'],
-    ['brave_web','Brave Web','html',70,'https://search.brave.com/search?q={q}'],
-    ['mojeek','Mojeek','html',70,'https://www.mojeek.com/search?q={q}'],
-    ['reddit_search_json','Reddit Search JSON','json',105,'https://www.reddit.com/search.json?q={q}&limit=100&sort=new'],
-    ['reddit_megalinks_json','Reddit Megalinks JSON','json',100,'https://www.reddit.com/r/megalinks/search.json?q={q}&restrict_sr=1&limit=100&sort=new'],
-    ['reddit_all_comments_hint','Reddit Comments Hint','json',92,'https://www.reddit.com/search.json?q={q}%20url%3Amega.nz&limit=100&sort=new'],
-    ['github_code','GitHub Code Web','html',92,'https://github.com/search?q={q}+mega.nz&type=code'],
-    ['github_issues','GitHub Issues Web','html',82,'https://github.com/search?q={q}+mega.nz&type=issues'],
-    ['github_repos','GitHub Repos Web','html',78,'https://github.com/search?q={q}+mega.nz&type=repositories'],
-    ['gist_search','Gist Search','html',80,'https://gist.github.com/search?q={q}+mega.nz'],
-    ['gitlab_search','GitLab Search','html',70,'https://gitlab.com/search?search={q}%20mega.nz'],
-    ['bitbucket_search','Bitbucket Search','html',62,'https://bitbucket.org/repo/all?name={q}%20mega.nz'],
-    ['archive_search','Archive Search','html',74,'https://archive.org/search?query={q}%20mega.nz'],
-    ['pastebin_web','Pastebin Web','html',72,'https://pastebin.com/search?q={q}%20mega.nz'],
-    ['rentry_web','Rentry Web','html',70,'https://rentry.co/search?q={q}%20mega.nz'],
-    ['paste_ee','Paste.ee','html',58,'https://paste.ee/search?q={q}%20mega.nz'],
-    ['justpaste','JustPaste','html',58,'https://justpaste.it/search?q={q}%20mega.nz'],
-    ['controlc','ControlC','html',55,'https://controlc.com/search?q={q}%20mega.nz'],
-    ['telegra','Telegraph','html',52,'https://telegra.ph/search?query={q}%20mega.nz'],
-    ['ahmia','Ahmia Web','html',50,'https://ahmia.fi/search/?q={q}%20mega.nz'],
-    ['meawfy_web','Meawfy Web','html',95,'https://meawfy.com/search?q={q}'],
-    ['linktree_web','Linktree Web','html',45,'https://linktr.ee/search?q={q}%20mega.nz']
-  ];  for (const s of sources) {
-    await q(env, `INSERT OR IGNORE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`, [s[0],s[1],s[2],1,s[3],s[4],'{}',nowIso(),nowIso()]);
+  const sources = builtInSources();
+  for (const s of sources) {
+    await q(env, `INSERT OR IGNORE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`, [s[0],s[1],s[2],1,s[3],s[4],s[5]||'{}',nowIso(),nowIso()]);
   }
 }
 async function hardReset(env) {
@@ -262,9 +334,14 @@ async function requireAuth(req, env) {
 async function parseBody(req) { try { return await req.json(); } catch { return {}; } }
 
 function buildQueries(keyword, mode) {
-  const base = String(keyword || '').trim();
+  const base = safeSearchTerm(keyword);
   let patterns;
-  if (mode === 'autoscan' && !base) patterns = AUTOSCAN_PATTERNS;
+  if (mode === 'autoscan' && !base) {
+    const domains = ['pastebin.com','rentry.co','reddit.com','github.com','gist.github.com','archive.org','gitlab.com','bitbucket.org','linktr.ee','meawfy.com','telegra.ph','medium.com','substack.com','notion.site','justpaste.it','paste.ee','controlc.com','hastebin.com','blogspot.com','wordpress.com','tumblr.com','sites.google.com','docs.google.com','carrd.co','beacons.ai'];
+    const needles = ['mega.nz/folder','mega.nz/file','mega.co.nz/#F!','\"mega.nz/folder\"','\"mega.nz/file\"','\"mega.nz/folder\" \"index\"','\"mega.nz/file\" \"key\"'];
+    patterns = [...AUTOSCAN_PATTERNS];
+    for (const d of domains) for (const n of needles) patterns.push(`site:${d} ${n}`);
+  }
   else patterns = [
     base, `"${base}"`, `${base} mega.nz`, `"${base}" "mega.nz"`,
     `"${base}" "mega.nz/folder"`, `"${base}" "mega.nz/file"`,
@@ -273,10 +350,11 @@ function buildQueries(keyword, mode) {
     `site:gitlab.com ${base} mega.nz`, `site:linktr.ee ${base} mega.nz`, `site:meawfy.com ${base} mega.nz`,
     `"mega.nz/folder" ${base}`, `"mega.nz/file" ${base}`, `"mega.co.nz/#F!" ${base}`
   ];
-  return [...new Set(patterns.filter(Boolean))].slice(0, mode === 'autoscan' ? 32 : 24);
+  return [...new Set(patterns.filter(Boolean))].slice(0, mode === 'autoscan' ? 80 : 48);
 }
 async function getSources(env) {
-  const r = await all(env, `SELECT * FROM ${T.sources} WHERE enabled=1 ORDER BY priority DESC LIMIT 50`);
+  const maxSources = intEnv(env, 'MAX_SOURCES_PER_RUN', 1000, 25, 1000);
+  const r = await all(env, `SELECT * FROM ${T.sources} WHERE enabled=1 ORDER BY priority DESC LIMIT ?`, [maxSources]);
   return r.results || [];
 }
 function sourceUrl(source, query) { return source.template.replace('{q}', encodeURIComponent(query)); }
@@ -386,15 +464,16 @@ async function runSearch(env, mode, keyword, quick = false) {
   const runId = await startRun(env, mode, keyword||'');
   const started = Date.now();
   const sources = await getSources(env);
+  const maxSourceFetches = intEnv(env, 'MAX_SOURCE_FETCHES', DEFAULT_MAX_SOURCE_FETCHES, 12, HARD_MAX_SOURCE_FETCHES);
   const queries = buildQueries(keyword, mode);
   let sourceFetches = 0, direct = 0, queued = 0;
   const selected = [];
   for (const query of queries) {
     for (const src of sources) {
       selected.push([src, query]);
-      if (selected.length >= MAX_SOURCE_FETCHES) break;
+      if (selected.length >= maxSourceFetches) break;
     }
-    if (selected.length >= MAX_SOURCE_FETCHES) break;
+    if (selected.length >= maxSourceFetches) break;
   }
   await Promise.all(selected.map(async ([src, query]) => {
     sourceFetches++;
@@ -412,7 +491,7 @@ async function runSearch(env, mode, keyword, quick = false) {
       queued++;
     }
   }));
-  const rounds = quick ? 8 : Number(env.DEEP_ROUNDS || 100);
+  const rounds = quick ? 8 : intEnv(env, 'DEEP_ROUNDS', 160, 1, MAX_DEEP_ROUNDS);
   const processed = await deepProcessQueue(env, runId, Math.min(rounds, MAX_DEEP_ROUNDS), quick ? 16 : MAX_QUEUE_BATCH, started);
   const health = await checkBatch(env, runId, quick ? 10 : 60);
   await finishRun(env, runId);
@@ -548,7 +627,7 @@ async function diagnostics(env) {
     const c = await first(env, `SELECT COUNT(*) c FROM ${t}`);
     tables[t] = c?.c ?? 0;
   }
-  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_100_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','more_sources'] };
+  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard'] };
 }
 function csvEscape(s) { s=String(s??''); return '"'+s.replace(/"/g,'""')+'"'; }
 async function exportData(env, fmt='json', mode='') {

@@ -1,0 +1,134 @@
+{
+  "version": "27-sourceboost.4-wide1000",
+  "checks": {
+    "constants": {
+      "HARD_MAX_SOURCE_FETCHES": 240,
+      "MAX_DEEP_ROUNDS": 200,
+      "REQUEST_BUDGET_MS": 50000,
+      "DEFAULT_MAX_SOURCE_FETCHES": 120
+    },
+    "sourceCount": 1000,
+    "uniqueSourceIds": 1000,
+    "sampleSources": [
+      {
+        "id": "bing_rss",
+        "name": "Bing RSS",
+        "type": "rss",
+        "priority": 130
+      },
+      {
+        "id": "bing_web",
+        "name": "Bing Web",
+        "type": "html",
+        "priority": 118
+      },
+      {
+        "id": "duckduckgo_html",
+        "name": "DuckDuckGo HTML",
+        "type": "html",
+        "priority": 116
+      },
+      {
+        "id": "yahoo_search",
+        "name": "Yahoo Search",
+        "type": "html",
+        "priority": 108
+      },
+      {
+        "id": "brave_web",
+        "name": "Brave Web",
+        "type": "html",
+        "priority": 96
+      },
+      {
+        "id": "mojeek",
+        "name": "Mojeek",
+        "type": "html",
+        "priority": 92
+      },
+      {
+        "id": "qwant",
+        "name": "Qwant",
+        "type": "html",
+        "priority": 82
+      },
+      {
+        "id": "startpage",
+        "name": "Startpage",
+        "type": "html",
+        "priority": 78
+      },
+      {
+        "id": "yandex",
+        "name": "Yandex",
+        "type": "html",
+        "priority": 70
+      },
+      {
+        "id": "reddit_search_json",
+        "name": "Reddit Search JSON",
+        "type": "json",
+        "priority": 112
+      }
+    ],
+    "autoscanPatterns": 31,
+    "safeSearch": "test normal",
+    "extraction500": {
+      "passed": 500,
+      "samples": [
+        {
+          "input": "mega.nz/file/64hMT76TQCv#XDbe2_haCWuH-lZ9LR6",
+          "normalized": "https://mega.nz/file/64hMT76TQCv#XDbe2_haCWuH-lZ9LR6",
+          "output": "https://mega.nz/file/64hMT76TQCv#XDbe2_haCWuH-lZ9LR6"
+        },
+        {
+          "input": "https://mega.nz/folder/cXBEsd2zFW-g7K3up#CP8k75qM4rfZTCUERj5",
+          "normalized": "https://mega.nz/folder/cXBEsd2zFW-g7K3up#CP8k75qM4rfZTCUERj5",
+          "output": "https://mega.nz/folder/cXBEsd2zFW-g7K3up#CP8k75qM4rfZTCUERj5"
+        },
+        {
+          "input": "https://mega.nz/file/WCagpFD_tT#FIRJZePoEowtXgk7sWvIYTSjBlcJ",
+          "normalized": "https://mega.nz/file/WCagpFD_tT#FIRJZePoEowtXgk7sWvIYTSjBlcJ",
+          "output": "https://mega.nz/file/WCagpFD_tT#FIRJZePoEowtXgk7sWvIYTSjBlcJ"
+        },
+        {
+          "input": "https://mega.nz/folder/FIXRCk9LDBrYOASF#BHz73gt_7CKPgiJ6deV5zHYgpKT7",
+          "normalized": "https://mega.nz/folder/FIXRCk9LDBrYOASF#BHz73gt_7CKPgiJ6deV5zHYgpKT7",
+          "output": "https://mega.nz/folder/FIXRCk9LDBrYOASF#BHz73gt_7CKPgiJ6deV5zHYgpKT7"
+        },
+        {
+          "input": "https://mega.nz/file/LL8FrmFKttT4Y4#K4hMem37DNHjv-p-tQpFqEiq",
+          "normalized": "https://mega.nz/file/LL8FrmFKttT4Y4#K4hMem37DNHjv-p-tQpFqEiq",
+          "output": "https://mega.nz/file/LL8FrmFKttT4Y4#K4hMem37DNHjv-p-tQpFqEiq"
+        }
+      ]
+    },
+    "falsePositives": [
+      {
+        "input": "https://example.com/mega.nz/file/ABC#KEY",
+        "found": []
+      },
+      {
+        "input": "http://notmega.nz/file/ABC#KEY",
+        "found": []
+      },
+      {
+        "input": "https://evilmega.nz/folder/ABC#KEY",
+        "found": []
+      },
+      {
+        "input": "https://mega.nz.evil.com/file/ABC#KEY",
+        "found": []
+      },
+      {
+        "input": "ftp://mega.nz/file/ABC#KEY",
+        "found": []
+      }
+    ],
+    "oldFormat": [
+      "https://mega.nz/#F!ABCDEFGH!KEYKEYKEY"
+    ]
+  },
+  "failures": [],
+  "ok": true
+}

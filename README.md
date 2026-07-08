@@ -18,3 +18,16 @@ Open:
 `https://nimbus-core-6or.pages.dev/reset?v=27&fresh=1`
 
 Then login and use AutoScan or Keyword Search. If the run queues many pages, press **Deep Process 100 Rounds** under the same page.
+
+
+## V27 SourceBoost Wide1000
+
+This build expands the public-source catalog to 1000 deterministic source templates and improves MEGA link extraction accuracy.
+
+Recommended Cloudflare environment variables:
+
+- `MAX_SOURCES_PER_RUN=1000`
+- `MAX_SOURCE_FETCHES=120` for stable use, or up to `240` for aggressive use
+- `DEEP_ROUNDS=160` for stable use, or up to `200` for aggressive use
+
+The app keeps searches limited to publicly available/indexed pages and does not bypass login pages, paywalls, unlock pages, or protected content.

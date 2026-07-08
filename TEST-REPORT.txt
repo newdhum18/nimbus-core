@@ -1,0 +1,37 @@
+Nimbus Core V27 SourceBoost Wide1000 Verification Report
+Version: 27-sourceboost.4-wide1000
+Verified: 2026-07-08
+
+Important correction made during verification:
+- The uploaded wide1000 build had a newline decoding bug in decodeLoose(): it joined decoded variants using a literal backslash-n string instead of a real newline.
+- This caused some fully URL-encoded MEGA links to be missed.
+- Fixed in this package by changing join('\\n') to join('\n').
+
+Verification results after correction:
+1) JavaScript syntax check: PASSED
+2) Version constant: PASSED (27-sourceboost.4-wide1000)
+3) Source catalog count: PASSED (1000 sources)
+4) Unique source IDs: PASSED (1000 unique IDs)
+5) Fetch budget constants: PASSED
+   - DEFAULT_MAX_SOURCE_FETCHES = 120
+   - HARD_MAX_SOURCE_FETCHES = 240
+   - MAX_DEEP_ROUNDS = 200
+   - REQUEST_BUDGET_MS = 50000
+6) 500 MEGA extraction tests: PASSED 500 / 500
+   Tested direct links, no-protocol links, www links, HTML attributes, JSON text, escaped slashes, URL-encoded links, and redirect query parameters.
+7) False-positive tests: PASSED
+   Rejected example.com/mega.nz, notmega.nz, evilmega.nz, mega.nz.evil.com, and ftp://mega.nz patterns.
+8) Old MEGA format test: PASSED
+   Supports https://mega.nz/#F!...
+9) Safe search sanitizer: PASSED
+   Removes risky terms such as pirate, crack, warez, torrent, leaked, stolen, password, combo, account.
+10) Feature presence: PASSED
+   Includes wide_1000_source_catalog, adaptive_source_budget, deep_200_round_processing, encoded_url_extraction, old_mega_format_extraction, reddit_json_targets, safe_query_sanitizer, false_positive_url_guard.
+
+Practical limits:
+- The app contains 1000 source templates.
+- A single Cloudflare Worker request should not fetch all 1000 sources at once because of Cloudflare time limits.
+- The aggressive per-request hard cap remains 240 source fetches and 200 deep rounds.
+- For stable production use, start with MAX_SOURCE_FETCHES=120 and DEEP_ROUNDS=160, then raise gradually.
+
+Verification JSON output is included in test_output.json.
