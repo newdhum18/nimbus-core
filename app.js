@@ -1,15 +1,38 @@
-const $ = id => document.getElementById(id);
-const API = window.NIMBUS_API_BASE || '';
-let token = localStorage.getItem('nimbus_v27_token') || '';
-function log(msg,obj){ $('logBox').textContent = `[${new Date().toLocaleTimeString()}] ${msg}\n` + (obj?JSON.stringify(obj,null,2)+'\n':'') + $('logBox').textContent; }
-async function api(path, opts={}){ const headers={'content-type':'application/json'}; if(token) headers.authorization='Bearer '+token; const res=await fetch(API+path,{...opts,headers:{...headers,...(opts.headers||{})}}); const data=await res.json().catch(()=>({ok:false,error:'bad_json'})); if(['expired_token','invalid_token','missing_token'].includes(data.error)){ localStorage.removeItem('nimbus_v27_token'); token=''; renderAuth(); } return data; }
-function renderAuth(){ const on=!!token; $('loginCard').classList.toggle('hidden',on); $('app').classList.toggle('hidden',!on); $('logoutBtn').classList.toggle('hidden',!on); if(on) refreshAll(); }
-async function login(){ const pin=$('pinInput').value.trim(); const data=await api('/api/login',{method:'POST',body:JSON.stringify({pin})}); if(data.ok){ token=data.token; localStorage.setItem('nimbus_v27_token',token); $('loginMsg').textContent=''; renderAuth(); } else $('loginMsg').textContent=data.error||'Login failed'; }
-async function refreshAll(){ const dash=await api('/api/dashboard'); const latest=await api('/api/latest?limit=80'); const manual=await api('/api/manual-sources?limit=80'); const queue=await api('/api/queue?limit=80'); renderStats(dash.counts||{}); renderLinks(latest.items||[]); renderManual(manual.items||[]); renderQueue(queue.items||[]); }
-function renderStats(c){ $('stats').innerHTML = [['Links',c.mega_links||0],['Queue',c.pending_queue||0],['Checked',c.health_checked||0],['Likely Valid',c.likely_valid||0]].map(([k,v])=>`<div class="stat"><span>${k}</span><b>${v}</b></div>`).join(''); }
-function renderLinks(items){ $('results').innerHTML = items.length ? items.map(x=>`<div class="item"><a href="${esc(x.mega_url)}" target="_blank" rel="noopener">${esc(x.mega_url)}</a><p><span class="badge">${esc(x.link_type||'')}</span><span class="badge ${esc(x.health_status||'unchecked')}">${esc(x.health_status||'unchecked')}</span><span class="badge">confidence ${esc(x.confidence||'')}</span><br>${esc(x.title||'')}<br><span>${esc(x.source_domain||'')} · ${esc(x.health_reason||'')}</span></p><button data-url="${esc(x.mega_url)}" class="copy">Copy</button></div>`).join('') : '<p class="muted">No links yet.</p>'; document.querySelectorAll('.copy').forEach(b=>b.onclick=()=>navigator.clipboard.writeText(b.dataset.url)); }
-function renderManual(items){ $('manualSources').innerHTML = items.length ? items.map(x=>`<div class="item"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a><p><span>${esc(x.reason||'manual_review')} · ${esc(x.domain||'')}</span></p></div>`).join('') : '<p class="muted">No manual review sources.</p>'; }
-function renderQueue(items){ $('queueBox').innerHTML = items.length ? items.map(x=>`<div class="item"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url)}</a><p><span>${esc(x.status)} · priority ${esc(x.priority)} · attempts ${esc(x.attempts)}</span></p></div>`).join('') : '<p class="muted">Queue is empty.</p>'; }
-async function runSearch(mode, extra={}){ log('Running '+mode); const data=await api('/api/search',{method:'POST',body:JSON.stringify({mode,...extra})}); log('Finished '+mode,data.summary||data); await refreshAll(); }
-function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-$('loginBtn').onclick=login; $('pinInput').onkeydown=e=>{if(e.key==='Enter')login()}; $('logoutBtn').onclick=()=>{localStorage.removeItem('nimbus_v27_token');token='';renderAuth()}; $('manualBtn').onclick=()=>runSearch('manual',{query:$('query').value,limit:16}); $('autoBtn').onclick=()=>runSearch('auto',{reset:true,limit:16}); $('continueBtn').onclick=()=>runSearch('auto',{continueScan:true,limit:16}); $('scanUrlBtn').onclick=()=>runSearch('extract-url',{url:$('urlInput').value}); $('schemaBtn').onclick=async()=>{const d=await api('/api/schema');log('DB schema checked',d);refreshAll()}; $('processQueueBtn').onclick=async()=>{const d=await api('/api/process-queue',{method:'POST',body:JSON.stringify({limit:20})});log('Queue processed',d);refreshAll()}; $('checkBtn').onclick=async()=>{const d=await api('/api/check-links',{method:'POST',body:JSON.stringify({limit:30})});log('Health check done',d);refreshAll()}; $('dashboardBtn').onclick=async()=>{const d=await api('/api/dashboard');log('Dashboard',d);renderStats(d.counts||{})}; $('refreshBtn').onclick=refreshAll; $('exportBtn').onclick=()=>{location.href='/api/export?format=csv'}; renderAuth();
+const $ = (id) => document.getElementById(id);
+const tokenKey = 'nimbus_v27_token';
+let token = localStorage.getItem(tokenKey) || '';
+function headers() { return token ? { 'content-type': 'application/json', 'authorization': 'Bearer ' + token } : { 'content-type': 'application/json' }; }
+async function api(path, body) { const res = await fetch(path, { method: body ? 'POST' : 'GET', headers: headers(), body: body ? JSON.stringify(body) : undefined }); return res.json(); }
+function show(id, data) { $(id).textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2); }
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function healthBadge(s){return `<span class="badge ${esc(s||'unknown')}">${esc((s||'unknown').toUpperCase())}</span>`;}
+async function init(){
+  bindTabs(); bindButtons();
+  const p = await api('/api/ping').catch(()=>({ok:false})); $('status').textContent = p.ok ? 'Online' : 'Offline';
+  if(token){ $('loginPanel').classList.add('hidden'); $('app').classList.remove('hidden'); await refreshAll(); }
+}
+function bindTabs(){document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button,.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active');});}
+function bindButtons(){
+  $('loginBtn').onclick=async()=>{const r=await api('/api/login',{pin:$('pin').value});show('loginOut',r); if(r.ok){token=r.token;localStorage.setItem(tokenKey,token);$('loginPanel').classList.add('hidden');$('app').classList.remove('hidden');refreshAll();}};
+  $('autoScanBtn').onclick=async()=>{const r=await api('/api/search',{query:$('query').value,processLimit:20});show('scanOut',r);refreshAll();};
+  $('processBtn').onclick=async()=>{const r=await api('/api/process-queue?limit=30');show('scanOut',r);refreshAll();};
+  $('extractBtn').onclick=async()=>{const r=await api('/api/extract-url',{url:$('targetUrl').value});show('extractOut',r);refreshAll();};
+  $('healthOneBtn').onclick=async()=>{const r=await api('/api/health-check',{mega_url:$('megaUrl').value,processLimit:5});show('healthOut',r);refreshAll();};
+  $('healthBatchBtn').onclick=async()=>{const r=await api('/api/health-check',{limit:100,processLimit:30});show('healthOut',r);refreshAll();};
+  $('queueRefreshBtn').onclick=loadQueue; $('queueProcessBtn').onclick=async()=>{show('settingsOut',await api('/api/process-queue?limit=40'));refreshAll();};
+  $('archiveBtn').onclick=loadArchive; $('pagesBtn').onclick=loadPages; $('sourcesBtn').onclick=loadSources;
+  $('saveSourceBtn').onclick=async()=>{show('settingsOut',await api('/api/upsert-source',{name:$('srcName').value,type:$('srcType').value,endpoint:$('srcEndpoint').value,enabled:1}));loadSources();};
+  $('exportJsonBtn').onclick=()=>location.href='/api/export?format=json'; $('exportCsvBtn').onclick=()=>location.href='/api/export?format=csv';
+  $('pingBtn').onclick=async()=>show('settingsOut',await api('/api/ping')); $('schemaBtn').onclick=async()=>{show('settingsOut',await api('/api/schema'));refreshAll();}; $('diagBtn').onclick=async()=>show('settingsOut',await api('/api/diagnostics'));
+  $('cleanupBtn').onclick=async()=>{show('settingsOut',await api('/api/cleanup'));refreshAll();}; $('resetBtn').onclick=async()=>show('settingsOut',await api('/api/reset-cursor'));
+  $('logoutBtn').onclick=()=>{localStorage.removeItem(tokenKey);location.reload();};
+}
+async function refreshAll(){await loadStats();await loadLatest();}
+async function loadStats(){const r=await api('/api/stats'); show('statsOut',r); const c=r.counts||{}; $('cLinks').textContent=c.mega_links||0; $('cAlive').textContent=c.alive_links||0; $('cDead').textContent=c.dead_links||0; $('cUnknown').textContent=c.unknown_links||0; $('cPages').textContent=c.pages||0; $('cQueue').textContent=c.queue_queued||0;}
+async function loadLatest(){const r=await api('/api/latest?limit=15'); $('latestList').innerHTML = (r.items||[]).map(linkCard).join('') || '<p class="muted">No links yet.</p>';}
+function linkCard(x){return `<div class="item"><div>${healthBadge(x.health_status)} <b>${esc(x.link_type||'link')}</b> <span class="muted">score ${esc(x.confidence||0)}</span></div><a href="${esc(x.mega_url)}" target="_blank" rel="noreferrer">${esc(x.mega_url)}</a><small>${esc(x.source_domain||'')} · ${esc(x.title||'')}</small></div>`;}
+async function loadQueue(){const r=await api('/api/queue?limit=120'); $('queueList').innerHTML=(r.items||[]).map(x=>`<div class="item"><b>#${x.id} ${esc(x.task_type)}</b> <span class="badge">${esc(x.status)}</span><small>priority ${x.priority} · attempts ${x.attempts}/${x.max_attempts}</small><code>${esc(x.payload)}</code>${x.last_error?`<small class="err">${esc(x.last_error)}</small>`:''}</div>`).join('')||'<p class="muted">No queue.</p>';}
+async function loadArchive(){const q=encodeURIComponent($('archiveQ').value||'');const h=encodeURIComponent($('healthFilter').value||'');const r=await api(`/api/archive?limit=80&q=${q}&health=${h}`);$('archiveList').innerHTML=(r.items||[]).map(linkCard).join('')||'<p class="muted">No archive.</p>';}
+async function loadPages(){const r=await api('/api/pages?limit=120');$('pagesList').innerHTML=(r.items||[]).map(x=>`<div class="item"><b>${esc(x.status)}</b> <a href="${esc(x.url)}" target="_blank">${esc(x.url)}</a><small>${esc(x.domain)} · depth ${x.depth} · links ${x.links_found||0} · child pages ${x.pages_found||0}</small>${x.error?`<small class="err">${esc(x.error)}</small>`:''}</div>`).join('')||'<p class="muted">No pages.</p>';}
+async function loadSources(){const r=await api('/api/sources');$('sourcesList').innerHTML=(r.items||[]).map(x=>`<div class="item"><b>${esc(x.name)}</b> <span class="badge">${esc(x.type)}</span><small>${esc(x.endpoint)}</small><small>${esc(x.note||'')}</small></div>`).join('')||'<p class="muted">No sources.</p>';}
+init();

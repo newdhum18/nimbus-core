@@ -1,30 +1,21 @@
-# Nimbus Core Progress - V27 Core Build
+Nimbus Core V27 Full Core Build
 
-## Starting point
+Built as a clean V27 core package using isolated nimbus_v27_* tables.
 
-The rebuild starts from V26+ and keeps the working PWA + Cloudflare Worker + D1 structure.
+Implemented:
+- Multi-source engine
+- Deduplication and cleanup
+- Database stability with isolated schema
+- Updated UI dashboard
+- Link Health Checker
+- Pagination crawler
+- JSON Source Engine
+- Plugin-style sources table and upsert API
+- Reddit public JSON search/parser
+- Queue Manager
+- Background queue processing hooks
+- Cache table
+- Statistics dashboard
+- CSV/JSON export
 
-## Requested repository ideas integrated as original implementation
-
-- Direct-source concept from `galloclaudio/mega-search-links`.
-- Multi-source scraper and structured storage concept from `akosel/megalinks-scraper`.
-- Link status checking concept from `Titoot/mega-checker`.
-- Regex + BeautifulSoup-style extraction concept from the provided Python example.
-
-## Implemented V27 features
-
-- `nimbus_v27_links` for extracted MEGA URLs.
-- `nimbus_v27_sources` for manual-review source pages.
-- `nimbus_v27_queue` for pending page processing.
-- `nimbus_v27_cache` for page and health cache.
-- `nimbus_v27_logs` for scan and health history.
-- Multi-engine discovery: Bing RSS, DuckDuckGo Lite, Ahmia public web, Brave API optional.
-- Extract From URL.
-- Process Queue.
-- Link Health Checker.
-- Dashboard.
-- CSV/JSON Export.
-
-## Not included in this step
-
-The separate final policy/keyword-control step was intentionally not added in this build, per user instruction.
+No additional separate policy/protection step was added in this build.

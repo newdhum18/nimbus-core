@@ -1,63 +1,40 @@
-# Nimbus Core V27 Core Build
+# Nimbus Core V27 Full Core Build
 
-This package rebuilds the project from the V26+ base and adds the requested V27 engineering features without adding the separate policy/keyword-control step.
+V27 rebuild from the V26+ direction with a stronger technical core.
 
-## Added in V27
+## Included features
 
-- Multi-source discovery engine.
-- Query builder for MEGA file/folder patterns.
-- Page extraction engine using HTML text, attributes, and link regex.
-- Queue Manager for discovered source pages.
-- Cache System for fetched pages and health checks.
-- Link Health Checker with clear statuses.
-- Manual Review source list for indirect pages such as Meawfy, Linktree, and Linkvertise-style pages.
-- Dashboard with counts by domain, health status, queue status, and recent logs.
-- CSV/JSON export.
-- New isolated D1 tables: `nimbus_v27_*`.
+- Multi-source search engine support.
+- Result cleaning and duplicate removal.
+- New isolated database tables: `nimbus_v27_*`.
+- Improved dashboard UI.
+- Link Health Checker: Alive / Dead / Unknown.
+- Multi-page crawler with depth and discovered-page queue.
+- JSON Source Engine with plugin-style source registration.
+- Reddit public JSON deep scraper for posts and returned text fields.
+- Queue Manager with priority, retries, and task states.
+- Background processing via Cloudflare scheduled handler and `ctx.waitUntil`.
+- Cache System for search/source responses.
+- Statistics Dashboard: pages scanned, links found, health counts, success rate, recent logs.
+- CSV and JSON export.
 
-## What was learned from the referenced repositories
+## Deploy
 
-1. galloclaudio/mega-search-links
-   - Inspired direct-source/JSON-source thinking.
-   - Inspired clean class-like separation between searching and processing.
-   - Inspired custom User-Agent usage for stable public HTTP requests.
-
-2. akosel/megalinks-scraper
-   - Inspired multi-source scraping and storing discovered links in structured JSON.
-   - Inspired deeper extraction from comments/pages, not only search-result titles.
-   - Inspired the queue-based discovery workflow.
-
-3. Titoot/mega-checker
-   - Inspired link health checking for single links and bulk batches.
-   - Inspired keeping a visible result beside each link instead of only storing URLs.
-
-4. Provided Python snippet
-   - Used as the design basis for regex extraction from both raw HTML and visible page text.
-   - Added normalization, deduplication, type parsing, source metadata, and D1 persistence.
-
-## Cloudflare setup
-
-Upload all files to the root of your GitHub repository, deploy with Cloudflare Pages, and bind D1 as `DB`.
-
-Required environment variable:
-
-- `AUTH_PIN`
-
-Optional:
-
-- `AUTH_SECRET`
-- `BRAVE_API_KEY`
-
-After deployment open:
+Upload all files to the root of your GitHub repository, wait for Cloudflare Pages deployment, then open:
 
 `/reset?v=27&fresh=1`
 
-Then use:
+Then run:
 
 1. Login
-2. Check DB
-3. Auto Scan
-4. Process Queue
-5. Check Link Health
-6. Dashboard
-7. Export CSV
+2. Settings > Check DB
+3. Settings > Clean Data
+4. Scan > Start Scan
+5. Scan > Process Queue
+6. Scan > Check Batch
+
+## Notes from referenced repositories
+
+- From `galloclaudio/mega-search-links`: direct-source idea, JSON-style source thinking, simple request wrapper, custom user-agent.
+- From `akosel/megalinks-scraper`: multi-source scraping idea, structured JSON storage/export, pagination/crawling concept.
+- From `Titoot/mega-checker`: link validity checking idea and batch checking workflow.
