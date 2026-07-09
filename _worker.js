@@ -2,7 +2,7 @@
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '29.2-high-yield-source-autopilot';
+const VERSION = '29.3-source-state-autopilot-fix';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -14,7 +14,7 @@ const T = {
   sources: 'nimbus_v27sb_sources',
   settings: 'nimbus_v27sb_settings'
 };
-const SOURCE_POLICY_VERSION = 'v29.2-high-yield-lean-120';
+const SOURCE_POLICY_VERSION = 'v29.3-source-state-stable';
 const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 NimbusCore/28';
 const TIMEOUT_MS = 11000;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
@@ -514,6 +514,8 @@ async function sourceOverrideMap(env) {
   return map;
 }
 async function getSources(env, opts = {}) {
+  // V29.3 stable source resolver: always starts from the in-memory catalog.
+  // D1 is only used for explicit user overrides (toggle/priority/custom sources).
   if (!opts.skip_policy) await ensureSourcePolicy(env);
   const maxSources = intEnv(env, 'MAX_SOURCES_PER_RUN', 1000, 25, 1000);
   const includeDisabled = !!opts.include_disabled;
@@ -521,16 +523,28 @@ async function getSources(env, opts = {}) {
   let rows = catalogSources().map(src => {
     const ov = overrides.get(String(src.id));
     const enabled = ov ? Number(ov.enabled||0) : defaultSourceEnabled(src);
-    return { ...src, enabled, priority: ov && ov.priority != null ? Number(ov.priority) : src.priority, category: sourceGroup(src), builtin:1 };
+    return {
+      ...src,
+      enabled,
+      priority: ov && ov.priority != null ? Number(ov.priority) : src.priority,
+      category: sourceGroup(src),
+      builtin:1
+    };
   });
   try {
     const r = await all(env, `SELECT * FROM ${T.sources} WHERE template IS NOT NULL AND template!='' ORDER BY priority DESC LIMIT 500`);
-    for (const x of (r.results || [])) if (!rows.find(r=>String(r.id)===String(x.id))) rows.push({ ...x, enabled:Number(x.enabled||0), category:sourceGroup(x), builtin:0 });
+    for (const x of (r.results || [])) {
+      if (!rows.find(r=>String(r.id)===String(x.id))) {
+        rows.push({ ...x, enabled:Number(x.enabled||0), category:sourceGroup(x), builtin:0 });
+      }
+    }
   } catch {}
   const seen = new Set();
   rows = rows.filter(r => { const k=String(r.id||r.name||r.template); if(seen.has(k)) return false; seen.add(k); return true; });
   if (!includeDisabled) rows = rows.filter(r => Number(r.enabled) === 1);
-  return balancedSources(rows, Number(opts.offset||0)).slice(0, maxSources);
+  const rotated = balancedSources(rows, Number(opts.offset||0));
+  // For Sources UI, return the full catalog; for scan runs, obey MAX_SOURCES_PER_RUN.
+  return includeDisabled ? rotated : rotated.slice(0, maxSources);
 }
 async function setSourceEnabled(env, id, enabled, priority=null) {
   await ensureDb(env);
@@ -569,13 +583,16 @@ async function applySourcePreset(env, action='high_yield') {
 }
 
 async function ensureSourcePolicy(env) {
+  // V29.3: do NOT bulk-write the whole 1000-source catalog during normal dashboard/autoscan requests.
+  // The active source policy is computed from the built-in catalog plus small user overrides.
+  // This prevents the Sources page from disappearing and keeps later rounds from running with 0 sources.
   try {
     const current = await getSetting(env, 'source_policy_version', '');
-    if (current === SOURCE_POLICY_VERSION) return { ok:true, applied:false };
-    const out = await applySourcePreset(env, 'high_yield');
-    await setSetting(env, 'source_policy_version', SOURCE_POLICY_VERSION);
-    await logEvent(env, 'info', 'source_policy_applied', { version:SOURCE_POLICY_VERSION, enabled:out.enabled, total:out.total });
-    return { ok:true, applied:true, ...out };
+    if (current !== SOURCE_POLICY_VERSION) {
+      await setSetting(env, 'source_policy_version', SOURCE_POLICY_VERSION);
+      await logEvent(env, 'info', 'source_policy_marker_updated', { version:SOURCE_POLICY_VERSION });
+    }
+    return { ok:true, applied: current !== SOURCE_POLICY_VERSION };
   } catch (e) {
     return { ok:false, applied:false, error:String(e.message||e).slice(0,300) };
   }
@@ -1039,7 +1056,7 @@ async function diagnostics(env) {
     const c = await first(env, `SELECT COUNT(*) c FROM ${t}`);
     tables[t] = c?.c ?? 0;
   }
-  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference','sources_manager','toggle_sources','default_high_yield_sources','github_disabled_by_default','v29_sources_sections','v29_enable_disable_all','v29_meawfy_api','v29_real_success_target_100','v29_redirector_targets','v29_archive_csv','v29_1_mega_api_validator','v29_1_continuous_slice_seeding','v29_1_deeper_comment_targets','v29_2_lean_high_yield_policy','v29_2_auto_source_policy_migration','v29_2_active_sources_under_120','v29_2_less_bing_noise'] };
+  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference','sources_manager','toggle_sources','default_high_yield_sources','github_disabled_by_default','v29_sources_sections','v29_enable_disable_all','v29_meawfy_api','v29_real_success_target_100','v29_redirector_targets','v29_archive_csv','v29_1_mega_api_validator','v29_1_continuous_slice_seeding','v29_1_deeper_comment_targets','v29_2_lean_high_yield_policy','v29_2_auto_source_policy_migration','v29_2_active_sources_under_120','v29_2_less_bing_noise','v29_3_stable_source_catalog','v29_3_no_zero_source_rounds','v29_3_sources_ui_catalog_fallback'] };
 }
 
 async function startV28Job(env, mode='autoscan', keyword='', opts={}) {
@@ -1066,6 +1083,17 @@ async function tickV28Job(env, runId, mode='autoscan', keyword='', opts={}) {
   if (runId && pending < 6 && Date.now() - started < REQUEST_BUDGET_MS - 3000) {
     seeded = await seedQueueSlice(env, runId, mode||'autoscan', keyword||'', { max_sources: Number(opts.seed_limit||SCHEDULE_SEED_LIMIT)||SCHEDULE_SEED_LIMIT });
     pending = await queueCount(env, runId||'');
+    // V29.3: if a fresh slice was seeded, immediately drain a tiny part of it so the UI never shows a
+    // useless round with 0 sources/0 processed after the first slice completes.
+    if ((seeded?.enqueued||0) > 0 && Date.now() - started < REQUEST_BUDGET_MS - 5000) {
+      const extra = await processQueue(env, runId||'', Math.min(limit, 6));
+      processed = {
+        processed:(processed.processed||0)+(extra.processed||0),
+        found:(processed.found||0)+(extra.found||0),
+        failed:(processed.failed||0)+(extra.failed||0)
+      };
+      pending = await queueCount(env, runId||'');
+    }
   }
   return { ok:true, version:VERSION, run_id:runId||'', mode, keyword:keyword||'', elapsed_ms:Date.now()-started, pending, processed, seeded, stats:await dashboardStats(env), results:(await getResults(env, mode, keyword||'', 1000)).results };
 }
@@ -1129,7 +1157,7 @@ async function handleApi(req, env, ctx) {
     if (path === '/api/stats') return json({ok:true, version:VERSION, stats:await dashboardStats(env)});
     if (path === '/api/sources') {
       await ensureDb(env);
-      if (req.method==='GET') { const rows = await getSources(env,{include_disabled:true}); return json({ok:true, version:VERSION, total:rows.length, enabled:rows.filter(s=>Number(s.enabled)===1).length, sources: rows}); }
+      if (req.method==='GET') { const rows = await getSources(env,{include_disabled:true, skip_policy:true}); return json({ok:true, version:VERSION, total:rows.length, enabled:rows.filter(s=>Number(s.enabled)===1).length, disabled:rows.filter(s=>Number(s.enabled)!==1).length, groups:[...new Set(rows.map(s=>s.category||'web'))].length, sources: rows}); }
       const b=await parseBody(req);
       if (b.action === 'toggle') return json(await setSourceEnabled(env, b.id, !!b.enabled, b.priority));
       if (['enable_all','disable_all','high_yield'].includes(b.action)) return json(await applySourcePreset(env, b.action));

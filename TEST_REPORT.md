@@ -1,8 +1,8 @@
-# Nimbus Core V29.2 Test Report
+# Nimbus Core V29.3 Test Report
 
 Generated: 2026-07-09T17:48:11.926920Z
 
-Version: 29.2-high-yield-source-autopilot
+Version: 29.3-source-state-autopilot-fix
 
 Local verification:
 - JavaScript syntax: PASS (`_worker.js`, `queue-consumer.js`)
@@ -25,3 +25,10 @@ Local verification:
 Known limitation:
 - JavaScript-only comment systems that require browser execution are not fully parsed in Cloudflare Workers. Public JSON/HTML comment endpoints are supported.
 - External APIs such as Meawfy depend on the external service availability.
+
+
+## V29.3 verification
+- JavaScript syntax: PASS (`_worker.js`, `queue-consumer.js`).
+- Sources UI fallback: PASS (catalog always returns built-in sources even if D1 source override table is empty).
+- Zero-source rounds fix: PASS (tick seeds and immediately drains a small new slice).
+- Fixed frontend offset: PASS (uses API `next_source_offset`/catalog size instead of hard-coded 1000).

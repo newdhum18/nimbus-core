@@ -1,4 +1,4 @@
-# Nimbus Core V29.2 High-Yield Source Autopilot
+# Nimbus Core V29.3 High-Yield Source Autopilot
 
 HyperSearch Sources Engine with Queue/Archive, source controls, MEGA folder-only extraction, enhanced comment targets, and MEGA API folder validation.
 
@@ -12,7 +12,7 @@ Highlights:
 - MEGA API validator for folder health where network allows.
 
 
-## V29.2 High-Yield Source Autopilot
+## V29.3 High-Yield Source Autopilot
 
 This release focuses on result quality and lower Cloudflare cost:
 - Auto-applies a new source policy (`v29.2-high-yield-lean-120`).

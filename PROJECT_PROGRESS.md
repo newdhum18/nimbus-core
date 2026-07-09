@@ -1,6 +1,6 @@
-# Project Progress - V29.2
+# Project Progress - V29.3
 
-Current build: `29.2-high-yield-source-autopilot`
+Current build: `29.3-source-state-autopilot-fix`
 
 Implemented:
 - Lean high-yield source policy with automatic migration.
