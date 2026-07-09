@@ -1,23 +1,9 @@
-Next:
-- add pagination and source filters in Archive
-- optional scheduled background drain
-- optional KV/R2 backup export
+# Roadmap
 
+Next improvements after V30:
 
-## V29 HyperSearch Comments
-- Added Cloudflare Queue producer support in Pages.
-- Added separate Queue consumer Worker (`queue-consumer.js` + `wrangler.queue.jsonc`).
-- Added permanent D1 archive table for all discovered folder links.
-- Improved comment extraction from Reddit JSON, GitHub issue/pull comments, and Hacker News Algolia item/comment trees.
-- AutoScan now creates Queue tasks instead of trying to finish all work in one request.
-- Folder-only mode enforced; file links and missing-key folder links are rejected.
-- Added source support including rentry.co and ofversedrops.com.
-
-
-Hotfix4: safe queue seeding added to prevent D1/Worker 1102 subrequest limit.
-
-
-## V29.3 candidate
-- Per-source success history and auto-disable after repeated zero-yield scans.
-- Optional external search API support if user provides keys.
-- Stronger link container resolver for Keeplinks/redirectors without bypassing protections.
+1. Per-source success history and auto-disable sources with repeated zero results.
+2. Optional paid/official search API integrations if the user provides API keys.
+3. Better source testing UI with sample target URLs and last-success history.
+4. More public archive targets.
+5. Stronger source-specific parsers for paste/link-hub pages.

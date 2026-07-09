@@ -1,23 +1,22 @@
-# Nimbus Core V29.3 High-Yield Source Autopilot
+# Nimbus Core V30 HyperSearch
 
-HyperSearch Sources Engine with Queue/Archive, source controls, MEGA folder-only extraction, enhanced comment targets, and MEGA API folder validation.
+V30 focuses on the core issue found in V29.x: search engines were returning redirect wrapper URLs, but the app was not decoding them into real target pages before crawling. V30 adds target decoding for Bing, DuckDuckGo, and Google and follows raw paste/comment pages.
 
-Highlights:
-- Sources page with enable/disable controls.
-- High-yield defaults and social/video/code sources disabled by default.
-- Meawfy API and Keeplinks priority sources.
-- D1 Archive for permanent MEGA folder results.
-- Continuous slice seeding so AutoScan keeps moving without D1 bursts.
-- Reddit/GitHub/HN/Telegram comment-target expansion.
-- MEGA API validator for folder health where network allows.
+## Highlights
 
+- Bing `/ck/a?u=a1...` decoder.
+- DuckDuckGo `uddg` decoder.
+- Google `/url?q=` decoder.
+- Raw paste targets for Pastebin, Rentry, dpaste, hastebin, and paste.rs.
+- Search engine rebalance: DuckDuckGo Lite / HTML, Brave, Google, Startpage, and Bing RSS are prioritized; Bing Web is no longer a primary default source.
+- High-yield default policy: 107 enabled sources out of 1000.
+- GitHub, video, and social sources remain OFF by default.
+- Queue and D1 shadow queue remain safe and chunked.
 
-## V29.3 High-Yield Source Autopilot
+## After deploy
 
-This release focuses on result quality and lower Cloudflare cost:
-- Auto-applies a new source policy (`v29.2-high-yield-lean-120`).
-- Keeps 1000 sources available, but enables only 101 high-yield sources by default.
-- Disables GitHub/GitLab/Bitbucket/video/social/filler sources by default.
-- Prioritizes Meawfy API, Reddit JSON/comments, Archive, Keeplinks, OfverseDrops, paste sites, and public note/link-hub sources.
-- Reduces Bing noise by using only targeted RSS/Web templates by default.
-- Maintains MEGA folder-only extraction and comment-target expansion.
+1. Open Tools.
+2. Press Repair DB.
+3. Open Sources.
+4. Press High Yield Defaults.
+5. Run AutoScan.

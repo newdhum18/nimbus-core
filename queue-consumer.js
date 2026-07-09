@@ -1,8 +1,8 @@
-/* Nimbus Core V29 HyperSearch
+/* Nimbus Core V30 HyperSearch
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '29.3-source-state-autopilot-fix';
+const VERSION = '30.0-target-decoder-search-engine';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -14,23 +14,23 @@ const T = {
   sources: 'nimbus_v27sb_sources',
   settings: 'nimbus_v27sb_settings'
 };
-const SOURCE_POLICY_VERSION = 'v29.3-source-state-stable';
-const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 NimbusCore/28';
+const SOURCE_POLICY_VERSION = 'v30.0-target-decoder-high-yield';
+const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 NimbusCore/30';
 const TIMEOUT_MS = 11000;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 const HEALTH_TTL_MS = 1000 * 60 * 60 * 12;
 const DEFAULT_MAX_SOURCE_FETCHES = 24;
 const HARD_MAX_SOURCE_FETCHES = 48;
 const MAX_CRAWL_PAGES = 240;
-const MAX_QUEUE_BATCH = 10;
-const SCHEDULE_SEED_LIMIT = 10; // V29: smaller slices, more continuous rounds, no D1 burst
-const SCHEDULE_SEED_LIMIT_KEYWORD = 10;
-const SCHEDULE_SEED_LIMIT_AUTOSCAN = 10;
+const MAX_QUEUE_BATCH = 12;
+const SCHEDULE_SEED_LIMIT = 12; // V29: smaller slices, more continuous rounds, no D1 burst
+const SCHEDULE_SEED_LIMIT_KEYWORD = 12;
+const SCHEDULE_SEED_LIMIT_AUTOSCAN = 12;
 const SUCCESS_TARGET_LINKS = 100;
 const MAX_DEEP_ROUNDS = 300;
 const REQUEST_BUDGET_MS = 26000;
 const QUEUE_SOURCE_BATCH = 8;
-const QUEUE_CRAWL_CHILD_LIMIT = 8;
+const QUEUE_CRAWL_CHILD_LIMIT = 12;
 const QUEUE_MESSAGE_BATCH_LIMIT = 6;
 const MAX_TEXT = 350000;
 const LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz|io)\/folder\/[A-Za-z0-9_-]+#[A-Za-z0-9_!\-]{8,})/gi;
@@ -318,21 +318,26 @@ function builtInSources() {
   const rows = [];
   const add = (id, name, type, priority, template, config={}) => rows.push(sourceRow(id, name, type, priority, template, config));
   const engines = [
-    ['bing_rss','Bing RSS','rss',130,'https://www.bing.com/search?format=rss&q={q}'],
-    ['bing_web','Bing Web','html',118,'https://www.bing.com/search?q={q}&count=50'],
-    ['duckduckgo_html','DuckDuckGo HTML','html',116,'https://duckduckgo.com/html/?q={q}'],
-    ['yahoo_search','Yahoo Search','html',108,'https://search.yahoo.com/search?p={q}&n=30'],
-    ['brave_web','Brave Web','html',42,'https://search.brave.com/search?q={q}'],
-    ['mojeek','Mojeek','html',92,'https://www.mojeek.com/search?q={q}'],
-    ['qwant','Qwant','html',82,'https://www.qwant.com/?q={q}&t=web'],
-    ['startpage','Startpage','html',78,'https://www.startpage.com/sp/search?query={q}'],
-    ['yandex','Yandex','html',70,'https://yandex.com/search/?text={q}']
+    ['duckduckgo_lite','DuckDuckGo Lite','html',156,'https://lite.duckduckgo.com/lite/?q={q}'],
+    ['duckduckgo_html','DuckDuckGo HTML','html',148,'https://duckduckgo.com/html/?q={q}'],
+    ['brave_web','Brave Web','html',144,'https://search.brave.com/search?q={q}'],
+    ['google_web','Google Web','html',132,'https://www.google.com/search?q={q}&num=20'],
+    ['startpage','Startpage','html',128,'https://www.startpage.com/sp/search?query={q}'],
+    ['bing_rss','Bing RSS','rss',118,'https://www.bing.com/search?format=rss&q={q}'],
+    ['bing_web','Bing Web','html',98,'https://www.bing.com/search?q={q}&count=30'],
+    ['yahoo_search','Yahoo Search','html',72,'https://search.yahoo.com/search?p={q}&n=20'],
+    ['mojeek','Mojeek','html',68,'https://www.mojeek.com/search?q={q}'],
+    ['qwant','Qwant','html',62,'https://www.qwant.com/?q={q}&t=web'],
+    ['yandex','Yandex','html',54,'https://yandex.com/search/?text={q}']
   ];
   for (const e of engines) add(...e);
   const apiLike = [
     ['meawfy_api','Meawfy Internal API','json',180,'https://meawfy.com/internal/api/results.json?q={q}'],
     ['meawfy_api_folder','Meawfy API Folder Query','json',178,'https://meawfy.com/internal/api/results.json?q=mega.nz%2Ffolder%20{q}'],
     ['meawfy_web','Meawfy Web','html',130,'https://meawfy.com/search?q={q}'],
+    ['pastebin_archive','Pastebin Public Archive','html',122,'https://pastebin.com/archive'],
+    ['rentry_raw_search_ddg','Rentry DDG Raw Target Decoder','html',120,'https://duckduckgo.com/html/?q=site%3Arentry.co%20%22mega.nz%2Ffolder%22%20{q}'],
+    ['pastebin_raw_search_ddg','Pastebin DDG Raw Target Decoder','html',119,'https://duckduckgo.com/html/?q=site%3Apastebin.com%20%22mega.nz%2Ffolder%22%20{q}'],
     ['reddit_search_json','Reddit Search JSON','json',126,'https://www.reddit.com/search.json?q={q}%20%22mega.nz%2Ffolder%22&limit=100&sort=new'],
     ['reddit_all_url_json','Reddit URL JSON','json',124,'https://www.reddit.com/search.json?q=url%3Amega.nz%2Ffolder%20{q}&limit=100&sort=new'],
     ['reddit_megalinks_json','Reddit Megalinks JSON','json',105,'https://www.reddit.com/r/megalinks/search.json?q={q}&restrict_sr=1&limit=100&sort=new'],
@@ -454,7 +459,7 @@ function sourceGroup(src) {
   if (/archive/.test(n)) return 'archive';
   if (/keeplinks|bit\.ly|sh\.st|short|adf\.ly|ouo|linkvertise|linkbucks/.test(n)) return 'redirector';
   if (/ofversedrops|meawfy|linktree|linktr|beacons|bio\.link|solo\.to|carrd|heylink|lnk|allmylinks|taplink|bio\.fm|hypage|koji|linkpop|snipfeed|milkshake|shor\.by|tap\.bio/.test(n)) return 'linkhub';
-  if (/bing|duck|yahoo|brave|mojeek|qwant|startpage|yandex/.test(n)) return 'engine';
+  if (/bing|duck|yahoo|brave|google|mojeek|qwant|startpage|yandex|searx/.test(n)) return 'engine';
   if (t === 'json' || t === 'rss') return 'structured';
   return 'web';
 }
@@ -489,7 +494,7 @@ function defaultSourceEnabled(src) {
   if (/github|gist|gitlab|bitbucket|raw\.githubusercontent|youtube|youtu\.be|vimeo|tiktok|instagram|facebook|linkedin|pinterest|slideshare|scribd|issuu|calameo|sourceforge|medium|substack|wix|weebly/.test(n)) return 0;
 
   // Tier 1: direct APIs / structured public results / comment-rich pages.
-  if (/^meawfy_api|^reddit_search_json|^reddit_all_url_json|^reddit_megalinks_json|^archive_fulltext|^archive_search|^ofversedrops_web|^keeplinks_web|^bing_rss|^bing_web|^duckduckgo_html/.test(id)) return 1;
+  if (/^meawfy_api|^meawfy_api_folder|^pastebin_archive|^rentry_raw_search_ddg|^pastebin_raw_search_ddg|^reddit_search_json|^reddit_all_url_json|^reddit_megalinks_json|^archive_fulltext|^archive_search|^ofversedrops_web|^keeplinks_web|^duckduckgo_lite|^duckduckgo_html|^brave_web|^google_web|^startpage|^bing_rss/.test(id)) return 1;
 
   // Tier 2: paste sites, public notes, link hubs, and archives.
   const highDomains = /rentry|pastebin|paste\.ee|justpaste|controlc|haste|dpaste|pastes\.io|paste\.rs|pastelink|ghostbin|privatebin|keeplinks|reddit|old\.reddit|archive|ofversedrops|meawfy|linktr|linktree|beacons|bio\.link|solo\.to|msha\.ke|taplink|allmylinks|instabio|heylink|lnk\.bio|flow\.page|carrd|campsite|telegra|notion|blogspot|wordpress|tumblr|sites\.google/.test(n);
@@ -501,7 +506,7 @@ function defaultSourceEnabled(src) {
   if (/^src_/.test(id)) return highDomains && Number(src.priority||0) >= 88 ? 1 : 0;
 
   // Keep a tiny set of generic discovery patterns.
-  if (/generic_bing|generic_rss/.test(id)) return /mega\.nz\/folder|mega\.co\.nz\/#f|index|archive|collection/.test(n) ? 1 : 0;
+  if (/generic_ddg|generic_rss/.test(id)) return /mega\.nz\/folder|mega\.co\.nz\/#f|index|archive|collection/.test(n) ? 1 : 0;
 
   return highDomains && Number(src.priority||0) >= 80 ? 1 : 0;
 }
@@ -589,6 +594,9 @@ async function ensureSourcePolicy(env) {
   try {
     const current = await getSetting(env, 'source_policy_version', '');
     if (current !== SOURCE_POLICY_VERSION) {
+      // V30: when the policy changes, refresh built-in source overrides once.
+      // This prevents old D1 source states from keeping weak engines enabled forever.
+      await applySourcePreset(env, 'high_yield');
       await setSetting(env, 'source_policy_version', SOURCE_POLICY_VERSION);
       await logEvent(env, 'info', 'source_policy_marker_updated', { version:SOURCE_POLICY_VERSION });
     }
@@ -597,7 +605,62 @@ async function ensureSourcePolicy(env) {
     return { ok:false, applied:false, error:String(e.message||e).slice(0,300) };
   }
 }
-function sourceUrl(source, query) { return source.template.replace('{q}', encodeURIComponent(query)); }
+
+function sourceUrl(source, query) { return String(source.template || '').replace('{q}', encodeURIComponent(query)); }
+function b64UrlDecodeMaybe(v) {
+  v = String(v || '').trim();
+  const tries = [v];
+  if (/^a1[A-Za-z0-9_\-]+=*$/i.test(v)) tries.push(v.slice(2)); // Bing ck/a uses u=a1<base64url>
+  for (let x of tries) {
+    try {
+      x = x.replace(/-/g,'+').replace(/_/g,'/');
+      while (x.length % 4) x += '=';
+      const out = atob(x);
+      if (/^https?:\/\//i.test(out)) return out;
+    } catch {}
+  }
+  return '';
+}
+function redirectParamCandidates(rawUrl, baseUrl) {
+  const out = [];
+  try {
+    const u = new URL(rawUrl, baseUrl);
+    const keys = ['url','u','uddg','target','redirect','to','q','r','dest','destination'];
+    for (const k of keys) {
+      const val = u.searchParams.get(k);
+      if (!val) continue;
+      out.push(val);
+      try { out.push(decodeURIComponent(val)); } catch {}
+      const b = b64UrlDecodeMaybe(val); if (b) out.push(b);
+    }
+    // Bing result links often hide the real target inside /ck/a?u=a1<base64url>.
+    if (/bing\./i.test(u.hostname) && /\/ck\//i.test(u.pathname)) {
+      const val = u.searchParams.get('u') || '';
+      const b = b64UrlDecodeMaybe(val); if (b) out.push(b);
+    }
+    // DuckDuckGo result redirect: /l/?uddg=<encoded url>
+    if (/duckduckgo\./i.test(u.hostname) && u.searchParams.get('uddg')) out.push(u.searchParams.get('uddg'));
+    // Google result redirect: /url?q=<encoded url>
+    if (/google\./i.test(u.hostname) && u.pathname === '/url' && u.searchParams.get('q')) out.push(u.searchParams.get('q'));
+  } catch {}
+  return out;
+}
+function rawPageVariants(u) {
+  const out = [];
+  try {
+    const x = new URL(u);
+    const h = x.hostname.replace(/^www\./,'');
+    const path = x.pathname.replace(/\/$/,'');
+    let m;
+    if (h === 'pastebin.com' && (m = path.match(/^\/([A-Za-z0-9]{6,})$/))) out.push('https://pastebin.com/raw/' + m[1]);
+    if (h === 'rentry.co' && (m = path.match(/^\/([A-Za-z0-9_-]{3,})$/))) out.push('https://rentry.co/' + m[1] + '/raw');
+    if (h === 'dpaste.org' && !/\/raw$/.test(path)) out.push(x.origin + path + '/raw');
+    if (h === 'hastebin.com' && (m = path.match(/^\/share\/([A-Za-z0-9_-]+)/))) out.push('https://hastebin.com/raw/' + m[1]);
+    if (h === 'hastebin.com' && (m = path.match(/^\/([A-Za-z0-9_-]+)/))) out.push('https://hastebin.com/raw/' + m[1]);
+    if (h === 'paste.rs' && !/\/raw$/.test(path)) out.push(x.origin + path + '/raw');
+  } catch {}
+  return out;
+}
 async function cachedFetch(env, url, sourceName) {
   // D1 cache was intentionally removed from the hot path.
   // Writing cache rows for every source consumed the Worker subrequest budget before searching began.
@@ -610,23 +673,24 @@ async function cachedFetch(env, url, sourceName) {
   }
 }
 function addCandidateUrl(set, val, baseUrl) {
-  if (!val) return;
+  if (!val || set.size >= 180) return;
   const decoded = decodeLoose(String(val));
-  const candidates = decoded.split(/[\s"'<>]+/).slice(0, 500);
-  for (let c of candidates) {
-    c = c.trim().replace(/&amp;/g,'&').replace(/[\])},.;]+$/g,'');
+  const queue = decoded.split(/[\s"'<>]+/).slice(0, 700);
+  for (let i = 0; i < queue.length && set.size < 180; i++) {
+    let c = String(queue[i] || '').trim().replace(/&amp;/g,'&').replace(/[\])},.;]+$/g,'');
     if (!c) continue;
-    const redirect = c.match(/[?&](?:url|u|target|redirect|to|q)=([^&]+)/i);
-    if (redirect) {
-      try { c = decodeURIComponent(redirect[1]); } catch { c = redirect[1]; }
+    // Add decoded redirect targets before filtering the search-engine URL itself.
+    for (const r of redirectParamCandidates(c, baseUrl)) {
+      if (r && r !== c) queue.push(String(r));
     }
     const u = safeUrl(c, baseUrl);
     if (!u || !/^https?:/i.test(u)) continue;
     const h = hostOf(u);
     if (!h) continue;
-    if (/^(www\.)?(bing|duckduckgo|yahoo|google)\./i.test(h)) continue;
+    // Skip search engine shell URLs after extracting their true targets.
+    if (/^(www\.)?(bing|duckduckgo|search\.yahoo|google|startpage|qwant|mojeek|yandex)\./i.test(h)) continue;
     set.add(u);
-    if (set.size >= 120) break;
+    for (const v of rawPageVariants(u)) set.add(v);
   }
 }
 function extractJsonUrls(obj, out, baseUrl, depth=0) {
@@ -1056,7 +1120,7 @@ async function diagnostics(env) {
     const c = await first(env, `SELECT COUNT(*) c FROM ${t}`);
     tables[t] = c?.c ?? 0;
   }
-  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference','sources_manager','toggle_sources','default_high_yield_sources','github_disabled_by_default','v29_sources_sections','v29_enable_disable_all','v29_meawfy_api','v29_real_success_target_100','v29_redirector_targets','v29_archive_csv','v29_1_mega_api_validator','v29_1_continuous_slice_seeding','v29_1_deeper_comment_targets','v29_2_lean_high_yield_policy','v29_2_auto_source_policy_migration','v29_2_active_sources_under_120','v29_2_less_bing_noise','v29_3_stable_source_catalog','v29_3_no_zero_source_rounds','v29_3_sources_ui_catalog_fallback'] };
+  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference','sources_manager','toggle_sources','default_high_yield_sources','github_disabled_by_default','v29_sources_sections','v29_enable_disable_all','v29_meawfy_api','v29_real_success_target_100','v29_redirector_targets','v29_archive_csv','v29_1_mega_api_validator','v29_1_continuous_slice_seeding','v29_1_deeper_comment_targets','v29_2_lean_high_yield_policy','v29_2_auto_source_policy_migration','v29_2_active_sources_under_120','v29_2_less_bing_noise','v29_3_stable_source_catalog','v29_3_no_zero_source_rounds','v29_3_sources_ui_catalog_fallback','v30_bing_redirect_decoder','v30_duckduckgo_google_redirect_decoder','v30_raw_paste_targets','v30_search_engine_rebalance','v30_policy_refresh'] };
 }
 
 async function startV28Job(env, mode='autoscan', keyword='', opts={}) {
@@ -1180,7 +1244,7 @@ export default {
     const url = new URL(req.url);
     if (url.pathname.startsWith('/api/')) return handleApi(req, env, ctx);
     if (url.pathname === '/reset') return handleReset(req, env);
-    return env.ASSETS ? env.ASSETS.fetch(req) : text('Nimbus Core V29 HyperSearch Sources');
+    return env.ASSETS ? env.ASSETS.fetch(req) : text('Nimbus Core V30 HyperSearch Sources');
   },
   async queue(batch, env, ctx) {
     await ensureDb(env);
