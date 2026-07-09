@@ -2,7 +2,7 @@
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '29.1-mega-api-comments-queue';
+const VERSION = '29.2-high-yield-source-autopilot';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -14,21 +14,22 @@ const T = {
   sources: 'nimbus_v27sb_sources',
   settings: 'nimbus_v27sb_settings'
 };
+const SOURCE_POLICY_VERSION = 'v29.2-high-yield-lean-120';
 const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 NimbusCore/28';
 const TIMEOUT_MS = 11000;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 const HEALTH_TTL_MS = 1000 * 60 * 60 * 12;
-const DEFAULT_MAX_SOURCE_FETCHES = 44;
-const HARD_MAX_SOURCE_FETCHES = 72;
+const DEFAULT_MAX_SOURCE_FETCHES = 24;
+const HARD_MAX_SOURCE_FETCHES = 48;
 const MAX_CRAWL_PAGES = 240;
 const MAX_QUEUE_BATCH = 10;
-const SCHEDULE_SEED_LIMIT = 14; // V29: smaller slices, more continuous rounds, no D1 burst
-const SCHEDULE_SEED_LIMIT_KEYWORD = 14;
-const SCHEDULE_SEED_LIMIT_AUTOSCAN = 14;
+const SCHEDULE_SEED_LIMIT = 10; // V29: smaller slices, more continuous rounds, no D1 burst
+const SCHEDULE_SEED_LIMIT_KEYWORD = 10;
+const SCHEDULE_SEED_LIMIT_AUTOSCAN = 10;
 const SUCCESS_TARGET_LINKS = 100;
 const MAX_DEEP_ROUNDS = 300;
 const REQUEST_BUDGET_MS = 26000;
-const QUEUE_SOURCE_BATCH = 12;
+const QUEUE_SOURCE_BATCH = 8;
 const QUEUE_CRAWL_CHILD_LIMIT = 8;
 const QUEUE_MESSAGE_BATCH_LIMIT = 6;
 const MAX_TEXT = 350000;
@@ -329,28 +330,32 @@ function builtInSources() {
   ];
   for (const e of engines) add(...e);
   const apiLike = [
-    ['reddit_search_json','Reddit Search JSON','json',112,'https://www.reddit.com/search.json?q={q}&limit=100&sort=new'],
-    ['reddit_all_url_json','Reddit URL JSON','json',106,'https://www.reddit.com/search.json?q={q}%20url%3Amega.nz%2Ffolder&limit=100&sort=new'],
-    ['reddit_megalinks_json','Reddit Megalinks JSON','json',84,'https://www.reddit.com/r/megalinks/search.json?q={q}&restrict_sr=1&limit=100&sort=new'],
-    ['hn_algolia','HN Algolia','json',35,'https://hn.algolia.com/api/v1/search?query={q}%20mega.nz%2Ffolder&tags=story,comment'],
-    ['archive_search','Archive Search','html',86,'https://archive.org/search?query={q}%20mega.nz%2Ffolder'],
-    ['archive_fulltext','Archive Full Text','json',70,'https://archive.org/advancedsearch.php?q={q}%20mega.nz%2Ffolder&fl%5B%5D=identifier&rows=50&output=json'],
-    ['meawfy_api','Meawfy Internal API','json',150,'https://meawfy.com/internal/api/results.json?q={q}'],
-    ['meawfy_web','Meawfy Web','html',110,'https://meawfy.com/search?q={q}'],
-    ['keeplinks_web','Keeplinks Search','html',90,'https://www.bing.com/search?q=site%3Akeeplinks.eu%20{q}%20%22mega.nz%2Ffolder%22&count=30'],
-    ['ofversedrops_web','OfverseDrops Web','html',98,'https://ofversedrops.com/?s={q}'],
-    ['ahmia','Ahmia Web','html',44,'https://ahmia.fi/search/?q={q}%20mega.nz']
+    ['meawfy_api','Meawfy Internal API','json',180,'https://meawfy.com/internal/api/results.json?q={q}'],
+    ['meawfy_api_folder','Meawfy API Folder Query','json',178,'https://meawfy.com/internal/api/results.json?q=mega.nz%2Ffolder%20{q}'],
+    ['meawfy_web','Meawfy Web','html',130,'https://meawfy.com/search?q={q}'],
+    ['reddit_search_json','Reddit Search JSON','json',126,'https://www.reddit.com/search.json?q={q}%20%22mega.nz%2Ffolder%22&limit=100&sort=new'],
+    ['reddit_all_url_json','Reddit URL JSON','json',124,'https://www.reddit.com/search.json?q=url%3Amega.nz%2Ffolder%20{q}&limit=100&sort=new'],
+    ['reddit_megalinks_json','Reddit Megalinks JSON','json',105,'https://www.reddit.com/r/megalinks/search.json?q={q}&restrict_sr=1&limit=100&sort=new'],
+    ['reddit_piracy_json','Reddit Public Links JSON','json',82,'https://www.reddit.com/search.json?q=%22mega.nz%2Ffolder%22%20{q}&limit=100&sort=comments'],
+    ['archive_search','Archive Search','html',96,'https://archive.org/search?query={q}%20mega.nz%2Ffolder'],
+    ['archive_fulltext','Archive Full Text','json',92,'https://archive.org/advancedsearch.php?q={q}%20mega.nz%2Ffolder&fl%5B%5D=identifier&fl%5B%5D=title&rows=50&output=json'],
+    ['keeplinks_web','Keeplinks Search','html',100,'https://www.bing.com/search?q=site%3Akeeplinks.eu%20{q}%20%22mega.nz%2Ffolder%22&count=20'],
+    ['keeplinks_direct','Keeplinks Direct','html',80,'https://keeplinks.eu/search/{q}'],
+    ['ofversedrops_web','OfverseDrops Web','html',108,'https://ofversedrops.com/?s={q}'],
+    ['hn_algolia','HN Algolia Comments','json',42,'https://hn.algolia.com/api/v1/search?query={q}%20mega.nz%2Ffolder&tags=comment'],
+    ['ahmia','Ahmia Web','html',35,'https://ahmia.fi/search/?q={q}%20mega.nz']
   ];
   for (const a of apiLike) add(...a);
   const domains = [
-    'rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','paste.rs','pastelink.net','ghostbin.co','privatebin.net','keeplinks.eu','reddit.com','old.reddit.com','archive.org','ofversedrops.com','meawfy.com','linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','msha.ke','taplink.cc','allmylinks.com','instabio.cc','heylink.me','lnk.bio','flow.page','about.me','carrd.co','campsite.bio','linkin.bio','bio.fm','hypage.com','koji.to','linkpop.com','snipfeed.co','milkshake.app','shor.by','tap.bio','telegra.ph','medium.com','substack.com','notion.site','notion.so','docs.google.com','sites.google.com','blogspot.com','wordpress.com','tumblr.com','wixsite.com','weebly.com'
+    'rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','paste.rs','pastelink.net','ghostbin.co','privatebin.net',
+    'keeplinks.eu','reddit.com','old.reddit.com','archive.org','ofversedrops.com','meawfy.com',
+    'linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','msha.ke','taplink.cc','allmylinks.com','instabio.cc','heylink.me','lnk.bio','flow.page','carrd.co','campsite.bio',
+    'telegra.ph','notion.site','sites.google.com','blogspot.com','wordpress.com','tumblr.com'
   ];
   const patterns = [
-    ['web','https://www.bing.com/search?q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22&count=30',76],
-    ['rss','https://www.bing.com/search?format=rss&q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22',74],
-    ['ddg','https://duckduckgo.com/html/?q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22',70],
-    ['yahoo','https://search.yahoo.com/search?p=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22&n=20',66],
-    ['folder','https://www.bing.com/search?q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22&count=30',82]
+    ['rss','https://www.bing.com/search?format=rss&q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22',90],
+    ['web','https://www.bing.com/search?q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22&count=20',88],
+    ['ddg','https://duckduckgo.com/html/?q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22',78]
   ];
   let idx = 0;
   for (const d of domains) {
@@ -420,9 +425,9 @@ function buildQueries(keyword, mode) {
   const base = safeSearchTerm(keyword);
   let patterns;
   if (mode === 'autoscan' && !base) {
-    const domains = ['rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','pastelink.net','reddit.com','old.reddit.com','archive.org','ofversedrops.com','meawfy.com','linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','heylink.me','lnk.bio','telegra.ph','medium.com','substack.com','notion.site','blogspot.com','wordpress.com','tumblr.com','sites.google.com','docs.google.com','carrd.co'];
-    const needles = ['mega.nz/folder','mega.co.nz/#F!','\"mega.nz/folder\"','\"mega.nz/folder\" \"index\"','\"mega.nz/folder\" \"archive\"','\"mega.nz/folder\" \"collection\"'];
-    patterns = [...AUTOSCAN_PATTERNS];
+    const domains = ['rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','pastelink.net','reddit.com','old.reddit.com','archive.org','ofversedrops.com','meawfy.com','keeplinks.eu','linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','heylink.me','lnk.bio','telegra.ph','notion.site','blogspot.com','wordpress.com','tumblr.com','sites.google.com','carrd.co'];
+    const needles = ['mega.nz/folder','mega.nz folder','MEGA folder links','mega.nz/folder index','mega.nz/folder archive','mega.nz/folder collection','mega.nz/folder backup','mega.co.nz/#F!'];
+    patterns = ['mega','mega folder','mega.nz folder','mega.nz/folder','MEGA links','public mega folder','mega folder archive', ...AUTOSCAN_PATTERNS];
     for (const d of domains) for (const n of needles) patterns.push(`site:${d} ${n}`);
   }
   else patterns = [
@@ -476,18 +481,29 @@ function balancedSources(rows, offset=0) {
   return out.slice(offset).concat(out.slice(0, offset));
 }
 function defaultSourceEnabled(src) {
+  const id = String(src.id || '').toLowerCase();
   const n = String(src.name || src.id || src.template || '').toLowerCase();
-  // Hotfix5 source policy: fewer, higher-yield sources enabled by default.
-  // User can turn optional/low-yield sources on from the Sources page.
-  if (/github|gist|gitlab|bitbucket|raw\.githubusercontent|youtube|youtu\.be|vimeo|tiktok|instagram|facebook|linkedin|pinterest|slideshare|scribd|issuu|calameo|sourceforge/.test(n)) return 0;
-  const highDomains = /rentry|pastebin|paste\.|justpaste|controlc|haste|dpaste|pastes\.io|paste\.rs|pastelink|ghostbin|privatebin|keeplinks|reddit|old\.reddit|archive|ofversedrops|meawfy|linktr|linktree|beacons|bio\.link|solo\.to|msha\.ke|taplink|allmylinks|instabio|heylink|lnk\.bio|flow\.page|carrd|campsite|telegra|notion|blogspot|wordpress|tumblr|weebly|wixsite/.test(n);
-  if (/^bing_rss|^bing_web|^duckduckgo_html|reddit_|meawfy_api/.test(String(src.id||''))) return 1;
-  if (/generic_bing|generic_rss/.test(n)) return 1;
-  if (/^wide_/.test(String(src.id||''))) {
-    const usefulFacet = /folder|index|archive|collection|links|notes|backup|mirror/.test(n);
-    return highDomains && usefulFacet && Number(src.priority||0) >= 43 ? 1 : 0;
-  }
-  return highDomains ? 1 : 0;
+
+  // V29.2 policy: fewer enabled sources, higher probability, less noise.
+  // Everything low-yield remains available in Sources but OFF by default.
+  if (/github|gist|gitlab|bitbucket|raw\.githubusercontent|youtube|youtu\.be|vimeo|tiktok|instagram|facebook|linkedin|pinterest|slideshare|scribd|issuu|calameo|sourceforge|medium|substack|wix|weebly/.test(n)) return 0;
+
+  // Tier 1: direct APIs / structured public results / comment-rich pages.
+  if (/^meawfy_api|^reddit_search_json|^reddit_all_url_json|^reddit_megalinks_json|^archive_fulltext|^archive_search|^ofversedrops_web|^keeplinks_web|^bing_rss|^bing_web|^duckduckgo_html/.test(id)) return 1;
+
+  // Tier 2: paste sites, public notes, link hubs, and archives.
+  const highDomains = /rentry|pastebin|paste\.ee|justpaste|controlc|haste|dpaste|pastes\.io|paste\.rs|pastelink|ghostbin|privatebin|keeplinks|reddit|old\.reddit|archive|ofversedrops|meawfy|linktr|linktree|beacons|bio\.link|solo\.to|msha\.ke|taplink|allmylinks|instabio|heylink|lnk\.bio|flow\.page|carrd|campsite|telegra|notion|blogspot|wordpress|tumblr|sites\.google/.test(n);
+
+  // Disable the wide filler catalog by default. It remains manually selectable.
+  if (/^wide_/.test(id)) return 0;
+
+  // Keep only targeted domain search templates, not every generic duplicate.
+  if (/^src_/.test(id)) return highDomains && Number(src.priority||0) >= 88 ? 1 : 0;
+
+  // Keep a tiny set of generic discovery patterns.
+  if (/generic_bing|generic_rss/.test(id)) return /mega\.nz\/folder|mega\.co\.nz\/#f|index|archive|collection/.test(n) ? 1 : 0;
+
+  return highDomains && Number(src.priority||0) >= 80 ? 1 : 0;
 }
 async function sourceOverrideMap(env) {
   const map = new Map();
@@ -498,6 +514,7 @@ async function sourceOverrideMap(env) {
   return map;
 }
 async function getSources(env, opts = {}) {
+  if (!opts.skip_policy) await ensureSourcePolicy(env);
   const maxSources = intEnv(env, 'MAX_SOURCES_PER_RUN', 1000, 25, 1000);
   const includeDisabled = !!opts.include_disabled;
   const overrides = await sourceOverrideMap(env);
@@ -549,6 +566,19 @@ async function applySourcePreset(env, action='high_yield') {
     changed += chunk.length;
   }
   return { ok:true, version:VERSION, action, changed, total:rows.length, enabled:rows.filter(x=>x.enabled).length };
+}
+
+async function ensureSourcePolicy(env) {
+  try {
+    const current = await getSetting(env, 'source_policy_version', '');
+    if (current === SOURCE_POLICY_VERSION) return { ok:true, applied:false };
+    const out = await applySourcePreset(env, 'high_yield');
+    await setSetting(env, 'source_policy_version', SOURCE_POLICY_VERSION);
+    await logEvent(env, 'info', 'source_policy_applied', { version:SOURCE_POLICY_VERSION, enabled:out.enabled, total:out.total });
+    return { ok:true, applied:true, ...out };
+  } catch (e) {
+    return { ok:false, applied:false, error:String(e.message||e).slice(0,300) };
+  }
 }
 function sourceUrl(source, query) { return source.template.replace('{q}', encodeURIComponent(query)); }
 async function cachedFetch(env, url, sourceName) {
@@ -776,7 +806,8 @@ async function seedQueueSlice(env, runId, mode='autoscan', keyword='', opts={}) 
   const key = 'run_offset:' + runId;
   let sourceOffset = Number(opts.source_offset ?? await getSetting(env, key, '0')) || 0;
   sourceOffset = Math.max(0, sourceOffset) % allSources.length;
-  const safeLimit = Math.min(Number(opts.max_sources||0)||SCHEDULE_SEED_LIMIT, SCHEDULE_SEED_LIMIT, allSources.length);
+  const defaultLimit = mode === 'search' ? SCHEDULE_SEED_LIMIT_KEYWORD : SCHEDULE_SEED_LIMIT_AUTOSCAN;
+  const safeLimit = Math.min(Number(opts.max_sources||0)||defaultLimit, defaultLimit, allSources.length);
   const selected = [];
   for (let i=0; i<safeLimit; i++) selected.push(allSources[(sourceOffset+i)%allSources.length]);
   const tasks = selected.map((src,i)=>({ kind:'source', run_id:runId, mode, keyword:keyword||'', source:src, source_name:src.name||'source', query:queries[(sourceOffset+i)%queries.length], priority:src.priority||50 }));
@@ -1008,7 +1039,7 @@ async function diagnostics(env) {
     const c = await first(env, `SELECT COUNT(*) c FROM ${t}`);
     tables[t] = c?.c ?? 0;
   }
-  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference','sources_manager','toggle_sources','default_high_yield_sources','github_disabled_by_default','v29_sources_sections','v29_enable_disable_all','v29_meawfy_api','v29_real_success_target_100','v29_redirector_targets','v29_archive_csv','v29_1_mega_api_validator','v29_1_continuous_slice_seeding','v29_1_deeper_comment_targets'] };
+  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference','sources_manager','toggle_sources','default_high_yield_sources','github_disabled_by_default','v29_sources_sections','v29_enable_disable_all','v29_meawfy_api','v29_real_success_target_100','v29_redirector_targets','v29_archive_csv','v29_1_mega_api_validator','v29_1_continuous_slice_seeding','v29_1_deeper_comment_targets','v29_2_lean_high_yield_policy','v29_2_auto_source_policy_migration','v29_2_active_sources_under_120','v29_2_less_bing_noise'] };
 }
 
 async function startV28Job(env, mode='autoscan', keyword='', opts={}) {
@@ -1094,6 +1125,7 @@ async function handleApi(req, env, ctx) {
     if (path === '/api/health/check') { const b = await parseBody(req); const out = await checkBatch(env, b.run_id||'', Number(b.limit||20)); return json({ok:true, version:VERSION, ...out, stats:await dashboardStats(env)}); }
     if (path === '/api/results') return json(await getResults(env, url.searchParams.get('mode')||'', url.searchParams.get('keyword')||'', Number(url.searchParams.get('limit')||1000)));
     if (path === '/api/archive') return json(await getArchive(env, Number(url.searchParams.get('limit')||2000)));
+    if (path === '/api/status') return json(await diagnostics(env));
     if (path === '/api/stats') return json({ok:true, version:VERSION, stats:await dashboardStats(env)});
     if (path === '/api/sources') {
       await ensureDb(env);

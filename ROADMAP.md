@@ -15,3 +15,9 @@ Next:
 
 
 Hotfix4: safe queue seeding added to prevent D1/Worker 1102 subrequest limit.
+
+
+## V29.3 candidate
+- Per-source success history and auto-disable after repeated zero-yield scans.
+- Optional external search API support if user provides keys.
+- Stronger link container resolver for Keeplinks/redirectors without bypassing protections.

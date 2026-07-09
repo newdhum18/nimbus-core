@@ -1,1 +1,1 @@
-window.NIMBUS_CONFIG = { version: '29-hypersearch-sources-engine' };
+window.NIMBUS_CONFIG = { version: '29.2-high-yield-source-autopilot' };
