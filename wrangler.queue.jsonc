@@ -1,8 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "nimbus-core",
+  "name": "nimbus-core-queue",
+  "main": "queue-consumer.js",
   "compatibility_date": "2025-08-01",
-  "pages_build_output_dir": ".",
   "d1_databases": [
     {
       "binding": "DB",
@@ -15,10 +15,12 @@
     "subrequests": 1000
   },
   "queues": {
-    "producers": [
+    "consumers": [
       {
-        "binding": "AUTOSCAN_QUEUE",
-        "queue": "nimbus-autoscan-queue"
+        "queue": "nimbus-autoscan-queue",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 3
       }
     ]
   }

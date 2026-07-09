@@ -1,1 +1,1 @@
-window.NIMBUS_CONFIG={version:'28-hypersearch-scheduler',api:'/api'};
+window.NIMBUS_CONFIG = { version: '28-queue-archive-comments' };

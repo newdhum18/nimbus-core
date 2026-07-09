@@ -1,5 +1,5 @@
 (() => {
-  const cfg = window.NIMBUS_CONFIG || { version: '27-sourceboost.5-auto-batch', apiBase: '' };
+  const cfg = window.NIMBUS_CONFIG || { version: '28-queue-archive-comments', apiBase: '' };
   const $ = (s) => document.querySelector(s);
   const out = $('#output') || $('#results') || null;
   const write = (data) => {
