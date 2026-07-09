@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nimbus-core",
+  "compatibility_date": "2025-08-01",
+  "pages_build_output_dir": ".",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nimbus-db",
+      "database_id": "ab619b87-8888-4eea-a632-304af715c786"
+    }
+  ],
+  "limits": {
+    "cpu_ms": 30000,
+    "subrequests": 1000
+  },
+  "queues": {
+    "producers": [
+      {
+        "binding": "QUEUE",
+        "queue": "nimbus-autoscan-queue"
+      }
+    ]
+  }
+}

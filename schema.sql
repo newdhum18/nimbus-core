@@ -1,0 +1,3 @@
+-- Nimbus Core V30.1 Fast Source Pipeline D1 schema
+-- Worker auto-creates and migrates tables on first API call.
+-- Required D1 binding name in Cloudflare Pages: DB
