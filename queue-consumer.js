@@ -2,7 +2,7 @@
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '28-queue-archive-comments';
+const VERSION = '28-queue-archive-comments-hotfix5-sources';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -22,11 +22,14 @@ const DEFAULT_MAX_SOURCE_FETCHES = 44;
 const HARD_MAX_SOURCE_FETCHES = 72;
 const MAX_CRAWL_PAGES = 240;
 const MAX_QUEUE_BATCH = 10;
+const SCHEDULE_SEED_LIMIT = 18; // Hotfix5: lightweight source slices; more rounds, fewer D1 writes per request
+const SCHEDULE_SEED_LIMIT_KEYWORD = 18;
+const SCHEDULE_SEED_LIMIT_AUTOSCAN = 18;
 const MAX_DEEP_ROUNDS = 300;
 const REQUEST_BUDGET_MS = 26000;
 const QUEUE_SOURCE_BATCH = 12;
 const QUEUE_CRAWL_CHILD_LIMIT = 8;
-const QUEUE_MESSAGE_BATCH_LIMIT = 12;
+const QUEUE_MESSAGE_BATCH_LIMIT = 6;
 const MAX_TEXT = 350000;
 const LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz|io)\/folder\/[A-Za-z0-9_-]+#[A-Za-z0-9_!\-]{8,})/gi;
 const OLD_LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz)\/#(?:F!|N!|!)?[A-Za-z0-9_-]+![A-Za-z0-9_!\-]+)/gi;
@@ -39,13 +42,12 @@ const AUTOSCAN_PATTERNS = [
   'mega.nz/folder', 'mega.nz/#F!', 'mega.co.nz/#F!',
   '"mega.nz/folder"', '"mega.nz" "folder"', '"mega.nz/folder" "index"',
   'site:pastebin.com "mega.nz/folder"', 'site:rentry.co "mega.nz/folder"', 'site:reddit.com "mega.nz/folder"',
-  'site:github.com "mega.nz/folder"', 'site:gist.github.com "mega.nz/folder"', 'site:archive.org "mega.nz/folder"',
-  'site:gitlab.com "mega.nz/folder"', 'site:bitbucket.org "mega.nz/folder"', 'site:linktr.ee "mega.nz/folder"',
+  'site:archive.org "mega.nz/folder"', 'site:linktr.ee "mega.nz/folder"',
   'site:meawfy.com "mega.nz/folder"', 'site:ofversedrops.com "mega.nz/folder"', 'site:telegra.ph "mega.nz/folder"',
   'site:medium.com "mega.nz/folder"', 'site:substack.com "mega.nz/folder"', 'site:notion.site "mega.nz/folder"',
   'site:paste.ee "mega.nz/folder"', 'site:justpaste.it "mega.nz/folder"', 'site:controlc.com "mega.nz/folder"',
   'site:hastebin.com "mega.nz/folder"', 'site:dpaste.org "mega.nz/folder"', 'site:pastes.io "mega.nz/folder"',
-  'site:pastelink.net "mega.nz/folder"', 'site:github.io "mega.nz/folder"', 'site:raw.githubusercontent.com "mega.nz/folder"',
+  'site:pastelink.net "mega.nz/folder"',
   'site:t.me "mega.nz/folder"', 'site:telegram.me "mega.nz/folder"', 'site:vk.com "mega.nz/folder"',
   'site:txti.es "mega.nz/folder"', 'site:paste.rs "mega.nz/folder"', 'site:paste.mozilla.org "mega.nz/folder"'
 ];
@@ -288,12 +290,6 @@ function builtInSources() {
     ['reddit_all_url_json','Reddit URL JSON','json',106,'https://www.reddit.com/search.json?q={q}%20url%3Amega.nz%2Ffolder&limit=100&sort=new'],
     ['reddit_megalinks_json','Reddit Megalinks JSON','json',84,'https://www.reddit.com/r/megalinks/search.json?q={q}&restrict_sr=1&limit=100&sort=new'],
     ['hn_algolia','HN Algolia','json',35,'https://hn.algolia.com/api/v1/search?query={q}%20mega.nz%2Ffolder&tags=story,comment'],
-    ['github_code','GitHub Code Web','html',104,'https://github.com/search?q={q}+mega.nz%2Ffolder&type=code'],
-    ['github_issues','GitHub Issues Web','html',94,'https://github.com/search?q={q}+mega.nz%2Ffolder&type=issues'],
-    ['github_repos','GitHub Repos Web','html',86,'https://github.com/search?q={q}+mega.nz%2Ffolder&type=repositories'],
-    ['gist_search','Gist Search','html',90,'https://gist.github.com/search?q={q}+mega.nz%2Ffolder'],
-    ['gitlab_search','GitLab Search','html',80,'https://gitlab.com/search?search={q}%20mega.nz%2Ffolder'],
-    ['bitbucket_search','Bitbucket Search','html',68,'https://bitbucket.org/repo/all?name={q}%20mega.nz%2Ffolder'],
     ['archive_search','Archive Search','html',86,'https://archive.org/search?query={q}%20mega.nz%2Ffolder'],
     ['archive_fulltext','Archive Full Text','html',70,'https://archive.org/advancedsearch.php?q={q}%20mega.nz%2Ffolder&fl%5B%5D=identifier&rows=50&output=json'],
     ['meawfy_web','Meawfy Web','html',100,'https://meawfy.com/search?q={q}'],
@@ -302,7 +298,7 @@ function builtInSources() {
   ];
   for (const a of apiLike) add(...a);
   const domains = [
-    'rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','paste.rs','pastelink.net','ghostbin.co','privatebin.net','gist.github.com','github.com','raw.githubusercontent.com','github.io','gitlab.com','bitbucket.org','reddit.com','old.reddit.com','archive.org','ofversedrops.com','meawfy.com','linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','msha.ke','taplink.cc','allmylinks.com','instabio.cc','heylink.me','lnk.bio','flow.page','about.me','carrd.co','campsite.bio','linkin.bio','bio.fm','hypage.com','koji.to','linkpop.com','snipfeed.co','milkshake.app','shor.by','tap.bio','telegra.ph','medium.com','substack.com','notion.site','notion.so','docs.google.com','sites.google.com','blogspot.com','wordpress.com','tumblr.com','wixsite.com','weebly.com','gitbook.io','readthedocs.io','readme.io','sourceforge.net','scribd.com','slideshare.net','issuu.com','calameo.com'
+    'rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','paste.rs','pastelink.net','ghostbin.co','privatebin.net','reddit.com','old.reddit.com','archive.org','ofversedrops.com','meawfy.com','linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','msha.ke','taplink.cc','allmylinks.com','instabio.cc','heylink.me','lnk.bio','flow.page','about.me','carrd.co','campsite.bio','linkin.bio','bio.fm','hypage.com','koji.to','linkpop.com','snipfeed.co','milkshake.app','shor.by','tap.bio','telegra.ph','medium.com','substack.com','notion.site','notion.so','docs.google.com','sites.google.com','blogspot.com','wordpress.com','tumblr.com','wixsite.com','weebly.com'
   ];
   const patterns = [
     ['web','https://www.bing.com/search?q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22&count=30',76],
@@ -379,16 +375,16 @@ function buildQueries(keyword, mode) {
   const base = safeSearchTerm(keyword);
   let patterns;
   if (mode === 'autoscan' && !base) {
-    const domains = ['rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','pastelink.net','reddit.com','old.reddit.com','github.com','gist.github.com','raw.githubusercontent.com','github.io','archive.org','gitlab.com','bitbucket.org','ofversedrops.com','meawfy.com','linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','heylink.me','lnk.bio','telegra.ph','medium.com','substack.com','notion.site','blogspot.com','wordpress.com','tumblr.com','sites.google.com','docs.google.com','carrd.co'];
+    const domains = ['rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','pastelink.net','reddit.com','old.reddit.com','archive.org','ofversedrops.com','meawfy.com','linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','heylink.me','lnk.bio','telegra.ph','medium.com','substack.com','notion.site','blogspot.com','wordpress.com','tumblr.com','sites.google.com','docs.google.com','carrd.co'];
     const needles = ['mega.nz/folder','mega.co.nz/#F!','\"mega.nz/folder\"','\"mega.nz/folder\" \"index\"','\"mega.nz/folder\" \"archive\"','\"mega.nz/folder\" \"collection\"'];
     patterns = [...AUTOSCAN_PATTERNS];
     for (const d of domains) for (const n of needles) patterns.push(`site:${d} ${n}`);
   }
   else patterns = [
     base, `"${base}"`, `${base} mega.nz/folder`, `"${base}" "mega.nz/folder"`,
-    `site:reddit.com ${base} "mega.nz/folder"`, `site:github.com ${base} "mega.nz/folder"`, `site:gist.github.com ${base} "mega.nz/folder"`,
+    `site:reddit.com ${base} "mega.nz/folder"`,
     `site:pastebin.com ${base} "mega.nz/folder"`, `site:rentry.co ${base} "mega.nz/folder"`, `site:archive.org ${base} "mega.nz/folder"`,
-    `site:gitlab.com ${base} "mega.nz/folder"`, `site:linktr.ee ${base} "mega.nz/folder"`, `site:meawfy.com ${base} "mega.nz/folder"`,
+    `site:linktr.ee ${base} "mega.nz/folder"`, `site:meawfy.com ${base} "mega.nz/folder"`,
     `site:ofversedrops.com ${base} "mega.nz/folder"`, `site:notion.site ${base} "mega.nz/folder"`, `site:telegra.ph ${base} "mega.nz/folder"`,
     `"mega.nz/folder" ${base}`, `"mega.co.nz/#F!" ${base}`
   ];
@@ -433,16 +429,57 @@ function balancedSources(rows, offset=0) {
   offset = Math.max(0, offset||0) % out.length;
   return out.slice(offset).concat(out.slice(0, offset));
 }
+function defaultSourceEnabled(src) {
+  const n = String(src.name || src.id || src.template || '').toLowerCase();
+  // Hotfix5 source policy: fewer, higher-yield sources enabled by default.
+  // User can turn optional/low-yield sources on from the Sources page.
+  if (/github|gist|gitlab|bitbucket|raw\.githubusercontent|youtube|youtu\.be|vimeo|tiktok|instagram|facebook|linkedin|pinterest|slideshare|scribd|issuu|calameo|sourceforge/.test(n)) return 0;
+  const highDomains = /rentry|pastebin|paste\.|justpaste|controlc|haste|dpaste|pastes\.io|paste\.rs|pastelink|ghostbin|privatebin|reddit|old\.reddit|archive|ofversedrops|meawfy|linktr|linktree|beacons|bio\.link|solo\.to|msha\.ke|taplink|allmylinks|instabio|heylink|lnk\.bio|flow\.page|carrd|campsite|telegra|notion|blogspot|wordpress|tumblr|weebly|wixsite/.test(n);
+  if (/^bing_|^duckduckgo_html|reddit_/.test(String(src.id||''))) return 1;
+  if (/generic_bing|generic_rss/.test(n)) return 1;
+  if (/^wide_/.test(String(src.id||''))) {
+    const usefulFacet = /folder|index|archive|collection|links|notes|backup|mirror/.test(n);
+    return highDomains && usefulFacet && Number(src.priority||0) >= 43 ? 1 : 0;
+  }
+  return highDomains ? 1 : 0;
+}
+async function sourceOverrideMap(env) {
+  const map = new Map();
+  try {
+    const r = await all(env, `SELECT id,enabled,priority,name,type,template,config FROM ${T.sources}`);
+    for (const x of (r.results||[])) map.set(String(x.id), x);
+  } catch {}
+  return map;
+}
 async function getSources(env, opts = {}) {
   const maxSources = intEnv(env, 'MAX_SOURCES_PER_RUN', 1000, 25, 1000);
-  let rows = catalogSources();
+  const includeDisabled = !!opts.include_disabled;
+  const overrides = await sourceOverrideMap(env);
+  let rows = catalogSources().map(src => {
+    const ov = overrides.get(String(src.id));
+    const enabled = ov ? Number(ov.enabled||0) : defaultSourceEnabled(src);
+    return { ...src, enabled, priority: ov && ov.priority != null ? Number(ov.priority) : src.priority, category: sourceGroup(src), builtin:1 };
+  });
   try {
-    const r = await all(env, `SELECT * FROM ${T.sources} WHERE enabled=1 ORDER BY priority DESC LIMIT 300`);
-    rows = rows.concat(r.results || []);
+    const r = await all(env, `SELECT * FROM ${T.sources} WHERE template IS NOT NULL AND template!='' ORDER BY priority DESC LIMIT 500`);
+    for (const x of (r.results || [])) if (!rows.find(r=>String(r.id)===String(x.id))) rows.push({ ...x, enabled:Number(x.enabled||0), category:sourceGroup(x), builtin:0 });
   } catch {}
   const seen = new Set();
   rows = rows.filter(r => { const k=String(r.id||r.name||r.template); if(seen.has(k)) return false; seen.add(k); return true; });
+  if (!includeDisabled) rows = rows.filter(r => Number(r.enabled) === 1);
   return balancedSources(rows, Number(opts.offset||0)).slice(0, maxSources);
+}
+async function setSourceEnabled(env, id, enabled, priority=null) {
+  await ensureDb(env);
+  const src = catalogSources().find(s => String(s.id) === String(id)) || null;
+  const existing = await first(env, `SELECT * FROM ${T.sources} WHERE id=?`, [id]);
+  const name = existing?.name || src?.name || id;
+  const type = existing?.type || src?.type || 'html';
+  const template = existing?.template || src?.template || '';
+  const pri = priority != null ? Number(priority) : (existing?.priority ?? src?.priority ?? 50);
+  await q(env, `INSERT OR REPLACE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,
+    [id,name,type,enabled?1:0,pri,template,existing?.config || src?.config || '{}', existing?.created_at || nowIso(), nowIso()]);
+  return { ok:true, id, enabled:enabled?1:0 };
 }
 function sourceUrl(source, query) { return source.template.replace('{q}', encodeURIComponent(query)); }
 async function cachedFetch(env, url, sourceName) {
@@ -561,9 +598,20 @@ async function saveLink(env, data) {
   return true;
 }
 async function enqueue(env, item) {
-  const id = item.id || 'q_' + hash([item.kind,item.url,item.keyword,item.mode].join('|'));
+  const sourceName = typeof item.source === 'string' ? item.source : (item.source?.name || item.source_name || '');
+  let qUrl = item.url || '';
+  // Source tasks must keep a concrete URL in the D1 shadow queue so the frontend/deep drain can process them
+  // even when Cloudflare Queue consumer is not attached or Pages cannot consume queue messages.
+  if (!qUrl && item.kind === 'source') {
+    try {
+      const srcObj = (item.source && typeof item.source === 'object') ? item.source : { name: sourceName || 'source', template: item.template || '' };
+      if (srcObj.template) qUrl = sourceUrl(srcObj, item.query || item.keyword || 'mega.nz/folder');
+    } catch {}
+  }
+  const qKeyword = item.keyword || item.query || '';
+  const id = item.id || 'q_' + hash([item.kind,qUrl,qKeyword,item.mode,sourceName].join('|'));
   await q(env, `INSERT OR IGNORE INTO ${T.queue}(id,run_id,mode,kind,url,keyword,source,priority,status,attempts,max_attempts,available_at,created_at,updated_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [id, item.run_id||'', item.mode||'search', item.kind, item.url||'', item.keyword||'', item.source||'', item.priority||50, 'pending', 0, item.max_attempts||3, item.available_at||nowIso(), nowIso(), nowIso(), '']);
+    [id, item.run_id||'', item.mode||'search', item.kind, qUrl, qKeyword, sourceName, item.priority||50, 'pending', 0, item.max_attempts||3, item.available_at||nowIso(), nowIso(), nowIso(), '']);
 }
 async function enqueueCloud(env, body) {
   const qbind = env.AUTOSCAN_QUEUE || env.QUEUE;
@@ -586,18 +634,16 @@ async function enqueueTask(env, item, preferCloud = true) {
   return 'd1';
 }
 async function enqueueManyCloud(env, items) {
-  const qbind = env.AUTOSCAN_QUEUE || env.QUEUE;
-  if (!qbind || !qbind.sendBatch) {
-    let n = 0;
-    for (const it of items) { await enqueueTask(env, it, false); n++; }
-    return { mode:'d1', enqueued:n };
-  }
-  const batch = items.map(body => ({ body }));
-  await qbind.sendBatch(batch);
+  // Hotfix 3: Pages cannot reliably act as a Cloudflare Queue consumer.
+  // Therefore every task is persisted in the D1 shadow queue first and processed by /api/v28/tick.
+  // If a real Worker consumer is added later, the same bindings can still be used, but the UI no longer
+  // depends on Cloudflare Queue draining messages in the background.
+  let n = 0;
   for (const it of items) {
-    await enqueue(env, { ...it, id:it.id || 'qlog_' + hash([it.kind,it.url,it.keyword,it.mode,it.run_id].join('|')) });
+    await enqueue(env, { ...it, id:it.id || 'q_' + hash([it.kind,it.url||it.template||'',it.query||it.keyword||'',it.mode,it.run_id,it.source_name||''].join('|')) });
+    n++;
   }
-  return { mode:'cloud', enqueued:items.length };
+  return { mode:'d1-shadow-autopilot', enqueued:n };
 }
 async function startRun(env, mode, keyword) {
   await ensureDb(env);
@@ -643,14 +689,20 @@ async function scheduleQueueRun(env, mode='autoscan', keyword='', opts={}) {
   const queries = buildQueries(keyword, mode);
   const sourceOffset = Math.max(0, Number(opts.source_offset || 0) || 0) % Math.max(1, allSources.length);
   const queryOffset = Math.max(0, Number(opts.query_offset || 0) || 0) % Math.max(1, queries.length);
-  const max = Math.min(Number(opts.max_sources || 0) || allSources.length, allSources.length, 1000);
-  const selected = allSources.slice(0, max);
+  // Hotfix4: Cloudflare/D1 has a hard per-invocation subrequest ceiling. Do NOT enqueue
+  // all 1000 sources in one request. Seed a safe balanced slice; the frontend AutoPilot and
+  // Continue Deep Processing can create/drain more slices without hitting 1102.
+  const requested = Number(opts.max_sources || 0) || (mode === 'search' ? SCHEDULE_SEED_LIMIT_KEYWORD : SCHEDULE_SEED_LIMIT_AUTOSCAN);
+  const safeLimit = Math.min(requested, mode === 'search' ? SCHEDULE_SEED_LIMIT_KEYWORD : SCHEDULE_SEED_LIMIT_AUTOSCAN, allSources.length);
+  const selected = [];
+  for (let i=0; i<safeLimit; i++) selected.push(allSources[(sourceOffset + i) % allSources.length]);
   const tasks = selected.map((src, i) => ({
     kind:'source',
     run_id:runId,
     mode,
     keyword:keyword||'',
-    source:src,
+    source: src,
+    source_name: src.name || 'source',
     query:queries[(queryOffset+i) % queries.length],
     priority:src.priority||50
   }));
@@ -661,7 +713,9 @@ async function scheduleQueueRun(env, mode='autoscan', keyword='', opts={}) {
     enqueued += out.enqueued || 0;
     queueMode = out.mode || queueMode;
   }
-  return { ok:true, version:VERSION, queued:true, queue_mode:queueMode, run_id:runId, mode, keyword:keyword||'', enqueued, catalog_sources:allSources.length, message:'Queue/Archive job created. Cloudflare Queue will drain automatically; UI reads from Archive.' };
+  const next_source_offset = (sourceOffset + selected.length) % Math.max(1, allSources.length);
+  const remaining_estimate = Math.max(0, allSources.length - selected.length);
+  return { ok:true, version:VERSION, queued:true, queue_mode:queueMode, run_id:runId, mode, keyword:keyword||'', enqueued, catalog_sources:allSources.length, source_offset:sourceOffset, next_source_offset, remaining_estimate, safe_seed_limit:safeLimit, message:'Queue/Archive job created in safe chunks. AutoPilot drains D1 Shadow Queue without exceeding Cloudflare limits.' };
 }
 async function handleQueueMessage(env, body) {
   await ensureDb(env);
@@ -747,7 +801,12 @@ async function processQueue(env, runId = '', limit = MAX_QUEUE_BATCH) {
     await q(env, `UPDATE ${T.queue} SET status='running', attempts=attempts+1, updated_at=? WHERE id=?`, [nowIso(), item.id]);
     try {
       let r = {found:0};
-      if (item.kind === 'crawl') r = await crawlPage(env, item);
+      if (item.kind === 'source') {
+        const src = { name:item.source || hostOf(item.url) || 'source', template:item.url, priority:item.priority || 50 };
+        r = await processSourceFetch(env, item.run_id || '', item.mode || 'autoscan', item.keyword || 'mega.nz/folder', src, item.keyword || 'mega.nz/folder', Date.now(), false);
+        r.found = (r.direct || 0);
+      }
+      else if (item.kind === 'crawl') r = await crawlPage(env, item);
       else if (item.kind === 'health') r = await healthOne(env, item.url);
       found += r.found || 0;
       await q(env, `UPDATE ${T.queue} SET status='done', updated_at=?, error='' WHERE id=?`, [nowIso(), item.id]);
@@ -867,18 +926,27 @@ async function diagnostics(env) {
     const c = await first(env, `SELECT COUNT(*) c FROM ${t}`);
     tables[t] = c?.c ?? 0;
   }
-  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference'] };
+  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference','sources_manager','toggle_sources','default_high_yield_sources','github_disabled_by_default'] };
 }
 
 async function startV28Job(env, mode='autoscan', keyword='', opts={}) {
-  return scheduleQueueRun(env, mode, keyword||'', opts||{});
+  // Hotfix 3: create the D1 shadow queue and immediately drain a small first batch.
+  // This proves the pipeline is active and avoids the previous state where runs increased but pages stayed 0.
+  const started = Date.now();
+  const scheduled = await scheduleQueueRun(env, mode, keyword||'', opts||{});
+  const firstLimit = Math.min(Number(opts.initial_limit||6)||6, 8);
+  const first = await processQueue(env, scheduled.run_id||'', firstLimit);
+  return { ...scheduled, first_processed:first, pending:await queueCount(env, scheduled.run_id||''), elapsed_ms:Date.now()-started, stats:await dashboardStats(env), results:(await getResults(env, mode, keyword||'', 1000)).results };
 }
 async function tickV28Job(env, runId, mode='autoscan', keyword='', opts={}) {
-  // With Cloudflare Queue enabled, tick becomes a lightweight status/drain call.
+  // Always drain the D1 shadow queue in small safe batches. This makes AutoPilot work even when
+  // Cloudflare Queue consumer is not attached to the Pages deployment.
   const started = Date.now();
-  let processed = { processed:0, found:0, failed:0 };
-  // Fallback drain for accounts where Queue is not enabled yet.
-  if (!(env.AUTOSCAN_QUEUE || env.QUEUE)) processed = await processQueue(env, runId||'', Math.min(Number(opts.limit||8)||8, 12));
+  const limit = Math.min(Number(opts.limit||10)||10, 14);
+  let processed = await processQueue(env, runId||'', limit);
+  // Fallback: if the specific run id has no rows, drain the global queue. This helps after browser reloads
+  // or when the frontend did not persist the latest run_id correctly.
+  if (!(processed.processed||processed.failed) && runId) processed = await processQueue(env, '', Math.min(limit, 8));
   return { ok:true, version:VERSION, run_id:runId||'', mode, keyword:keyword||'', elapsed_ms:Date.now()-started, pending:await queueCount(env, runId||''), processed, stats:await dashboardStats(env), results:(await getResults(env, mode, keyword||'', 1000)).results };
 }
 
@@ -917,7 +985,14 @@ async function handleApi(req, env, ctx) {
     if (path === '/api/results') return json(await getResults(env, url.searchParams.get('mode')||'', url.searchParams.get('keyword')||'', Number(url.searchParams.get('limit')||1000)));
     if (path === '/api/archive') return json(await getArchive(env, Number(url.searchParams.get('limit')||2000)));
     if (path === '/api/stats') return json({ok:true, version:VERSION, stats:await dashboardStats(env)});
-    if (path === '/api/sources') { await ensureDb(env); if (req.method==='GET') return json({ok:true, version:VERSION, sources: await getSources(env)}); const b=await parseBody(req); await q(env,`INSERT OR REPLACE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,[b.id||uid('src'),b.name,b.type||'html',b.enabled?1:0,b.priority||50,b.template,JSON.stringify(b.config||{}),nowIso(),nowIso()]); return json({ok:true}); }
+    if (path === '/api/sources') {
+      await ensureDb(env);
+      if (req.method==='GET') { const rows = await getSources(env,{include_disabled:true}); return json({ok:true, version:VERSION, total:rows.length, enabled:rows.filter(s=>Number(s.enabled)===1).length, sources: rows}); }
+      const b=await parseBody(req);
+      if (b.action === 'toggle') return json(await setSourceEnabled(env, b.id, !!b.enabled, b.priority));
+      if (!b.name || !b.template) return json({ok:false,error:'name_and_template_required'},400);
+      await q(env,`INSERT OR REPLACE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,[b.id||uid('src'),b.name,b.type||'html',b.enabled?1:0,b.priority||50,b.template,JSON.stringify(b.config||{}),nowIso(),nowIso()]); return json({ok:true});
+    }
     if (path === '/api/export') return exportData(env, url.searchParams.get('format')||'json', url.searchParams.get('mode')||'');
     return json({ok:false, version:VERSION, error:'not_found'},404);
   } catch(e) {
@@ -927,7 +1002,7 @@ async function handleApi(req, env, ctx) {
 }
 async function handleReset(req, env) { await hardReset(env); return json({ok:true, version:VERSION, message:'D1 hard reset complete', next:'/' }); }
 async function scheduled(event, env, ctx) {
-  ctx.waitUntil((async()=>{ await ensureDb(env); if (env.AUTOSCAN_QUEUE || env.QUEUE) await scheduleQueueRun(env, 'autoscan', '', {max_sources:72}); else { await runSearch(env, 'autoscan', '', true, { max_sources: 12, deep_rounds: 3 }); await processQueue(env, '', 8); } })());
+  ctx.waitUntil((async()=>{ await ensureDb(env); if (env.AUTOSCAN_QUEUE || env.QUEUE) await scheduleQueueRun(env, 'autoscan', '', {max_sources:18}); else { await runSearch(env, 'autoscan', '', true, { max_sources: 12, deep_rounds: 3 }); await processQueue(env, '', 8); } })());
 }
 export default {
   async fetch(req, env, ctx) {

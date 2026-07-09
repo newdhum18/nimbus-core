@@ -2,7 +2,7 @@
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '28-queue-archive-comments-hotfix4';
+const VERSION = '28-queue-archive-comments-hotfix5-sources';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -22,14 +22,14 @@ const DEFAULT_MAX_SOURCE_FETCHES = 44;
 const HARD_MAX_SOURCE_FETCHES = 72;
 const MAX_CRAWL_PAGES = 240;
 const MAX_QUEUE_BATCH = 10;
-const SCHEDULE_SEED_LIMIT = 36; // Hotfix4: never insert 1000 queue rows in one Worker invocation
-const SCHEDULE_SEED_LIMIT_KEYWORD = 48;
-const SCHEDULE_SEED_LIMIT_AUTOSCAN = 36;
+const SCHEDULE_SEED_LIMIT = 18; // Hotfix5: lightweight source slices; more rounds, fewer D1 writes per request
+const SCHEDULE_SEED_LIMIT_KEYWORD = 18;
+const SCHEDULE_SEED_LIMIT_AUTOSCAN = 18;
 const MAX_DEEP_ROUNDS = 300;
 const REQUEST_BUDGET_MS = 26000;
 const QUEUE_SOURCE_BATCH = 12;
 const QUEUE_CRAWL_CHILD_LIMIT = 8;
-const QUEUE_MESSAGE_BATCH_LIMIT = 12;
+const QUEUE_MESSAGE_BATCH_LIMIT = 6;
 const MAX_TEXT = 350000;
 const LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz|io)\/folder\/[A-Za-z0-9_-]+#[A-Za-z0-9_!\-]{8,})/gi;
 const OLD_LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz)\/#(?:F!|N!|!)?[A-Za-z0-9_-]+![A-Za-z0-9_!\-]+)/gi;
@@ -42,13 +42,12 @@ const AUTOSCAN_PATTERNS = [
   'mega.nz/folder', 'mega.nz/#F!', 'mega.co.nz/#F!',
   '"mega.nz/folder"', '"mega.nz" "folder"', '"mega.nz/folder" "index"',
   'site:pastebin.com "mega.nz/folder"', 'site:rentry.co "mega.nz/folder"', 'site:reddit.com "mega.nz/folder"',
-  'site:github.com "mega.nz/folder"', 'site:gist.github.com "mega.nz/folder"', 'site:archive.org "mega.nz/folder"',
-  'site:gitlab.com "mega.nz/folder"', 'site:bitbucket.org "mega.nz/folder"', 'site:linktr.ee "mega.nz/folder"',
+  'site:archive.org "mega.nz/folder"', 'site:linktr.ee "mega.nz/folder"',
   'site:meawfy.com "mega.nz/folder"', 'site:ofversedrops.com "mega.nz/folder"', 'site:telegra.ph "mega.nz/folder"',
   'site:medium.com "mega.nz/folder"', 'site:substack.com "mega.nz/folder"', 'site:notion.site "mega.nz/folder"',
   'site:paste.ee "mega.nz/folder"', 'site:justpaste.it "mega.nz/folder"', 'site:controlc.com "mega.nz/folder"',
   'site:hastebin.com "mega.nz/folder"', 'site:dpaste.org "mega.nz/folder"', 'site:pastes.io "mega.nz/folder"',
-  'site:pastelink.net "mega.nz/folder"', 'site:github.io "mega.nz/folder"', 'site:raw.githubusercontent.com "mega.nz/folder"',
+  'site:pastelink.net "mega.nz/folder"',
   'site:t.me "mega.nz/folder"', 'site:telegram.me "mega.nz/folder"', 'site:vk.com "mega.nz/folder"',
   'site:txti.es "mega.nz/folder"', 'site:paste.rs "mega.nz/folder"', 'site:paste.mozilla.org "mega.nz/folder"'
 ];
@@ -291,12 +290,6 @@ function builtInSources() {
     ['reddit_all_url_json','Reddit URL JSON','json',106,'https://www.reddit.com/search.json?q={q}%20url%3Amega.nz%2Ffolder&limit=100&sort=new'],
     ['reddit_megalinks_json','Reddit Megalinks JSON','json',84,'https://www.reddit.com/r/megalinks/search.json?q={q}&restrict_sr=1&limit=100&sort=new'],
     ['hn_algolia','HN Algolia','json',35,'https://hn.algolia.com/api/v1/search?query={q}%20mega.nz%2Ffolder&tags=story,comment'],
-    ['github_code','GitHub Code Web','html',104,'https://github.com/search?q={q}+mega.nz%2Ffolder&type=code'],
-    ['github_issues','GitHub Issues Web','html',94,'https://github.com/search?q={q}+mega.nz%2Ffolder&type=issues'],
-    ['github_repos','GitHub Repos Web','html',86,'https://github.com/search?q={q}+mega.nz%2Ffolder&type=repositories'],
-    ['gist_search','Gist Search','html',90,'https://gist.github.com/search?q={q}+mega.nz%2Ffolder'],
-    ['gitlab_search','GitLab Search','html',80,'https://gitlab.com/search?search={q}%20mega.nz%2Ffolder'],
-    ['bitbucket_search','Bitbucket Search','html',68,'https://bitbucket.org/repo/all?name={q}%20mega.nz%2Ffolder'],
     ['archive_search','Archive Search','html',86,'https://archive.org/search?query={q}%20mega.nz%2Ffolder'],
     ['archive_fulltext','Archive Full Text','html',70,'https://archive.org/advancedsearch.php?q={q}%20mega.nz%2Ffolder&fl%5B%5D=identifier&rows=50&output=json'],
     ['meawfy_web','Meawfy Web','html',100,'https://meawfy.com/search?q={q}'],
@@ -305,7 +298,7 @@ function builtInSources() {
   ];
   for (const a of apiLike) add(...a);
   const domains = [
-    'rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','paste.rs','pastelink.net','ghostbin.co','privatebin.net','gist.github.com','github.com','raw.githubusercontent.com','github.io','gitlab.com','bitbucket.org','reddit.com','old.reddit.com','archive.org','ofversedrops.com','meawfy.com','linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','msha.ke','taplink.cc','allmylinks.com','instabio.cc','heylink.me','lnk.bio','flow.page','about.me','carrd.co','campsite.bio','linkin.bio','bio.fm','hypage.com','koji.to','linkpop.com','snipfeed.co','milkshake.app','shor.by','tap.bio','telegra.ph','medium.com','substack.com','notion.site','notion.so','docs.google.com','sites.google.com','blogspot.com','wordpress.com','tumblr.com','wixsite.com','weebly.com','gitbook.io','readthedocs.io','readme.io','sourceforge.net','scribd.com','slideshare.net','issuu.com','calameo.com'
+    'rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','paste.rs','pastelink.net','ghostbin.co','privatebin.net','reddit.com','old.reddit.com','archive.org','ofversedrops.com','meawfy.com','linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','msha.ke','taplink.cc','allmylinks.com','instabio.cc','heylink.me','lnk.bio','flow.page','about.me','carrd.co','campsite.bio','linkin.bio','bio.fm','hypage.com','koji.to','linkpop.com','snipfeed.co','milkshake.app','shor.by','tap.bio','telegra.ph','medium.com','substack.com','notion.site','notion.so','docs.google.com','sites.google.com','blogspot.com','wordpress.com','tumblr.com','wixsite.com','weebly.com'
   ];
   const patterns = [
     ['web','https://www.bing.com/search?q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22&count=30',76],
@@ -382,16 +375,16 @@ function buildQueries(keyword, mode) {
   const base = safeSearchTerm(keyword);
   let patterns;
   if (mode === 'autoscan' && !base) {
-    const domains = ['rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','pastelink.net','reddit.com','old.reddit.com','github.com','gist.github.com','raw.githubusercontent.com','github.io','archive.org','gitlab.com','bitbucket.org','ofversedrops.com','meawfy.com','linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','heylink.me','lnk.bio','telegra.ph','medium.com','substack.com','notion.site','blogspot.com','wordpress.com','tumblr.com','sites.google.com','docs.google.com','carrd.co'];
+    const domains = ['rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','pastelink.net','reddit.com','old.reddit.com','archive.org','ofversedrops.com','meawfy.com','linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','heylink.me','lnk.bio','telegra.ph','medium.com','substack.com','notion.site','blogspot.com','wordpress.com','tumblr.com','sites.google.com','docs.google.com','carrd.co'];
     const needles = ['mega.nz/folder','mega.co.nz/#F!','\"mega.nz/folder\"','\"mega.nz/folder\" \"index\"','\"mega.nz/folder\" \"archive\"','\"mega.nz/folder\" \"collection\"'];
     patterns = [...AUTOSCAN_PATTERNS];
     for (const d of domains) for (const n of needles) patterns.push(`site:${d} ${n}`);
   }
   else patterns = [
     base, `"${base}"`, `${base} mega.nz/folder`, `"${base}" "mega.nz/folder"`,
-    `site:reddit.com ${base} "mega.nz/folder"`, `site:github.com ${base} "mega.nz/folder"`, `site:gist.github.com ${base} "mega.nz/folder"`,
+    `site:reddit.com ${base} "mega.nz/folder"`,
     `site:pastebin.com ${base} "mega.nz/folder"`, `site:rentry.co ${base} "mega.nz/folder"`, `site:archive.org ${base} "mega.nz/folder"`,
-    `site:gitlab.com ${base} "mega.nz/folder"`, `site:linktr.ee ${base} "mega.nz/folder"`, `site:meawfy.com ${base} "mega.nz/folder"`,
+    `site:linktr.ee ${base} "mega.nz/folder"`, `site:meawfy.com ${base} "mega.nz/folder"`,
     `site:ofversedrops.com ${base} "mega.nz/folder"`, `site:notion.site ${base} "mega.nz/folder"`, `site:telegra.ph ${base} "mega.nz/folder"`,
     `"mega.nz/folder" ${base}`, `"mega.co.nz/#F!" ${base}`
   ];
@@ -436,16 +429,57 @@ function balancedSources(rows, offset=0) {
   offset = Math.max(0, offset||0) % out.length;
   return out.slice(offset).concat(out.slice(0, offset));
 }
+function defaultSourceEnabled(src) {
+  const n = String(src.name || src.id || src.template || '').toLowerCase();
+  // Hotfix5 source policy: fewer, higher-yield sources enabled by default.
+  // User can turn optional/low-yield sources on from the Sources page.
+  if (/github|gist|gitlab|bitbucket|raw\.githubusercontent|youtube|youtu\.be|vimeo|tiktok|instagram|facebook|linkedin|pinterest|slideshare|scribd|issuu|calameo|sourceforge/.test(n)) return 0;
+  const highDomains = /rentry|pastebin|paste\.|justpaste|controlc|haste|dpaste|pastes\.io|paste\.rs|pastelink|ghostbin|privatebin|reddit|old\.reddit|archive|ofversedrops|meawfy|linktr|linktree|beacons|bio\.link|solo\.to|msha\.ke|taplink|allmylinks|instabio|heylink|lnk\.bio|flow\.page|carrd|campsite|telegra|notion|blogspot|wordpress|tumblr|weebly|wixsite/.test(n);
+  if (/^bing_|^duckduckgo_html|reddit_/.test(String(src.id||''))) return 1;
+  if (/generic_bing|generic_rss/.test(n)) return 1;
+  if (/^wide_/.test(String(src.id||''))) {
+    const usefulFacet = /folder|index|archive|collection|links|notes|backup|mirror/.test(n);
+    return highDomains && usefulFacet && Number(src.priority||0) >= 43 ? 1 : 0;
+  }
+  return highDomains ? 1 : 0;
+}
+async function sourceOverrideMap(env) {
+  const map = new Map();
+  try {
+    const r = await all(env, `SELECT id,enabled,priority,name,type,template,config FROM ${T.sources}`);
+    for (const x of (r.results||[])) map.set(String(x.id), x);
+  } catch {}
+  return map;
+}
 async function getSources(env, opts = {}) {
   const maxSources = intEnv(env, 'MAX_SOURCES_PER_RUN', 1000, 25, 1000);
-  let rows = catalogSources();
+  const includeDisabled = !!opts.include_disabled;
+  const overrides = await sourceOverrideMap(env);
+  let rows = catalogSources().map(src => {
+    const ov = overrides.get(String(src.id));
+    const enabled = ov ? Number(ov.enabled||0) : defaultSourceEnabled(src);
+    return { ...src, enabled, priority: ov && ov.priority != null ? Number(ov.priority) : src.priority, category: sourceGroup(src), builtin:1 };
+  });
   try {
-    const r = await all(env, `SELECT * FROM ${T.sources} WHERE enabled=1 ORDER BY priority DESC LIMIT 300`);
-    rows = rows.concat(r.results || []);
+    const r = await all(env, `SELECT * FROM ${T.sources} WHERE template IS NOT NULL AND template!='' ORDER BY priority DESC LIMIT 500`);
+    for (const x of (r.results || [])) if (!rows.find(r=>String(r.id)===String(x.id))) rows.push({ ...x, enabled:Number(x.enabled||0), category:sourceGroup(x), builtin:0 });
   } catch {}
   const seen = new Set();
   rows = rows.filter(r => { const k=String(r.id||r.name||r.template); if(seen.has(k)) return false; seen.add(k); return true; });
+  if (!includeDisabled) rows = rows.filter(r => Number(r.enabled) === 1);
   return balancedSources(rows, Number(opts.offset||0)).slice(0, maxSources);
+}
+async function setSourceEnabled(env, id, enabled, priority=null) {
+  await ensureDb(env);
+  const src = catalogSources().find(s => String(s.id) === String(id)) || null;
+  const existing = await first(env, `SELECT * FROM ${T.sources} WHERE id=?`, [id]);
+  const name = existing?.name || src?.name || id;
+  const type = existing?.type || src?.type || 'html';
+  const template = existing?.template || src?.template || '';
+  const pri = priority != null ? Number(priority) : (existing?.priority ?? src?.priority ?? 50);
+  await q(env, `INSERT OR REPLACE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,
+    [id,name,type,enabled?1:0,pri,template,existing?.config || src?.config || '{}', existing?.created_at || nowIso(), nowIso()]);
+  return { ok:true, id, enabled:enabled?1:0 };
 }
 function sourceUrl(source, query) { return source.template.replace('{q}', encodeURIComponent(query)); }
 async function cachedFetch(env, url, sourceName) {
@@ -892,7 +926,7 @@ async function diagnostics(env) {
     const c = await first(env, `SELECT COUNT(*) c FROM ${t}`);
     tables[t] = c?.c ?? 0;
   }
-  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference'] };
+  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference','sources_manager','toggle_sources','default_high_yield_sources','github_disabled_by_default'] };
 }
 
 async function startV28Job(env, mode='autoscan', keyword='', opts={}) {
@@ -951,7 +985,14 @@ async function handleApi(req, env, ctx) {
     if (path === '/api/results') return json(await getResults(env, url.searchParams.get('mode')||'', url.searchParams.get('keyword')||'', Number(url.searchParams.get('limit')||1000)));
     if (path === '/api/archive') return json(await getArchive(env, Number(url.searchParams.get('limit')||2000)));
     if (path === '/api/stats') return json({ok:true, version:VERSION, stats:await dashboardStats(env)});
-    if (path === '/api/sources') { await ensureDb(env); if (req.method==='GET') return json({ok:true, version:VERSION, sources: await getSources(env)}); const b=await parseBody(req); await q(env,`INSERT OR REPLACE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,[b.id||uid('src'),b.name,b.type||'html',b.enabled?1:0,b.priority||50,b.template,JSON.stringify(b.config||{}),nowIso(),nowIso()]); return json({ok:true}); }
+    if (path === '/api/sources') {
+      await ensureDb(env);
+      if (req.method==='GET') { const rows = await getSources(env,{include_disabled:true}); return json({ok:true, version:VERSION, total:rows.length, enabled:rows.filter(s=>Number(s.enabled)===1).length, sources: rows}); }
+      const b=await parseBody(req);
+      if (b.action === 'toggle') return json(await setSourceEnabled(env, b.id, !!b.enabled, b.priority));
+      if (!b.name || !b.template) return json({ok:false,error:'name_and_template_required'},400);
+      await q(env,`INSERT OR REPLACE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,[b.id||uid('src'),b.name,b.type||'html',b.enabled?1:0,b.priority||50,b.template,JSON.stringify(b.config||{}),nowIso(),nowIso()]); return json({ok:true});
+    }
     if (path === '/api/export') return exportData(env, url.searchParams.get('format')||'json', url.searchParams.get('mode')||'');
     return json({ok:false, version:VERSION, error:'not_found'},404);
   } catch(e) {
@@ -961,7 +1002,7 @@ async function handleApi(req, env, ctx) {
 }
 async function handleReset(req, env) { await hardReset(env); return json({ok:true, version:VERSION, message:'D1 hard reset complete', next:'/' }); }
 async function scheduled(event, env, ctx) {
-  ctx.waitUntil((async()=>{ await ensureDb(env); if (env.AUTOSCAN_QUEUE || env.QUEUE) await scheduleQueueRun(env, 'autoscan', '', {max_sources:72}); else { await runSearch(env, 'autoscan', '', true, { max_sources: 12, deep_rounds: 3 }); await processQueue(env, '', 8); } })());
+  ctx.waitUntil((async()=>{ await ensureDb(env); if (env.AUTOSCAN_QUEUE || env.QUEUE) await scheduleQueueRun(env, 'autoscan', '', {max_sources:18}); else { await runSearch(env, 'autoscan', '', true, { max_sources: 12, deep_rounds: 3 }); await processQueue(env, '', 8); } })());
 }
 export default {
   async fetch(req, env, ctx) {

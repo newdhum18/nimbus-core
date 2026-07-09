@@ -1,5 +1,5 @@
 (() => {
-  const cfg = window.NIMBUS_CONFIG || { version: '28-queue-archive-comments', apiBase: '' };
+  const cfg = window.NIMBUS_CONFIG || { version: '28-queue-archive-comments-hotfix5-sources', apiBase: '' };
   const $ = (s) => document.querySelector(s);
   const out = $('#output') || $('#results') || null;
   const write = (data) => {

@@ -1,20 +1,32 @@
-# Nimbus Core V28 Queue Complete - Test Report
+# Nimbus Core V28 Hotfix5 Sources Verified Test Report
 
-Version: 28-queue-archive-comments-complete
+Version: `28-queue-archive-comments-hotfix5-sources`
 
-Checks performed:
-- JavaScript syntax check: PASS (`_worker.js`, `queue-consumer.js`)
-- Queue producer binding support: PASS (`QUEUE` and `AUTOSCAN_QUEUE` fallback)
-- D1 binding expected name: PASS (`DB`)
-- Folder-only extraction logic: present
-- Archive tables: present
-- Queue consumer handler: present (`async queue(batch, env, ctx)`)
-- Comment extraction targets: Reddit JSON, GitHub issues/pulls/comments, Hacker News Algolia, HTML/JSON raw extraction
-- Cloudflare 1102 mitigation: queue batches and D1 fallback queue present
+## Automated local checks
 
-Deployment notes:
-- Pages/Worker producer binding name can be `QUEUE`.
-- Queue consumer Worker can use `wrangler.queue.jsonc` or dashboard consumer trigger.
+- JavaScript syntax check: PASS
+- Queue consumer syntax check: PASS
+- Queue consumer version synced with `_worker.js`: PASS
+- MEGA folder extraction tests: 1000/1000 PASS
+- Negative validation tests: 600/600 PASS
+  - MEGA file links rejected
+  - Folder links without `#key` rejected
+  - False positive `example.com/mega.nz/...` rejected
+- Built-in catalog size: 1000 sources
+- Default enabled high-yield sources: 342
+- Low-yield default sources disabled: PASS
+  - GitHub/GitLab/Bitbucket
+  - YouTube/Vimeo/TikTok
+  - Instagram/Facebook/LinkedIn/Pinterest
+- Sources tab present: PASS
+- Source toggle API present: PASS
+- D1 source override support present: PASS
+- Queue handler present: PASS
+- D1 shadow queue present: PASS
 
+## Notes
 
-Hotfix4: safe queue seeding added to prevent D1/Worker 1102 subrequest limit.
+These tests are local/static plus extraction simulation tests. Live Cloudflare behavior still depends on deployed bindings:
+- D1 binding: `DB`
+- Queue binding: `QUEUE`
+- Queue name: `nimbus-autoscan-queue`

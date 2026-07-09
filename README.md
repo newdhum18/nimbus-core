@@ -1,28 +1,27 @@
-# Nimbus Core V28 Queue Archive
+# Nimbus Core V28 Queue Archive Hotfix5 Sources
 
-One-button HyperSearch for public, complete MEGA folder links only.
+A Cloudflare Pages + D1 + Queue based MEGA folder discovery interface.
 
-## Highlights
-- Folder-only mode: ignores `mega.nz/file` and incomplete folder links without `#key`.
-- Permanent D1 archive: every valid folder link is saved automatically.
-- Balanced source rotation: paste/note/linkhub/code/archive/reddit sources are sampled before generic engines.
-- Source labels prefer the real source template, not only the search engine host.
-- Added ofversedrops.com and more note/link-in-bio/paste sources.
-- Safer batch scheduler to reduce Cloudflare 1102 resource-limit errors.
+## Main additions
 
-## Deploy
-Upload all files to the GitHub repository root and redeploy Cloudflare Pages.
-D1 binding must be named `DB`.
+- Dedicated Sources tab.
+- Enable/disable sources from the UI.
+- High-yield default source selection.
+- Folder-only MEGA extraction.
+- Permanent D1 archive.
+- Smaller AutoPilot source slices to reduce Cloudflare Worker load.
 
+## Required bindings
 
-## V28 Queue Archive Comments
-- Added Cloudflare Queue producer support in Pages.
-- Added separate Queue consumer Worker (`queue-consumer.js` + `wrangler.queue.jsonc`).
-- Added permanent D1 archive table for all discovered folder links.
-- Improved comment extraction from Reddit JSON, GitHub issue/pull comments, and Hacker News Algolia item/comment trees.
-- AutoScan now creates Queue tasks instead of trying to finish all work in one request.
-- Folder-only mode enforced; file links and missing-key folder links are rejected.
-- Added source support including rentry.co and ofversedrops.com.
+- `DB` -> D1 database `nimbus-db`
+- `QUEUE` -> Queue `nimbus-autoscan-queue`
 
+## After deployment
 
-Hotfix4: safe queue seeding added to prevent D1/Worker 1102 subrequest limit.
+Recommended first step if old queue rows remain:
+
+1. Open Dashboard.
+2. Click Clean Data from Tools if old queue count remains high.
+3. Click Repair DB.
+4. Open Sources and review enabled sources.
+5. Run AutoScan.
