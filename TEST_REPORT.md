@@ -1,26 +1,17 @@
-Nimbus Core V28 Queue Archive Comments - Test Report
+# Nimbus Core V28 Queue Complete - Test Report
 
-Version: 28-queue-archive-comments
+Version: 28-queue-archive-comments-complete
 
-Code checks:
-- JavaScript syntax check: PASS (_worker.js, queue-consumer.js)
-- Cloudflare Pages producer config: PASS (wrangler.jsonc)
-- Cloudflare Queue consumer worker config: PASS (wrangler.queue.jsonc)
-- D1 archive table: PASS
-- Folder-only extraction: PASS
-- File-link rejection: PASS
-- Missing-key folder rejection: PASS
-- Reddit comment JSON targets: PASS
-- GitHub issue/pull comments API targets: PASS
-- Hacker News Algolia item/comment targets: PASS
-- ofversedrops.com source: PASS
-- rentry.co source: PASS
+Checks performed:
+- JavaScript syntax check: PASS (`_worker.js`, `queue-consumer.js`)
+- Queue producer binding support: PASS (`QUEUE` and `AUTOSCAN_QUEUE` fallback)
+- D1 binding expected name: PASS (`DB`)
+- Folder-only extraction logic: present
+- Archive tables: present
+- Queue consumer handler: present (`async queue(batch, env, ctx)`)
+- Comment extraction targets: Reddit JSON, GitHub issues/pulls/comments, Hacker News Algolia, HTML/JSON raw extraction
+- Cloudflare 1102 mitigation: queue batches and D1 fallback queue present
 
-Extraction tests:
-- 500 / 500 PASS
-- Covered plain folder URLs, URL-encoded links, HTML hrefs, JSON/comment text, false positives, file links, and missing-key folders.
-
-Notes:
-- Cloudflare Pages can produce Queue messages, but Pages Functions cannot currently act as Queue consumers.
-- This package includes a separate Worker consumer file: queue-consumer.js
-- Deploy the Pages project normally, then deploy queue consumer using wrangler.queue.jsonc.
+Deployment notes:
+- Pages/Worker producer binding name can be `QUEUE`.
+- Queue consumer Worker can use `wrangler.queue.jsonc` or dashboard consumer trigger.

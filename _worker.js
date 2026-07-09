@@ -566,12 +566,13 @@ async function enqueue(env, item) {
     [id, item.run_id||'', item.mode||'search', item.kind, item.url||'', item.keyword||'', item.source||'', item.priority||50, 'pending', 0, item.max_attempts||3, item.available_at||nowIso(), nowIso(), nowIso(), '']);
 }
 async function enqueueCloud(env, body) {
-  if (!env.AUTOSCAN_QUEUE || !env.AUTOSCAN_QUEUE.send) return false;
-  await env.AUTOSCAN_QUEUE.send(body);
+  const qbind = env.AUTOSCAN_QUEUE || env.QUEUE;
+  if (!qbind || !qbind.send) return false;
+  await qbind.send(body);
   return true;
 }
 async function enqueueTask(env, item, preferCloud = true) {
-  if (preferCloud && env.AUTOSCAN_QUEUE) {
+  if (preferCloud && (env.AUTOSCAN_QUEUE || env.QUEUE)) {
     try {
       await enqueueCloud(env, item);
       // Also keep a lightweight pending row for UI visibility/resume.
@@ -585,13 +586,14 @@ async function enqueueTask(env, item, preferCloud = true) {
   return 'd1';
 }
 async function enqueueManyCloud(env, items) {
-  if (!env.AUTOSCAN_QUEUE || !env.AUTOSCAN_QUEUE.sendBatch) {
+  const qbind = env.AUTOSCAN_QUEUE || env.QUEUE;
+  if (!qbind || !qbind.sendBatch) {
     let n = 0;
     for (const it of items) { await enqueueTask(env, it, false); n++; }
     return { mode:'d1', enqueued:n };
   }
   const batch = items.map(body => ({ body }));
-  await env.AUTOSCAN_QUEUE.sendBatch(batch);
+  await qbind.sendBatch(batch);
   for (const it of items) {
     await enqueue(env, { ...it, id:it.id || 'qlog_' + hash([it.kind,it.url,it.keyword,it.mode,it.run_id].join('|')) });
   }
@@ -629,7 +631,7 @@ async function processSourceFetch(env, runId, mode, keyword, src, query, started
   const targets = parseSearchTargets(got.text, src, url).slice(0, targetLimit);
   const tasks = targets.map(t => ({ run_id:runId, mode, kind:'crawl', url:t, keyword:keyword||query, source:hostOf(t)||src.name, priority: src.priority || 50, max_attempts:3 }));
   if (tasks.length) {
-    if (preferCloud && env.AUTOSCAN_QUEUE) { await enqueueManyCloud(env, tasks); queued += tasks.length; }
+    if (preferCloud && (env.AUTOSCAN_QUEUE || env.QUEUE)) { await enqueueManyCloud(env, tasks); queued += tasks.length; }
     else { for (const t of tasks) { await enqueue(env, t); queued++; } }
   }
   return { direct, queued, status:got.status||0, targets:targets.length };
@@ -876,7 +878,7 @@ async function tickV28Job(env, runId, mode='autoscan', keyword='', opts={}) {
   const started = Date.now();
   let processed = { processed:0, found:0, failed:0 };
   // Fallback drain for accounts where Queue is not enabled yet.
-  if (!env.AUTOSCAN_QUEUE) processed = await processQueue(env, runId||'', Math.min(Number(opts.limit||8)||8, 12));
+  if (!(env.AUTOSCAN_QUEUE || env.QUEUE)) processed = await processQueue(env, runId||'', Math.min(Number(opts.limit||8)||8, 12));
   return { ok:true, version:VERSION, run_id:runId||'', mode, keyword:keyword||'', elapsed_ms:Date.now()-started, pending:await queueCount(env, runId||''), processed, stats:await dashboardStats(env), results:(await getResults(env, mode, keyword||'', 1000)).results };
 }
 
@@ -906,8 +908,8 @@ async function handleApi(req, env, ctx) {
     if (path === '/api/diagnostics') return json(await diagnostics(env));
     if (path === '/api/v28/start') { const b=await parseBody(req); return json(await startV28Job(env, b.mode||'autoscan', b.keyword||'', b)); }
     if (path === '/api/v28/tick') { const b=await parseBody(req); return json(await tickV28Job(env, b.run_id||'', b.mode||'autoscan', b.keyword||'', b)); }
-    if (path === '/api/autoscan') { const b = await parseBody(req); const out = (env.AUTOSCAN_QUEUE || b.queue) ? await scheduleQueueRun(env, 'autoscan', b.keyword||'', b) : await runSearch(env, 'autoscan', b.keyword||'', false, b); return json(out); }
-    if (path === '/api/search') { const b = await parseBody(req); if (!String(b.keyword||'').trim()) return json({ok:false, error:'keyword_required'}, 400); const out = (env.AUTOSCAN_QUEUE || b.queue) ? await scheduleQueueRun(env, 'search', String(b.keyword||'').trim(), b) : await runSearch(env, 'search', String(b.keyword||'').trim(), false, b); return json(out); }
+    if (path === '/api/autoscan') { const b = await parseBody(req); const out = ((env.AUTOSCAN_QUEUE || env.QUEUE) || b.queue) ? await scheduleQueueRun(env, 'autoscan', b.keyword||'', b) : await runSearch(env, 'autoscan', b.keyword||'', false, b); return json(out); }
+    if (path === '/api/search') { const b = await parseBody(req); if (!String(b.keyword||'').trim()) return json({ok:false, error:'keyword_required'}, 400); const out = ((env.AUTOSCAN_QUEUE || env.QUEUE) || b.queue) ? await scheduleQueueRun(env, 'search', String(b.keyword||'').trim(), b) : await runSearch(env, 'search', String(b.keyword||'').trim(), false, b); return json(out); }
     if (path === '/api/extract') { const b = await parseBody(req); if (!b.url) return json({ok:false,error:'url_required'},400); return json(await extractFromUrl(env, b.url, b.mode||'url', b.keyword||'')); }
     if (path === '/api/queue/process') { const b = await parseBody(req); const out = await processQueue(env, b.run_id||'', Number(b.limit||MAX_QUEUE_BATCH)); return json({ok:true, version:VERSION, ...out, stats:await dashboardStats(env)}); }
     if (path === '/api/queue/deep') { const b = await parseBody(req); const out = await deepProcessQueue(env, b.run_id||'', Number(b.rounds||100), Number(b.limit||MAX_QUEUE_BATCH)); return json({ok:true, version:VERSION, ...out, stats:await dashboardStats(env), results:(await getResults(env,b.mode||'',b.keyword||'',1000)).results}); }
@@ -925,7 +927,7 @@ async function handleApi(req, env, ctx) {
 }
 async function handleReset(req, env) { await hardReset(env); return json({ok:true, version:VERSION, message:'D1 hard reset complete', next:'/' }); }
 async function scheduled(event, env, ctx) {
-  ctx.waitUntil((async()=>{ await ensureDb(env); if (env.AUTOSCAN_QUEUE) await scheduleQueueRun(env, 'autoscan', '', {max_sources:72}); else { await runSearch(env, 'autoscan', '', true, { max_sources: 12, deep_rounds: 3 }); await processQueue(env, '', 8); } })());
+  ctx.waitUntil((async()=>{ await ensureDb(env); if (env.AUTOSCAN_QUEUE || env.QUEUE) await scheduleQueueRun(env, 'autoscan', '', {max_sources:72}); else { await runSearch(env, 'autoscan', '', true, { max_sources: 12, deep_rounds: 3 }); await processQueue(env, '', 8); } })());
 }
 export default {
   async fetch(req, env, ctx) {

@@ -17,7 +17,7 @@
   "queues": {
     "producers": [
       {
-        "binding": "AUTOSCAN_QUEUE",
+        "binding": "QUEUE",
         "queue": "nimbus-autoscan-queue"
       }
     ]
