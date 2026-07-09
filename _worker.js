@@ -562,8 +562,9 @@ async function saveLink(env, data) {
 }
 async function enqueue(env, item) {
   const id = item.id || 'q_' + hash([item.kind,item.url,item.keyword,item.mode].join('|'));
+  const sourceName = typeof item.source === 'string' ? item.source : (item.source?.name || item.source_name || '');
   await q(env, `INSERT OR IGNORE INTO ${T.queue}(id,run_id,mode,kind,url,keyword,source,priority,status,attempts,max_attempts,available_at,created_at,updated_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [id, item.run_id||'', item.mode||'search', item.kind, item.url||'', item.keyword||'', item.source||'', item.priority||50, 'pending', 0, item.max_attempts||3, item.available_at||nowIso(), nowIso(), nowIso(), '']);
+    [id, item.run_id||'', item.mode||'search', item.kind, item.url||'', item.keyword||'', sourceName, item.priority||50, 'pending', 0, item.max_attempts||3, item.available_at||nowIso(), nowIso(), nowIso(), '']);
 }
 async function enqueueCloud(env, body) {
   const qbind = env.AUTOSCAN_QUEUE || env.QUEUE;
@@ -650,7 +651,8 @@ async function scheduleQueueRun(env, mode='autoscan', keyword='', opts={}) {
     run_id:runId,
     mode,
     keyword:keyword||'',
-    source:src,
+    source: src,
+    source_name: src.name || 'source',
     query:queries[(queryOffset+i) % queries.length],
     priority:src.priority||50
   }));
