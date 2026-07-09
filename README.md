@@ -1,0 +1,55 @@
+# Nimbus Core V31.0 Hyper Extractorn
+
+This package is rebuilt from the accepted V30/V31.0 feature set and keeps all main pages:
+Dashboard, AutoScan, Search, Extract, Archive, Sources, and Tools.
+
+Important fix: the service worker is now network-only and clears old cached older UI files.
+
+
+
+This release fixes the major V30 runtime issue where the frontend started new runs repeatedly and later rounds could continue with no useful source state.
+
+Key changes:
+- AutoScan now uses one continuous run.
+- Source slices are limited to fewer than 5 sources per seed.
+- Queue ticks process smaller batches for faster response.
+- Source offset no longer wraps inside the same run.
+- Search target decoder and raw paste/comment crawling remain enabled.
+
+After upload:
+1. Tools → Repair DB
+2. Sources → High Yield Defaults
+3. AutoScan → Start V31.0 Hyper Extractor
+
+Nimbus Core V31.0 Fast Source Pipeline Fix
+
+# Nimbus Core V30 HyperSearch
+
+V30 focuses on the core issue found in V29.x: search engines were returning redirect wrapper URLs, but the app was not decoding them into real target pages before crawling. V30 adds target decoding for Bing, DuckDuckGo, and Google and follows raw paste/comment pages.
+
+## Highlights
+
+- Bing `/ck/a?u=a1...` decoder.
+- DuckDuckGo `uddg` decoder.
+- Google `/url?q=` decoder.
+- Raw paste targets for Pastebin, Rentry, dpaste, hastebin, and paste.rs.
+- Search engine rebalance: DuckDuckGo Lite / HTML, Brave, Google, Startpage, and Bing RSS are prioritized; Bing Web is no longer a primary default source.
+- High-yield default policy: 107 enabled sources out of 1000.
+- GitHub, video, and social sources remain OFF by default.
+- Queue and D1 shadow queue remain safe and chunked.
+
+## After deploy
+
+1. Open Tools.
+2. Press Repair DB.
+3. Open Sources.
+4. Press High Yield Defaults.
+5. Run AutoScan.
+
+## V31.0 Highlights
+- High-yield source policy with Sources on/off preserved.
+- Optional API search providers: Brave, SerpAPI, SearchApi.io, Tavily, Exa, Kagi.
+- OSINT public search providers: DuckDuckGo Lite, Brave, Google, Startpage, SearXNG, Marginalia, YaCy.
+- Direct site crawling targets for paste/note/linkhub/archive/comment sources.
+- Stronger public comment extraction for Reddit, GitHub issue/pull comments, HN, Telegram, Lemmy, WordPress feeds.
+- Folder-only MEGA extraction, raw Pastebin/Rentry conversion, target decoders, permanent archive.

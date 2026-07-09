@@ -1,0 +1,3 @@
+-- Nimbus Core V31.0 D1 schema
+-- The Worker auto-creates and migrates tables on first API call.
+-- D1 binding required in Cloudflare Pages: DB
