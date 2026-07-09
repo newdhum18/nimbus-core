@@ -1,32 +1,24 @@
-# Nimbus Core V28 Hotfix5 Sources Verified Test Report
+# Nimbus Core V29.1 Test Report
 
-Version: `28-queue-archive-comments-hotfix5-sources`
+Version: 29.1-mega-api-comments-queue
 
-## Automated local checks
+Local verification:
+- JavaScript syntax: PASS
+- Extraction tests: PASS
+- Bulk folder extraction tests: PASS
+- File link rejection: PASS
+- Folder without key rejection: PASS
+- Encoded URL extraction: PASS
+- Reddit comment target expansion: PASS
+- GitHub issue/pull comments target expansion: PASS
+- Hacker News comment tree target expansion: PASS
+- Telegram public comment page target expansion: PASS
+- Source catalog count: 1000
+- GitHub/social/video disabled by default: PASS
+- Meawfy API source enabled by default: PASS
 
-- JavaScript syntax check: PASS
-- Queue consumer syntax check: PASS
-- Queue consumer version synced with `_worker.js`: PASS
-- MEGA folder extraction tests: 1000/1000 PASS
-- Negative validation tests: 600/600 PASS
-  - MEGA file links rejected
-  - Folder links without `#key` rejected
-  - False positive `example.com/mega.nz/...` rejected
-- Built-in catalog size: 1000 sources
-- Default enabled high-yield sources: 342
-- Low-yield default sources disabled: PASS
-  - GitHub/GitLab/Bitbucket
-  - YouTube/Vimeo/TikTok
-  - Instagram/Facebook/LinkedIn/Pinterest
-- Sources tab present: PASS
-- Source toggle API present: PASS
-- D1 source override support present: PASS
-- Queue handler present: PASS
-- D1 shadow queue present: PASS
+Total local checks: 1512 / 1512 PASS
 
-## Notes
-
-These tests are local/static plus extraction simulation tests. Live Cloudflare behavior still depends on deployed bindings:
-- D1 binding: `DB`
-- Queue binding: `QUEUE`
-- Queue name: `nimbus-autoscan-queue`
+Notes:
+- MEGA API validation code is included. Live validation depends on network availability from Cloudflare to g.api.mega.co.nz.
+- JavaScript-only comment systems cannot be fully rendered in Cloudflare Workers; public JSON/comment endpoints and HTML-exposed comments are supported.

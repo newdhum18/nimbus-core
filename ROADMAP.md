@@ -4,7 +4,7 @@ Next:
 - optional KV/R2 backup export
 
 
-## V28 Queue Archive Comments
+## V29 HyperSearch Comments
 - Added Cloudflare Queue producer support in Pages.
 - Added separate Queue consumer Worker (`queue-consumer.js` + `wrangler.queue.jsonc`).
 - Added permanent D1 archive table for all discovered folder links.

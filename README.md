@@ -1,27 +1,12 @@
-# Nimbus Core V28 Queue Archive Hotfix5 Sources
+# Nimbus Core V29.1
 
-A Cloudflare Pages + D1 + Queue based MEGA folder discovery interface.
+HyperSearch Sources Engine with Queue/Archive, source controls, MEGA folder-only extraction, enhanced comment targets, and MEGA API folder validation.
 
-## Main additions
-
-- Dedicated Sources tab.
-- Enable/disable sources from the UI.
-- High-yield default source selection.
-- Folder-only MEGA extraction.
-- Permanent D1 archive.
-- Smaller AutoPilot source slices to reduce Cloudflare Worker load.
-
-## Required bindings
-
-- `DB` -> D1 database `nimbus-db`
-- `QUEUE` -> Queue `nimbus-autoscan-queue`
-
-## After deployment
-
-Recommended first step if old queue rows remain:
-
-1. Open Dashboard.
-2. Click Clean Data from Tools if old queue count remains high.
-3. Click Repair DB.
-4. Open Sources and review enabled sources.
-5. Run AutoScan.
+Highlights:
+- Sources page with enable/disable controls.
+- High-yield defaults and social/video/code sources disabled by default.
+- Meawfy API and Keeplinks priority sources.
+- D1 Archive for permanent MEGA folder results.
+- Continuous slice seeding so AutoScan keeps moving without D1 bursts.
+- Reddit/GitHub/HN/Telegram comment-target expansion.
+- MEGA API validator for folder health where network allows.

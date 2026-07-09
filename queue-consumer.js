@@ -1,8 +1,8 @@
-/* Nimbus Core V28 HyperSearch
+/* Nimbus Core V29 HyperSearch
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '28-queue-archive-comments-hotfix5-sources';
+const VERSION = '29.1-mega-api-comments-queue';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -22,9 +22,10 @@ const DEFAULT_MAX_SOURCE_FETCHES = 44;
 const HARD_MAX_SOURCE_FETCHES = 72;
 const MAX_CRAWL_PAGES = 240;
 const MAX_QUEUE_BATCH = 10;
-const SCHEDULE_SEED_LIMIT = 18; // Hotfix5: lightweight source slices; more rounds, fewer D1 writes per request
-const SCHEDULE_SEED_LIMIT_KEYWORD = 18;
-const SCHEDULE_SEED_LIMIT_AUTOSCAN = 18;
+const SCHEDULE_SEED_LIMIT = 14; // V29: smaller slices, more continuous rounds, no D1 burst
+const SCHEDULE_SEED_LIMIT_KEYWORD = 14;
+const SCHEDULE_SEED_LIMIT_AUTOSCAN = 14;
+const SUCCESS_TARGET_LINKS = 100;
 const MAX_DEEP_ROUNDS = 300;
 const REQUEST_BUDGET_MS = 26000;
 const QUEUE_SOURCE_BATCH = 12;
@@ -72,6 +73,12 @@ function clamp(s, n) { s = String(s ?? ''); return s.length > n ? s.slice(0,n) :
 function safeUrl(u, base) { try { return new URL(u, base).href; } catch { return ''; } }
 function originOf(u) { try { return new URL(u).origin; } catch { return ''; } }
 function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./,''); } catch { return ''; } }
+function realSourceLabel(source, pageUrl) {
+  const h = hostOf(pageUrl || '');
+  const s = String(source || '').replace(/^(Bing|DuckDuckGo|Yahoo|Brave|Mojeek|Qwant|Startpage|Yandex)\s*/i,'').trim();
+  if (h && !/^(bing|duckduckgo|search\.yahoo|search\.brave|mojeek|qwant|startpage|yandex|google)\./i.test(h)) return h;
+  return s || h || 'source';
+}
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function intEnv(env, key, fallback, min, max) {
   const n = Number(env && env[key]);
@@ -114,6 +121,42 @@ function normalizeLink(link) {
     return u.href.replace(/&utm_[^#]+/g,'');
   } catch { return ''; }
 }
+
+function megaParts(link) {
+  const norm = normalizeLink(link);
+  if (!norm) return null;
+  try {
+    const u = new URL(norm);
+    const m = u.pathname.match(/\/folder\/([A-Za-z0-9_-]{4,})/i);
+    if (m && u.hash && u.hash.length >= 9) return { format:'new-folder', handle:m[1], key:u.hash.slice(1), normalized:norm };
+    const old = norm.match(/mega\.(?:nz|co\.nz)\/#F!([A-Za-z0-9_-]{4,})!([A-Za-z0-9_!\-]{8,})/i);
+    if (old) return { format:'old-folder', handle:old[1], key:old[2], normalized:norm };
+  } catch {}
+  return null;
+}
+async function megaApiFolderCheck(link) {
+  const p = megaParts(link);
+  if (!p) return { health:'unknown', reason:'invalid_parts' };
+  try {
+    const res = await fetchWithTimeout('https://g.api.mega.co.nz/cs?id=' + Date.now().toString(36), {
+      method:'POST',
+      headers:{ 'content-type':'application/json' },
+      body: JSON.stringify([{ a:'f', c:1, r:1, ca:1, n:p.handle }])
+    }, 9000);
+    const txt = await bodyText(res);
+    let data = null;
+    try { data = JSON.parse(txt); } catch {}
+    const first = Array.isArray(data) ? data[0] : data;
+    if (typeof first === 'number' && first < 0) return { health:'dead', reason:'mega_api_' + first };
+    if (first && (Array.isArray(first.f) || first.f || first.ok || first.s !== undefined)) return { health:'folder', reason:'mega_api_ok' };
+    // MEGA sometimes returns an object with partial metadata for public folders.
+    if (res.status >= 200 && res.status < 300 && txt && !/^\s*\[-?\d+\]\s*$/.test(txt)) return { health:'folder', reason:'mega_api_response' };
+  } catch (e) {
+    return { health:'unknown', reason:'mega_api_error:' + String(e.message||e).slice(0,120) };
+  }
+  return { health:'unknown', reason:'mega_api_unknown' };
+}
+
 function addMegaMatches(textValue, out) {
   let m;
   LINK_RE.lastIndex = 0;
@@ -291,14 +334,16 @@ function builtInSources() {
     ['reddit_megalinks_json','Reddit Megalinks JSON','json',84,'https://www.reddit.com/r/megalinks/search.json?q={q}&restrict_sr=1&limit=100&sort=new'],
     ['hn_algolia','HN Algolia','json',35,'https://hn.algolia.com/api/v1/search?query={q}%20mega.nz%2Ffolder&tags=story,comment'],
     ['archive_search','Archive Search','html',86,'https://archive.org/search?query={q}%20mega.nz%2Ffolder'],
-    ['archive_fulltext','Archive Full Text','html',70,'https://archive.org/advancedsearch.php?q={q}%20mega.nz%2Ffolder&fl%5B%5D=identifier&rows=50&output=json'],
-    ['meawfy_web','Meawfy Web','html',100,'https://meawfy.com/search?q={q}'],
+    ['archive_fulltext','Archive Full Text','json',70,'https://archive.org/advancedsearch.php?q={q}%20mega.nz%2Ffolder&fl%5B%5D=identifier&rows=50&output=json'],
+    ['meawfy_api','Meawfy Internal API','json',150,'https://meawfy.com/internal/api/results.json?q={q}'],
+    ['meawfy_web','Meawfy Web','html',110,'https://meawfy.com/search?q={q}'],
+    ['keeplinks_web','Keeplinks Search','html',90,'https://www.bing.com/search?q=site%3Akeeplinks.eu%20{q}%20%22mega.nz%2Ffolder%22&count=30'],
     ['ofversedrops_web','OfverseDrops Web','html',98,'https://ofversedrops.com/?s={q}'],
     ['ahmia','Ahmia Web','html',44,'https://ahmia.fi/search/?q={q}%20mega.nz']
   ];
   for (const a of apiLike) add(...a);
   const domains = [
-    'rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','paste.rs','pastelink.net','ghostbin.co','privatebin.net','reddit.com','old.reddit.com','archive.org','ofversedrops.com','meawfy.com','linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','msha.ke','taplink.cc','allmylinks.com','instabio.cc','heylink.me','lnk.bio','flow.page','about.me','carrd.co','campsite.bio','linkin.bio','bio.fm','hypage.com','koji.to','linkpop.com','snipfeed.co','milkshake.app','shor.by','tap.bio','telegra.ph','medium.com','substack.com','notion.site','notion.so','docs.google.com','sites.google.com','blogspot.com','wordpress.com','tumblr.com','wixsite.com','weebly.com'
+    'rentry.co','pastebin.com','paste.ee','justpaste.it','controlc.com','hastebin.com','dpaste.org','pastes.io','paste.rs','pastelink.net','ghostbin.co','privatebin.net','keeplinks.eu','reddit.com','old.reddit.com','archive.org','ofversedrops.com','meawfy.com','linktr.ee','linktree.com','beacons.ai','bio.link','solo.to','msha.ke','taplink.cc','allmylinks.com','instabio.cc','heylink.me','lnk.bio','flow.page','about.me','carrd.co','campsite.bio','linkin.bio','bio.fm','hypage.com','koji.to','linkpop.com','snipfeed.co','milkshake.app','shor.by','tap.bio','telegra.ph','medium.com','substack.com','notion.site','notion.so','docs.google.com','sites.google.com','blogspot.com','wordpress.com','tumblr.com','wixsite.com','weebly.com'
   ];
   const patterns = [
     ['web','https://www.bing.com/search?q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22&count=30',76],
@@ -402,6 +447,7 @@ function sourceGroup(src) {
   if (/github|gist|gitlab|bitbucket|raw\.githubusercontent/.test(n)) return 'code';
   if (/rentry|paste|controlc|haste|txti|dpaste|0bin/.test(n)) return 'paste';
   if (/archive/.test(n)) return 'archive';
+  if (/keeplinks|bit\.ly|sh\.st|short|adf\.ly|ouo|linkvertise|linkbucks/.test(n)) return 'redirector';
   if (/ofversedrops|meawfy|linktree|linktr|beacons|bio\.link|solo\.to|carrd|heylink|lnk|allmylinks|taplink|bio\.fm|hypage|koji|linkpop|snipfeed|milkshake|shor\.by|tap\.bio/.test(n)) return 'linkhub';
   if (/bing|duck|yahoo|brave|mojeek|qwant|startpage|yandex/.test(n)) return 'engine';
   if (t === 'json' || t === 'rss') return 'structured';
@@ -414,7 +460,7 @@ function balancedSources(rows, offset=0) {
     (groups[g] ||= []).push(r);
   }
   for (const k of Object.keys(groups)) groups[k].sort((a,b)=>(b.priority||0)-(a.priority||0));
-  const order = ['paste','reddit','code','archive','linkhub','structured','engine','web'];
+  const order = ['paste','reddit','archive','linkhub','redirector','structured','engine','web','code'];
   const out = [];
   let more = true, i = 0;
   while (more && out.length < rows.length) {
@@ -434,8 +480,8 @@ function defaultSourceEnabled(src) {
   // Hotfix5 source policy: fewer, higher-yield sources enabled by default.
   // User can turn optional/low-yield sources on from the Sources page.
   if (/github|gist|gitlab|bitbucket|raw\.githubusercontent|youtube|youtu\.be|vimeo|tiktok|instagram|facebook|linkedin|pinterest|slideshare|scribd|issuu|calameo|sourceforge/.test(n)) return 0;
-  const highDomains = /rentry|pastebin|paste\.|justpaste|controlc|haste|dpaste|pastes\.io|paste\.rs|pastelink|ghostbin|privatebin|reddit|old\.reddit|archive|ofversedrops|meawfy|linktr|linktree|beacons|bio\.link|solo\.to|msha\.ke|taplink|allmylinks|instabio|heylink|lnk\.bio|flow\.page|carrd|campsite|telegra|notion|blogspot|wordpress|tumblr|weebly|wixsite/.test(n);
-  if (/^bing_|^duckduckgo_html|reddit_/.test(String(src.id||''))) return 1;
+  const highDomains = /rentry|pastebin|paste\.|justpaste|controlc|haste|dpaste|pastes\.io|paste\.rs|pastelink|ghostbin|privatebin|keeplinks|reddit|old\.reddit|archive|ofversedrops|meawfy|linktr|linktree|beacons|bio\.link|solo\.to|msha\.ke|taplink|allmylinks|instabio|heylink|lnk\.bio|flow\.page|carrd|campsite|telegra|notion|blogspot|wordpress|tumblr|weebly|wixsite/.test(n);
+  if (/^bing_rss|^bing_web|^duckduckgo_html|reddit_|meawfy_api/.test(String(src.id||''))) return 1;
   if (/generic_bing|generic_rss/.test(n)) return 1;
   if (/^wide_/.test(String(src.id||''))) {
     const usefulFacet = /folder|index|archive|collection|links|notes|backup|mirror/.test(n);
@@ -480,6 +526,29 @@ async function setSourceEnabled(env, id, enabled, priority=null) {
   await q(env, `INSERT OR REPLACE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,
     [id,name,type,enabled?1:0,pri,template,existing?.config || src?.config || '{}', existing?.created_at || nowIso(), nowIso()]);
   return { ok:true, id, enabled:enabled?1:0 };
+}
+
+async function applySourcePreset(env, action='high_yield') {
+  await ensureDb(env);
+  const catalog = catalogSources();
+  let rows = catalog.map(src => {
+    let enabled = defaultSourceEnabled(src);
+    if (action === 'enable_all') enabled = 1;
+    if (action === 'disable_all') enabled = 0;
+    if (action === 'high_yield') enabled = defaultSourceEnabled(src);
+    return { ...src, enabled, category: sourceGroup(src) };
+  });
+  // Chunked multi-row UPSERT: avoids 1000 individual D1 API calls.
+  let changed = 0;
+  for (let i=0; i<rows.length; i+=70) {
+    const chunk = rows.slice(i, i+70);
+    const values = chunk.map(()=>'(?,?,?,?,?,?,?,?,?)').join(',');
+    const params = [];
+    for (const s of chunk) params.push(s.id, s.name, s.type, s.enabled?1:0, s.priority||50, s.template, s.config||'{}', nowIso(), nowIso());
+    await q(env, `INSERT OR REPLACE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES ${values}`, params);
+    changed += chunk.length;
+  }
+  return { ok:true, version:VERSION, action, changed, total:rows.length, enabled:rows.filter(x=>x.enabled).length };
 }
 function sourceUrl(source, query) { return source.template.replace('{q}', encodeURIComponent(query)); }
 async function cachedFetch(env, url, sourceName) {
@@ -555,6 +624,12 @@ function addCommentTargets(decoded, urls, baseUrl) {
     walk(j);
     for (const id of ids) urls.add(`https://hn.algolia.com/api/v1/items/${encodeURIComponent(id)}`);
   } catch {}
+  // Disqus/embedded public comment JSON endpoints often expose comment text in page HTML.
+  const disqusRe = /https?:\/\/[A-Za-z0-9_.-]+\.disqus\.com\/embed\/comments\/[^\s"'<> )]+/gi;
+  while ((m = disqusRe.exec(decoded)) !== null && urls.size < 160) addCandidateUrl(urls, m[0], baseUrl);
+  // Telegram public web pages sometimes list copied links as text. Keep public t.me/s pages only.
+  const tgRe = /https?:\/\/t\.me\/s\/[A-Za-z0-9_\-]+[^\s"'<> )]*/gi;
+  while ((m = tgRe.exec(decoded)) !== null && urls.size < 160) addCandidateUrl(urls, m[0], baseUrl);
 }
 
 function parseSearchTargets(text, source, baseUrl) {
@@ -568,6 +643,10 @@ function parseSearchTargets(text, source, baseUrl) {
   // JSON recursive extraction and comment endpoints
   try { extractJsonUrls(JSON.parse(decoded), urls, baseUrl); } catch {}
   addCommentTargets(decoded, urls, baseUrl);
+  // V29: follow common public redirect/container pages because many MEGA folders are hidden behind link hubs.
+  const shortRe = /https?:\/\/(?:bit\.ly|sh\.st|shorturl\.at|tinyurl\.com|cutt\.ly|is\.gd|t\.co|keeplinks\.eu|linkvertise\.com|ouo\.io|ouo\.press)\/[^\s"'<> )]+/gi;
+  let sm;
+  while ((sm = shortRe.exec(decoded)) !== null && urls.size < 160) addCandidateUrl(urls, sm[0], baseUrl);
   // Reddit comments JSON targets from permalinks
   for (const u of [...urls]) {
     if (/reddit\.com\/r\//i.test(u) && !/\.json(?:$|[?#])/i.test(u)) {
@@ -582,7 +661,7 @@ async function saveLink(env, data) {
   if (/\/file\//i.test(norm)) return false;
   const type = 'folder';
   const keywordKey = String(data.keyword||'');
-  const source = hostOf(data.page_url||'') || String(data.source||'');
+  const source = realSourceLabel(data.source, data.page_url);
   const id = 'ln_' + hash((data.mode||'') + '|' + keywordKey + '|' + norm);
   const score = scoreResult({link:norm, source, title:data.title, pageUrl:data.page_url, mode:data.mode});
   const now = nowIso();
@@ -672,7 +751,7 @@ async function processSourceFetch(env, runId, mode, keyword, src, query, started
     if (await saveLink(env, { run_id:runId, mode, keyword:keyword||'', link, source:src.name, page_url:url, title:query, snippet:'direct from source response' })) direct++;
   }
   await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
-    ['pg_'+hash(runId+url), runId, mode, src.name, url, query, got.status||0, 0, links.length, nowIso(), got.error||'']);
+    ['pg_'+hash(runId+url), runId, mode, realSourceLabel(src.name, url), url, query, got.status||0, 0, links.length, nowIso(), got.error||'']);
   const targetLimit = mode === 'autoscan' ? QUEUE_CRAWL_CHILD_LIMIT : 6;
   const targets = parseSearchTargets(got.text, src, url).slice(0, targetLimit);
   const tasks = targets.map(t => ({ run_id:runId, mode, kind:'crawl', url:t, keyword:keyword||query, source:hostOf(t)||src.name, priority: src.priority || 50, max_attempts:3 }));
@@ -682,40 +761,36 @@ async function processSourceFetch(env, runId, mode, keyword, src, query, started
   }
   return { direct, queued, status:got.status||0, targets:targets.length };
 }
+
+async function getSetting(env, key, fallback='') {
+  try { const r = await first(env, `SELECT value FROM ${T.settings} WHERE key=?`, [key]); return r?.value ?? fallback; } catch { return fallback; }
+}
+async function setSetting(env, key, value) {
+  try { await q(env, `INSERT OR REPLACE INTO ${T.settings}(key,value,updated_at) VALUES(?,?,?)`, [key, String(value), nowIso()]); } catch {}
+}
+async function seedQueueSlice(env, runId, mode='autoscan', keyword='', opts={}) {
+  await ensureDb(env);
+  const allSources = await getSources(env, {offset:0});
+  const queries = buildQueries(keyword, mode);
+  if (!allSources.length || !queries.length) return { enqueued:0, next_source_offset:0, exhausted:true };
+  const key = 'run_offset:' + runId;
+  let sourceOffset = Number(opts.source_offset ?? await getSetting(env, key, '0')) || 0;
+  sourceOffset = Math.max(0, sourceOffset) % allSources.length;
+  const safeLimit = Math.min(Number(opts.max_sources||0)||SCHEDULE_SEED_LIMIT, SCHEDULE_SEED_LIMIT, allSources.length);
+  const selected = [];
+  for (let i=0; i<safeLimit; i++) selected.push(allSources[(sourceOffset+i)%allSources.length]);
+  const tasks = selected.map((src,i)=>({ kind:'source', run_id:runId, mode, keyword:keyword||'', source:src, source_name:src.name||'source', query:queries[(sourceOffset+i)%queries.length], priority:src.priority||50 }));
+  const out = await enqueueManyCloud(env, tasks);
+  const next = (sourceOffset + selected.length) % allSources.length;
+  await setSetting(env, key, next);
+  return { enqueued:out.enqueued||0, queue_mode:out.mode||'d1-shadow', source_offset:sourceOffset, next_source_offset:next, catalog_sources:allSources.length, safe_seed_limit:safeLimit };
+}
+
 async function scheduleQueueRun(env, mode='autoscan', keyword='', opts={}) {
   await ensureDb(env);
   const runId = await startRun(env, mode, keyword||'');
-  const allSources = await getSources(env, {offset:Number(opts.source_offset||0)||0});
-  const queries = buildQueries(keyword, mode);
-  const sourceOffset = Math.max(0, Number(opts.source_offset || 0) || 0) % Math.max(1, allSources.length);
-  const queryOffset = Math.max(0, Number(opts.query_offset || 0) || 0) % Math.max(1, queries.length);
-  // Hotfix4: Cloudflare/D1 has a hard per-invocation subrequest ceiling. Do NOT enqueue
-  // all 1000 sources in one request. Seed a safe balanced slice; the frontend AutoPilot and
-  // Continue Deep Processing can create/drain more slices without hitting 1102.
-  const requested = Number(opts.max_sources || 0) || (mode === 'search' ? SCHEDULE_SEED_LIMIT_KEYWORD : SCHEDULE_SEED_LIMIT_AUTOSCAN);
-  const safeLimit = Math.min(requested, mode === 'search' ? SCHEDULE_SEED_LIMIT_KEYWORD : SCHEDULE_SEED_LIMIT_AUTOSCAN, allSources.length);
-  const selected = [];
-  for (let i=0; i<safeLimit; i++) selected.push(allSources[(sourceOffset + i) % allSources.length]);
-  const tasks = selected.map((src, i) => ({
-    kind:'source',
-    run_id:runId,
-    mode,
-    keyword:keyword||'',
-    source: src,
-    source_name: src.name || 'source',
-    query:queries[(queryOffset+i) % queries.length],
-    priority:src.priority||50
-  }));
-  let enqueued = 0, queueMode = 'd1';
-  for (let i=0; i<tasks.length; i+=QUEUE_MESSAGE_BATCH_LIMIT) {
-    const chunk = tasks.slice(i, i+QUEUE_MESSAGE_BATCH_LIMIT);
-    const out = await enqueueManyCloud(env, chunk);
-    enqueued += out.enqueued || 0;
-    queueMode = out.mode || queueMode;
-  }
-  const next_source_offset = (sourceOffset + selected.length) % Math.max(1, allSources.length);
-  const remaining_estimate = Math.max(0, allSources.length - selected.length);
-  return { ok:true, version:VERSION, queued:true, queue_mode:queueMode, run_id:runId, mode, keyword:keyword||'', enqueued, catalog_sources:allSources.length, source_offset:sourceOffset, next_source_offset, remaining_estimate, safe_seed_limit:safeLimit, message:'Queue/Archive job created in safe chunks. AutoPilot drains D1 Shadow Queue without exceeding Cloudflare limits.' };
+  const seeded = await seedQueueSlice(env, runId, mode, keyword||'', opts||{});
+  return { ok:true, version:VERSION, queued:true, run_id:runId, mode, keyword:keyword||'', ...seeded, remaining_estimate:Math.max(0,(seeded.catalog_sources||0)-(seeded.safe_seed_limit||0)), message:'Queue/Archive job created in safe chunks. AutoPilot continues seeding slices and draining D1 Shadow Queue.' };
 }
 async function handleQueueMessage(env, body) {
   await ensureDb(env);
@@ -847,19 +922,23 @@ async function healthOne(env, link) {
   const existing = await first(env, `SELECT health,health_checked_at FROM ${T.links} WHERE normalized=? ORDER BY first_seen_at DESC LIMIT 1`, [norm]);
   if (existing?.health_checked_at && Date.now() - new Date(existing.health_checked_at).getTime() < HEALTH_TTL_MS) return { health: existing.health };
   let health = 'unknown';
-  try {
-    const res = await fetchWithTimeout(norm, { method:'HEAD', redirect:'follow' }, 8000);
-    if (res.status >= 200 && res.status < 400) health = 'alive';
-    else if ([404,410].includes(res.status)) health = 'dead';
-    else health = 'unknown';
-  } catch {
+  let reason = '';
+  const api = await megaApiFolderCheck(norm);
+  health = api.health || 'unknown';
+  reason = api.reason || '';
+  // Do not fetch MEGA HTML as the primary validator. It is slow and often returns generic HTML.
+  // Only fall back to HEAD when the API cannot decide.
+  if (health === 'unknown') {
     try {
-      const res = await fetchWithTimeout(norm, { method:'GET', redirect:'follow', headers:{ range:'bytes=0-0' } }, 8000);
-      if (res.status >= 200 && res.status < 400) health = 'alive'; else if ([404,410].includes(res.status)) health='dead';
+      const res = await fetchWithTimeout(norm, { method:'HEAD', redirect:'follow' }, 7000);
+      if (res.status >= 200 && res.status < 400) health = 'folder';
+      else if ([404,410].includes(res.status)) health = 'dead';
+      else health = 'unknown';
+      reason = 'head_' + res.status;
     } catch { health = 'unknown'; }
   }
   await q(env, `UPDATE ${T.links} SET health=?, health_checked_at=? WHERE normalized=?`, [health, nowIso(), norm]);
-  return { health };
+  return { health, reason };
 }
 async function checkBatch(env, runId='', limit=20) {
   await ensureDb(env);
@@ -914,10 +993,13 @@ async function dashboardStats(env) {
   const runs = await first(env, `SELECT COUNT(*) total FROM ${T.runs}`);
   const queue = await first(env, `SELECT SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) pending, SUM(CASE WHEN status='running' THEN 1 ELSE 0 END) running, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) done, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed FROM ${T.queue}`);
   const cache = await first(env, `SELECT COUNT(*) total, SUM(hits) hits FROM ${T.cache}`);
-  const customSources = await runIgnore(first(env, `SELECT COUNT(*) total, SUM(CASE WHEN enabled=1 THEN 1 ELSE 0 END) enabled FROM ${T.sources}`));
-  const builtins = catalogSources().length;
-  const success = links?.total ? Math.round(((links.alive||0) / links.total) * 100) : 0;
-  return { archive_total:archive?.total||0, links_total:links?.total||0, alive:links?.alive||0, dead:links?.dead||0, unknown:links?.unknown||0, pages_scanned:pages?.total||0, runs:runs?.total||0, queue_pending:queue?.pending||0, queue_running:queue?.running||0, queue_done:queue?.done||0, queue_failed:queue?.failed||0, cache_entries:cache?.total||0, cache_hits:cache?.hits||0, sources_total:builtins + (customSources?.total||0), sources_enabled:builtins + (customSources?.enabled||0), success_rate:success };
+  const allSrc = await getSources(env, {include_disabled:true});
+  const sourcesTotal = allSrc.length;
+  const sourcesEnabled = allSrc.filter(s=>Number(s.enabled)===1).length;
+  const valid = Number(links?.alive || 0);
+  const target = Math.max(1, Number(env.SUCCESS_TARGET_LINKS || SUCCESS_TARGET_LINKS || 100));
+  const success = Math.min(100, Math.floor((valid / target) * 100));
+  return { archive_total:archive?.total||0, links_total:links?.total||0, alive:links?.alive||0, dead:links?.dead||0, unknown:links?.unknown||0, pages_scanned:pages?.total||0, runs:runs?.total||0, queue_pending:queue?.pending||0, queue_running:queue?.running||0, queue_done:queue?.done||0, queue_failed:queue?.failed||0, cache_entries:cache?.total||0, cache_hits:cache?.hits||0, sources_total:sourcesTotal, sources_enabled:sourcesEnabled, sources_disabled:Math.max(0,sourcesTotal-sourcesEnabled), success_target:target, success_rate:success };
 }
 async function diagnostics(env) {
   await ensureDb(env);
@@ -926,7 +1008,7 @@ async function diagnostics(env) {
     const c = await first(env, `SELECT COUNT(*) c FROM ${t}`);
     tables[t] = c?.c ?? 0;
   }
-  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference','sources_manager','toggle_sources','default_high_yield_sources','github_disabled_by_default'] };
+  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference','sources_manager','toggle_sources','default_high_yield_sources','github_disabled_by_default','v29_sources_sections','v29_enable_disable_all','v29_meawfy_api','v29_real_success_target_100','v29_redirector_targets','v29_archive_csv','v29_1_mega_api_validator','v29_1_continuous_slice_seeding','v29_1_deeper_comment_targets'] };
 }
 
 async function startV28Job(env, mode='autoscan', keyword='', opts={}) {
@@ -947,18 +1029,46 @@ async function tickV28Job(env, runId, mode='autoscan', keyword='', opts={}) {
   // Fallback: if the specific run id has no rows, drain the global queue. This helps after browser reloads
   // or when the frontend did not persist the latest run_id correctly.
   if (!(processed.processed||processed.failed) && runId) processed = await processQueue(env, '', Math.min(limit, 8));
-  return { ok:true, version:VERSION, run_id:runId||'', mode, keyword:keyword||'', elapsed_ms:Date.now()-started, pending:await queueCount(env, runId||''), processed, stats:await dashboardStats(env), results:(await getResults(env, mode, keyword||'', 1000)).results };
+  let pending = await queueCount(env, runId||'');
+  let seeded = null;
+  // V29.1: keep the scan alive. When the current slice is almost drained, seed the next slice safely.
+  if (runId && pending < 6 && Date.now() - started < REQUEST_BUDGET_MS - 3000) {
+    seeded = await seedQueueSlice(env, runId, mode||'autoscan', keyword||'', { max_sources: Number(opts.seed_limit||SCHEDULE_SEED_LIMIT)||SCHEDULE_SEED_LIMIT });
+    pending = await queueCount(env, runId||'');
+  }
+  return { ok:true, version:VERSION, run_id:runId||'', mode, keyword:keyword||'', elapsed_ms:Date.now()-started, pending, processed, seeded, stats:await dashboardStats(env), results:(await getResults(env, mode, keyword||'', 1000)).results };
 }
 
 function csvEscape(s) { s=String(s??''); return '"'+s.replace(/"/g,'""')+'"'; }
 async function exportData(env, fmt='json', mode='') {
-  const r = await getResults(env, mode, '', 1000);
+  await ensureDb(env);
+  let rows;
+  if (!mode || mode === 'archive') rows = (await getArchive(env, 5000)).results;
+  else rows = (await getResults(env, mode, '', 5000)).results;
   if (fmt === 'csv') {
-    const header = ['mode','keyword','type','health','score','source','page_url','link','first_seen_at'];
-    const rows = [header.join(',')].concat(r.results.map(x => header.map(h => csvEscape(x[h])).join(',')));
-    return text(rows.join('\n'), 'text/csv; charset=utf-8');
+    const header = ['section','mode','keyword','type','health','score','source','source_page','mega_folder','first_seen_at','last_seen_at','seen_count','snippet'];
+    const lines = [header.join(',')];
+    for (const x of rows) {
+      const rec = {
+        section: mode || 'archive',
+        mode: x.mode || mode || 'archive',
+        keyword: x.keyword || '',
+        type: x.type || 'folder',
+        health: x.health || '',
+        score: x.score || 0,
+        source: x.source || '',
+        source_page: x.page_url || '',
+        mega_folder: x.link || x.normalized || '',
+        first_seen_at: x.first_seen_at || '',
+        last_seen_at: x.last_seen_at || '',
+        seen_count: x.seen_count || 1,
+        snippet: x.snippet || ''
+      };
+      lines.push(header.map(h => csvEscape(rec[h])).join(','));
+    }
+    return text(lines.join('\n'), 'text/csv; charset=utf-8');
   }
-  return json(r);
+  return json({ok:true, version:VERSION, mode:mode||'archive', results:rows});
 }
 
 async function handleApi(req, env, ctx) {
@@ -974,8 +1084,8 @@ async function handleApi(req, env, ctx) {
     if (path === '/api/db/clean') { await cleanData(env); return json({ok:true, version:VERSION, cleaned:true}); }
     if (path === '/api/db/clean-invalid') { const out = await cleanInvalidLinks(env); return json({ok:true, version:VERSION, ...out}); }
     if (path === '/api/diagnostics') return json(await diagnostics(env));
-    if (path === '/api/v28/start') { const b=await parseBody(req); return json(await startV28Job(env, b.mode||'autoscan', b.keyword||'', b)); }
-    if (path === '/api/v28/tick') { const b=await parseBody(req); return json(await tickV28Job(env, b.run_id||'', b.mode||'autoscan', b.keyword||'', b)); }
+    if (path === '/api/v28/start' || path === '/api/v29/start') { const b=await parseBody(req); return json(await startV28Job(env, b.mode||'autoscan', b.keyword||'', b)); }
+    if (path === '/api/v28/tick' || path === '/api/v29/tick') { const b=await parseBody(req); return json(await tickV28Job(env, b.run_id||'', b.mode||'autoscan', b.keyword||'', b)); }
     if (path === '/api/autoscan') { const b = await parseBody(req); const out = ((env.AUTOSCAN_QUEUE || env.QUEUE) || b.queue) ? await scheduleQueueRun(env, 'autoscan', b.keyword||'', b) : await runSearch(env, 'autoscan', b.keyword||'', false, b); return json(out); }
     if (path === '/api/search') { const b = await parseBody(req); if (!String(b.keyword||'').trim()) return json({ok:false, error:'keyword_required'}, 400); const out = ((env.AUTOSCAN_QUEUE || env.QUEUE) || b.queue) ? await scheduleQueueRun(env, 'search', String(b.keyword||'').trim(), b) : await runSearch(env, 'search', String(b.keyword||'').trim(), false, b); return json(out); }
     if (path === '/api/extract') { const b = await parseBody(req); if (!b.url) return json({ok:false,error:'url_required'},400); return json(await extractFromUrl(env, b.url, b.mode||'url', b.keyword||'')); }
@@ -990,6 +1100,7 @@ async function handleApi(req, env, ctx) {
       if (req.method==='GET') { const rows = await getSources(env,{include_disabled:true}); return json({ok:true, version:VERSION, total:rows.length, enabled:rows.filter(s=>Number(s.enabled)===1).length, sources: rows}); }
       const b=await parseBody(req);
       if (b.action === 'toggle') return json(await setSourceEnabled(env, b.id, !!b.enabled, b.priority));
+      if (['enable_all','disable_all','high_yield'].includes(b.action)) return json(await applySourcePreset(env, b.action));
       if (!b.name || !b.template) return json({ok:false,error:'name_and_template_required'},400);
       await q(env,`INSERT OR REPLACE INTO ${T.sources}(id,name,type,enabled,priority,template,config,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)`,[b.id||uid('src'),b.name,b.type||'html',b.enabled?1:0,b.priority||50,b.template,JSON.stringify(b.config||{}),nowIso(),nowIso()]); return json({ok:true});
     }
@@ -1009,7 +1120,7 @@ export default {
     const url = new URL(req.url);
     if (url.pathname.startsWith('/api/')) return handleApi(req, env, ctx);
     if (url.pathname === '/reset') return handleReset(req, env);
-    return env.ASSETS ? env.ASSETS.fetch(req) : text('Nimbus Core V28 Queue Archive Comments');
+    return env.ASSETS ? env.ASSETS.fetch(req) : text('Nimbus Core V29 HyperSearch Sources');
   },
   async queue(batch, env, ctx) {
     await ensureDb(env);
