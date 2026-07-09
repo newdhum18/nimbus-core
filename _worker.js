@@ -2,7 +2,7 @@
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '28-queue-archive-comments';
+const VERSION = '28-queue-archive-comments-hotfix3';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -561,10 +561,20 @@ async function saveLink(env, data) {
   return true;
 }
 async function enqueue(env, item) {
-  const id = item.id || 'q_' + hash([item.kind,item.url,item.keyword,item.mode].join('|'));
   const sourceName = typeof item.source === 'string' ? item.source : (item.source?.name || item.source_name || '');
+  let qUrl = item.url || '';
+  // Source tasks must keep a concrete URL in the D1 shadow queue so the frontend/deep drain can process them
+  // even when Cloudflare Queue consumer is not attached or Pages cannot consume queue messages.
+  if (!qUrl && item.kind === 'source') {
+    try {
+      const srcObj = (item.source && typeof item.source === 'object') ? item.source : { name: sourceName || 'source', template: item.template || '' };
+      if (srcObj.template) qUrl = sourceUrl(srcObj, item.query || item.keyword || 'mega.nz/folder');
+    } catch {}
+  }
+  const qKeyword = item.keyword || item.query || '';
+  const id = item.id || 'q_' + hash([item.kind,qUrl,qKeyword,item.mode,sourceName].join('|'));
   await q(env, `INSERT OR IGNORE INTO ${T.queue}(id,run_id,mode,kind,url,keyword,source,priority,status,attempts,max_attempts,available_at,created_at,updated_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [id, item.run_id||'', item.mode||'search', item.kind, item.url||'', item.keyword||'', sourceName, item.priority||50, 'pending', 0, item.max_attempts||3, item.available_at||nowIso(), nowIso(), nowIso(), '']);
+    [id, item.run_id||'', item.mode||'search', item.kind, qUrl, qKeyword, sourceName, item.priority||50, 'pending', 0, item.max_attempts||3, item.available_at||nowIso(), nowIso(), nowIso(), '']);
 }
 async function enqueueCloud(env, body) {
   const qbind = env.AUTOSCAN_QUEUE || env.QUEUE;
@@ -587,18 +597,16 @@ async function enqueueTask(env, item, preferCloud = true) {
   return 'd1';
 }
 async function enqueueManyCloud(env, items) {
-  const qbind = env.AUTOSCAN_QUEUE || env.QUEUE;
-  if (!qbind || !qbind.sendBatch) {
-    let n = 0;
-    for (const it of items) { await enqueueTask(env, it, false); n++; }
-    return { mode:'d1', enqueued:n };
-  }
-  const batch = items.map(body => ({ body }));
-  await qbind.sendBatch(batch);
+  // Hotfix 3: Pages cannot reliably act as a Cloudflare Queue consumer.
+  // Therefore every task is persisted in the D1 shadow queue first and processed by /api/v28/tick.
+  // If a real Worker consumer is added later, the same bindings can still be used, but the UI no longer
+  // depends on Cloudflare Queue draining messages in the background.
+  let n = 0;
   for (const it of items) {
-    await enqueue(env, { ...it, id:it.id || 'qlog_' + hash([it.kind,it.url,it.keyword,it.mode,it.run_id].join('|')) });
+    await enqueue(env, { ...it, id:it.id || 'q_' + hash([it.kind,it.url||it.template||'',it.query||it.keyword||'',it.mode,it.run_id,it.source_name||''].join('|')) });
+    n++;
   }
-  return { mode:'cloud', enqueued:items.length };
+  return { mode:'d1-shadow-autopilot', enqueued:n };
 }
 async function startRun(env, mode, keyword) {
   await ensureDb(env);
@@ -749,7 +757,12 @@ async function processQueue(env, runId = '', limit = MAX_QUEUE_BATCH) {
     await q(env, `UPDATE ${T.queue} SET status='running', attempts=attempts+1, updated_at=? WHERE id=?`, [nowIso(), item.id]);
     try {
       let r = {found:0};
-      if (item.kind === 'crawl') r = await crawlPage(env, item);
+      if (item.kind === 'source') {
+        const src = { name:item.source || hostOf(item.url) || 'source', template:item.url, priority:item.priority || 50 };
+        r = await processSourceFetch(env, item.run_id || '', item.mode || 'autoscan', item.keyword || 'mega.nz/folder', src, item.keyword || 'mega.nz/folder', Date.now(), false);
+        r.found = (r.direct || 0);
+      }
+      else if (item.kind === 'crawl') r = await crawlPage(env, item);
       else if (item.kind === 'health') r = await healthOne(env, item.url);
       found += r.found || 0;
       await q(env, `UPDATE ${T.queue} SET status='done', updated_at=?, error='' WHERE id=?`, [nowIso(), item.id]);
@@ -873,14 +886,23 @@ async function diagnostics(env) {
 }
 
 async function startV28Job(env, mode='autoscan', keyword='', opts={}) {
-  return scheduleQueueRun(env, mode, keyword||'', opts||{});
+  // Hotfix 3: create the D1 shadow queue and immediately drain a small first batch.
+  // This proves the pipeline is active and avoids the previous state where runs increased but pages stayed 0.
+  const started = Date.now();
+  const scheduled = await scheduleQueueRun(env, mode, keyword||'', opts||{});
+  const firstLimit = Math.min(Number(opts.initial_limit||6)||6, 8);
+  const first = await processQueue(env, scheduled.run_id||'', firstLimit);
+  return { ...scheduled, first_processed:first, pending:await queueCount(env, scheduled.run_id||''), elapsed_ms:Date.now()-started, stats:await dashboardStats(env), results:(await getResults(env, mode, keyword||'', 1000)).results };
 }
 async function tickV28Job(env, runId, mode='autoscan', keyword='', opts={}) {
-  // With Cloudflare Queue enabled, tick becomes a lightweight status/drain call.
+  // Always drain the D1 shadow queue in small safe batches. This makes AutoPilot work even when
+  // Cloudflare Queue consumer is not attached to the Pages deployment.
   const started = Date.now();
-  let processed = { processed:0, found:0, failed:0 };
-  // Fallback drain for accounts where Queue is not enabled yet.
-  if (!(env.AUTOSCAN_QUEUE || env.QUEUE)) processed = await processQueue(env, runId||'', Math.min(Number(opts.limit||8)||8, 12));
+  const limit = Math.min(Number(opts.limit||10)||10, 14);
+  let processed = await processQueue(env, runId||'', limit);
+  // Fallback: if the specific run id has no rows, drain the global queue. This helps after browser reloads
+  // or when the frontend did not persist the latest run_id correctly.
+  if (!(processed.processed||processed.failed) && runId) processed = await processQueue(env, '', Math.min(limit, 8));
   return { ok:true, version:VERSION, run_id:runId||'', mode, keyword:keyword||'', elapsed_ms:Date.now()-started, pending:await queueCount(env, runId||''), processed, stats:await dashboardStats(env), results:(await getResults(env, mode, keyword||'', 1000)).results };
 }
 
