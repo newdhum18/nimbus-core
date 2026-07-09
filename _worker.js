@@ -1,8 +1,8 @@
-/* Nimbus Core V30 HyperSearch
+/* Nimbus Core V30.1 Fast Source Pipeline
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '30.0-target-decoder-search-engine';
+const VERSION = '30.1-fast-source-pipeline-fix';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -14,25 +14,25 @@ const T = {
   sources: 'nimbus_v27sb_sources',
   settings: 'nimbus_v27sb_settings'
 };
-const SOURCE_POLICY_VERSION = 'v30.0-target-decoder-high-yield';
+const SOURCE_POLICY_VERSION = 'v30.1-fast-source-pipeline';
 const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 NimbusCore/30';
-const TIMEOUT_MS = 11000;
+const TIMEOUT_MS = 6500;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 const HEALTH_TTL_MS = 1000 * 60 * 60 * 12;
-const DEFAULT_MAX_SOURCE_FETCHES = 24;
-const HARD_MAX_SOURCE_FETCHES = 48;
+const DEFAULT_MAX_SOURCE_FETCHES = 8;
+const HARD_MAX_SOURCE_FETCHES = 16;
 const MAX_CRAWL_PAGES = 240;
-const MAX_QUEUE_BATCH = 12;
-const SCHEDULE_SEED_LIMIT = 12; // V29: smaller slices, more continuous rounds, no D1 burst
-const SCHEDULE_SEED_LIMIT_KEYWORD = 12;
-const SCHEDULE_SEED_LIMIT_AUTOSCAN = 12;
+const MAX_QUEUE_BATCH = 5;
+const SCHEDULE_SEED_LIMIT = 4; // V29: smaller slices, more continuous rounds, no D1 burst
+const SCHEDULE_SEED_LIMIT_KEYWORD = 4;
+const SCHEDULE_SEED_LIMIT_AUTOSCAN = 4;
 const SUCCESS_TARGET_LINKS = 100;
 const MAX_DEEP_ROUNDS = 300;
-const REQUEST_BUDGET_MS = 26000;
-const QUEUE_SOURCE_BATCH = 8;
-const QUEUE_CRAWL_CHILD_LIMIT = 12;
-const QUEUE_MESSAGE_BATCH_LIMIT = 6;
-const MAX_TEXT = 350000;
+const REQUEST_BUDGET_MS = 18000;
+const QUEUE_SOURCE_BATCH = 4;
+const QUEUE_CRAWL_CHILD_LIMIT = 4;
+const QUEUE_MESSAGE_BATCH_LIMIT = 4;
+const MAX_TEXT = 180000;
 const LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz|io)\/folder\/[A-Za-z0-9_-]+#[A-Za-z0-9_!\-]{8,})/gi;
 const OLD_LINK_RE = /(^|[^A-Za-z0-9_.\/-])((?:https?:\/\/)?(?:www\.)?mega\.(?:nz|co\.nz)\/#(?:F!|N!|!)?[A-Za-z0-9_-]+![A-Za-z0-9_!\-]+)/gi;
 const MEGA_HOST_RE = /^https?:\/\/(?:www\.)?mega\.(?:nz|co\.nz|io)\//i;
@@ -148,7 +148,7 @@ async function megaApiFolderCheck(link) {
     let data = null;
     try { data = JSON.parse(txt); } catch {}
     const first = Array.isArray(data) ? data[0] : data;
-    if (typeof first === 'number' && first < 0) return { health:'dead', reason:'mega_api_' + first };
+    if (typeof first === 'number' && first < 0) return { health:(first===-9||first===-11||first===-2)?'dead':'unknown', reason:'mega_api_' + first };
     if (first && (Array.isArray(first.f) || first.f || first.ok || first.s !== undefined)) return { health:'folder', reason:'mega_api_ok' };
     // MEGA sometimes returns an object with partial metadata for public folders.
     if (res.status >= 200 && res.status < 300 && txt && !/^\s*\[-?\d+\]\s*$/.test(txt)) return { health:'folder', reason:'mega_api_response' };
@@ -863,7 +863,7 @@ async function processSourceFetch(env, runId, mode, keyword, src, query, started
   }
   await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
     ['pg_'+hash(runId+url), runId, mode, realSourceLabel(src.name, url), url, query, got.status||0, 0, links.length, nowIso(), got.error||'']);
-  const targetLimit = mode === 'autoscan' ? QUEUE_CRAWL_CHILD_LIMIT : 6;
+  const targetLimit = mode === 'autoscan' ? 4 : 4;
   const targets = parseSearchTargets(got.text, src, url).slice(0, targetLimit);
   const tasks = targets.map(t => ({ run_id:runId, mode, kind:'crawl', url:t, keyword:keyword||query, source:hostOf(t)||src.name, priority: src.priority || 50, max_attempts:3 }));
   if (tasks.length) {
@@ -883,19 +883,51 @@ async function seedQueueSlice(env, runId, mode='autoscan', keyword='', opts={}) 
   await ensureDb(env);
   const allSources = await getSources(env, {offset:0});
   const queries = buildQueries(keyword, mode);
-  if (!allSources.length || !queries.length) return { enqueued:0, next_source_offset:0, exhausted:true };
+  if (!allSources.length || !queries.length) {
+    return { enqueued:0, next_source_offset:0, exhausted:true, catalog_sources:allSources.length, safe_seed_limit:0 };
+  }
+
   const key = 'run_offset:' + runId;
   let sourceOffset = Number(opts.source_offset ?? await getSetting(env, key, '0')) || 0;
-  sourceOffset = Math.max(0, sourceOffset) % allSources.length;
+  sourceOffset = Math.max(0, sourceOffset);
+
+  // V30.1: never wrap the same run back to source 0. Wrapping caused later rounds to run
+  // with misleading/empty source state and wasted time. A run ends cleanly when all enabled
+  // high-yield sources have been sliced.
+  if (sourceOffset >= allSources.length) {
+    await setSetting(env, key, allSources.length);
+    return { enqueued:0, source_offset:sourceOffset, next_source_offset:allSources.length, exhausted:true, catalog_sources:allSources.length, safe_seed_limit:0 };
+  }
+
   const defaultLimit = mode === 'search' ? SCHEDULE_SEED_LIMIT_KEYWORD : SCHEDULE_SEED_LIMIT_AUTOSCAN;
-  const safeLimit = Math.min(Number(opts.max_sources||0)||defaultLimit, defaultLimit, allSources.length);
+  const safeLimit = Math.min(Number(opts.max_sources||0)||defaultLimit, defaultLimit, allSources.length - sourceOffset, 4);
   const selected = [];
-  for (let i=0; i<safeLimit; i++) selected.push(allSources[(sourceOffset+i)%allSources.length]);
-  const tasks = selected.map((src,i)=>({ kind:'source', run_id:runId, mode, keyword:keyword||'', source:src, source_name:src.name||'source', query:queries[(sourceOffset+i)%queries.length], priority:src.priority||50 }));
+  for (let i=0; i<safeLimit; i++) selected.push(allSources[sourceOffset+i]);
+
+  const tasks = selected.map((src,i)=>({
+    kind:'source',
+    run_id:runId,
+    mode,
+    keyword:keyword||'',
+    source:src,
+    source_name:src.name||'source',
+    query:queries[(sourceOffset+i)%queries.length],
+    priority:src.priority||50,
+    max_attempts:2
+  }));
+
   const out = await enqueueManyCloud(env, tasks);
-  const next = (sourceOffset + selected.length) % allSources.length;
+  const next = sourceOffset + selected.length;
   await setSetting(env, key, next);
-  return { enqueued:out.enqueued||0, queue_mode:out.mode||'d1-shadow', source_offset:sourceOffset, next_source_offset:next, catalog_sources:allSources.length, safe_seed_limit:safeLimit };
+  return {
+    enqueued:out.enqueued||0,
+    queue_mode:out.mode||'d1-shadow',
+    source_offset:sourceOffset,
+    next_source_offset:next,
+    exhausted: next >= allSources.length,
+    catalog_sources:allSources.length,
+    safe_seed_limit:safeLimit
+  };
 }
 
 async function scheduleQueueRun(env, mode='autoscan', keyword='', opts={}) {
@@ -1124,33 +1156,39 @@ async function diagnostics(env) {
 }
 
 async function startV28Job(env, mode='autoscan', keyword='', opts={}) {
-  // Hotfix 3: create the D1 shadow queue and immediately drain a small first batch.
-  // This proves the pipeline is active and avoids the previous state where runs increased but pages stayed 0.
+  // V30.1: one run = a real sequential pipeline. Seed <=4 sources and immediately drain <=4 tasks.
   const started = Date.now();
-  const scheduled = await scheduleQueueRun(env, mode, keyword||'', opts||{});
-  const firstLimit = Math.min(Number(opts.initial_limit||6)||6, 8);
+  const scheduled = await scheduleQueueRun(env, mode, keyword||'', { ...opts, max_sources: Math.min(Number(opts.max_sources||4)||4, 4) });
+  const firstLimit = Math.min(Number(opts.initial_limit||4)||4, 4);
   const first = await processQueue(env, scheduled.run_id||'', firstLimit);
   return { ...scheduled, first_processed:first, pending:await queueCount(env, scheduled.run_id||''), elapsed_ms:Date.now()-started, stats:await dashboardStats(env), results:(await getResults(env, mode, keyword||'', 1000)).results };
 }
 async function tickV28Job(env, runId, mode='autoscan', keyword='', opts={}) {
-  // Always drain the D1 shadow queue in small safe batches. This makes AutoPilot work even when
-  // Cloudflare Queue consumer is not attached to the Pages deployment.
+  await ensureDb(env);
   const started = Date.now();
-  const limit = Math.min(Number(opts.limit||10)||10, 14);
+
+  // V30.1: recover the latest active run if the browser lost run_id, instead of starting
+  // useless ticks with no source context.
+  if (!runId) {
+    const latest = await first(env, `SELECT id,mode,keyword FROM ${T.runs} WHERE status='running' ORDER BY started_at DESC LIMIT 1`);
+    if (latest) { runId = latest.id; mode = latest.mode || mode; keyword = latest.keyword || keyword || ''; }
+  }
+
+  const limit = Math.min(Number(opts.limit||4)||4, 5);
   let processed = await processQueue(env, runId||'', limit);
-  // Fallback: if the specific run id has no rows, drain the global queue. This helps after browser reloads
-  // or when the frontend did not persist the latest run_id correctly.
-  if (!(processed.processed||processed.failed) && runId) processed = await processQueue(env, '', Math.min(limit, 8));
   let pending = await queueCount(env, runId||'');
   let seeded = null;
-  // V29.1: keep the scan alive. When the current slice is almost drained, seed the next slice safely.
-  if (runId && pending < 6 && Date.now() - started < REQUEST_BUDGET_MS - 3000) {
-    seeded = await seedQueueSlice(env, runId, mode||'autoscan', keyword||'', { max_sources: Number(opts.seed_limit||SCHEDULE_SEED_LIMIT)||SCHEDULE_SEED_LIMIT });
+  let exhausted = false;
+
+  // Keep exactly one small source slice ready. This prevents the old failure mode where
+  // round 2+ ran with zero useful sources after the first slice drained.
+  if (runId && pending < 2 && Date.now() - started < REQUEST_BUDGET_MS - 2500) {
+    seeded = await seedQueueSlice(env, runId, mode||'autoscan', keyword||'', { max_sources: Math.min(Number(opts.seed_limit||4)||4, 4) });
+    exhausted = !!seeded.exhausted;
     pending = await queueCount(env, runId||'');
-    // V29.3: if a fresh slice was seeded, immediately drain a tiny part of it so the UI never shows a
-    // useless round with 0 sources/0 processed after the first slice completes.
-    if ((seeded?.enqueued||0) > 0 && Date.now() - started < REQUEST_BUDGET_MS - 5000) {
-      const extra = await processQueue(env, runId||'', Math.min(limit, 6));
+
+    if ((seeded?.enqueued||0) > 0 && Date.now() - started < REQUEST_BUDGET_MS - 4500) {
+      const extra = await processQueue(env, runId||'', Math.min(limit, 3));
       processed = {
         processed:(processed.processed||0)+(extra.processed||0),
         found:(processed.found||0)+(extra.found||0),
@@ -1159,7 +1197,12 @@ async function tickV28Job(env, runId, mode='autoscan', keyword='', opts={}) {
       pending = await queueCount(env, runId||'');
     }
   }
-  return { ok:true, version:VERSION, run_id:runId||'', mode, keyword:keyword||'', elapsed_ms:Date.now()-started, pending, processed, seeded, stats:await dashboardStats(env), results:(await getResults(env, mode, keyword||'', 1000)).results };
+
+  if (runId && pending === 0 && exhausted) {
+    try { await finishRun(env, runId); } catch {}
+  }
+
+  return { ok:true, version:VERSION, run_id:runId||'', mode, keyword:keyword||'', elapsed_ms:Date.now()-started, pending, processed, seeded, exhausted, stats:await dashboardStats(env), results:(await getResults(env, mode, keyword||'', 1000)).results };
 }
 
 function csvEscape(s) { s=String(s??''); return '"'+s.replace(/"/g,'""')+'"'; }
@@ -1237,14 +1280,14 @@ async function handleApi(req, env, ctx) {
 }
 async function handleReset(req, env) { await hardReset(env); return json({ok:true, version:VERSION, message:'D1 hard reset complete', next:'/' }); }
 async function scheduled(event, env, ctx) {
-  ctx.waitUntil((async()=>{ await ensureDb(env); if (env.AUTOSCAN_QUEUE || env.QUEUE) await scheduleQueueRun(env, 'autoscan', '', {max_sources:18}); else { await runSearch(env, 'autoscan', '', true, { max_sources: 12, deep_rounds: 3 }); await processQueue(env, '', 8); } })());
+  ctx.waitUntil((async()=>{ await ensureDb(env); if (env.AUTOSCAN_QUEUE || env.QUEUE) await scheduleQueueRun(env, 'autoscan', '', {max_sources:4}); else { await runSearch(env, 'autoscan', '', true, { max_sources: 4, deep_rounds: 3 }); await processQueue(env, '', 8); } })());
 }
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (url.pathname.startsWith('/api/')) return handleApi(req, env, ctx);
     if (url.pathname === '/reset') return handleReset(req, env);
-    return env.ASSETS ? env.ASSETS.fetch(req) : text('Nimbus Core V30 HyperSearch Sources');
+    return env.ASSETS ? env.ASSETS.fetch(req) : text('Nimbus Core V30.1 Fast Source Pipeline Sources');
   },
   async queue(batch, env, ctx) {
     await ensureDb(env);

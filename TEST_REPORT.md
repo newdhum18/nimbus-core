@@ -1,23 +1,25 @@
-# Nimbus Core V30 Test Report
+Nimbus Core V30.1 Fast Source Pipeline Fix - Test Report
 
-Version: 30.0-target-decoder-search-engine
+Summary:
+- Fixed slow noisy rounds by limiting source seeding to 4 sources per slice.
+- Fixed frontend behavior that started a new run every outer round.
+- Fixed wasted zero-source rounds by ending a run when enabled source catalog is exhausted.
+- Reduced Worker timeout and queue batch sizes for faster feedback on Cloudflare Pages.
+- Kept target decoder, raw paste variants, Reddit/GitHub/HN comment targets, MEGA folder-only extraction.
 
-Status: PASS
+Static validation:
+- _worker.js syntax: PASS
+- queue-consumer.js syntax: PASS
+- app.js syntax: PASS
+- Version: 30.1-fast-source-pipeline-fix
+- Seed limit <= 4: PASS
+- Non-wrapping source offset: PASS
+- Continuous single-run frontend autopilot: PASS
+- Target redirect decoder: PASS
+- Raw paste targets: PASS
+- Comment target extraction: PASS
 
-Local checks completed:
-- JavaScript syntax check for `_worker.js`: PASS
-- JavaScript syntax check for `queue-consumer.js`: PASS
-- MEGA folder extraction: PASS
-- MEGA file rejection: PASS
-- Encoded MEGA extraction: PASS
-- Bing `/ck/a?u=a1...` target decoder: PASS
-- DuckDuckGo `uddg=` target decoder: PASS
-- Google `/url?q=` target decoder support: PRESENT
-- Rentry raw target generation: PASS
-- Pastebin raw target generation: PASS
-- 1000-source catalog retained: PASS
-- High-yield enabled sources: 107
-- GitHub/social/video disabled by default: PASS
-- D1 source policy refresh on version change: PASS
-
-Important note: public search results can still return zero if indexed pages do not contain complete `mega.nz/folder/<id>#<key>` links. V30 fixes the major decoder issue that previously caused Bing/DDG/Google result wrappers to be ignored.
+Known limits:
+- Public search engines may still return dead or stale MEGA folder links.
+- JavaScript-only protected pages are not bypassed.
+- Search speed depends on Cloudflare/network response time and public source availability.

@@ -1,3 +1,21 @@
+# Nimbus Core V30.1 Fast Source Pipeline Fix
+
+This release fixes the major V30 runtime issue where the frontend started new runs repeatedly and later rounds could continue with no useful source state.
+
+Key changes:
+- AutoScan now uses one continuous run.
+- Source slices are limited to fewer than 5 sources per seed.
+- Queue ticks process smaller batches for faster response.
+- Source offset no longer wraps inside the same run.
+- Search target decoder and raw paste/comment crawling remain enabled.
+
+After upload:
+1. Tools → Repair DB
+2. Sources → High Yield Defaults
+3. AutoScan → Start V30.1 FastSearch
+
+Nimbus Core V30.1 Fast Source Pipeline Fix
+
 # Nimbus Core V30 HyperSearch
 
 V30 focuses on the core issue found in V29.x: search engines were returning redirect wrapper URLs, but the app was not decoding them into real target pages before crawling. V30 adds target decoding for Bing, DuckDuckGo, and Google and follows raw paste/comment pages.
