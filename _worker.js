@@ -2,7 +2,7 @@
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '28-queue-archive-comments-hotfix3';
+const VERSION = '28-queue-archive-comments-hotfix4';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -22,6 +22,9 @@ const DEFAULT_MAX_SOURCE_FETCHES = 44;
 const HARD_MAX_SOURCE_FETCHES = 72;
 const MAX_CRAWL_PAGES = 240;
 const MAX_QUEUE_BATCH = 10;
+const SCHEDULE_SEED_LIMIT = 36; // Hotfix4: never insert 1000 queue rows in one Worker invocation
+const SCHEDULE_SEED_LIMIT_KEYWORD = 48;
+const SCHEDULE_SEED_LIMIT_AUTOSCAN = 36;
 const MAX_DEEP_ROUNDS = 300;
 const REQUEST_BUDGET_MS = 26000;
 const QUEUE_SOURCE_BATCH = 12;
@@ -652,8 +655,13 @@ async function scheduleQueueRun(env, mode='autoscan', keyword='', opts={}) {
   const queries = buildQueries(keyword, mode);
   const sourceOffset = Math.max(0, Number(opts.source_offset || 0) || 0) % Math.max(1, allSources.length);
   const queryOffset = Math.max(0, Number(opts.query_offset || 0) || 0) % Math.max(1, queries.length);
-  const max = Math.min(Number(opts.max_sources || 0) || allSources.length, allSources.length, 1000);
-  const selected = allSources.slice(0, max);
+  // Hotfix4: Cloudflare/D1 has a hard per-invocation subrequest ceiling. Do NOT enqueue
+  // all 1000 sources in one request. Seed a safe balanced slice; the frontend AutoPilot and
+  // Continue Deep Processing can create/drain more slices without hitting 1102.
+  const requested = Number(opts.max_sources || 0) || (mode === 'search' ? SCHEDULE_SEED_LIMIT_KEYWORD : SCHEDULE_SEED_LIMIT_AUTOSCAN);
+  const safeLimit = Math.min(requested, mode === 'search' ? SCHEDULE_SEED_LIMIT_KEYWORD : SCHEDULE_SEED_LIMIT_AUTOSCAN, allSources.length);
+  const selected = [];
+  for (let i=0; i<safeLimit; i++) selected.push(allSources[(sourceOffset + i) % allSources.length]);
   const tasks = selected.map((src, i) => ({
     kind:'source',
     run_id:runId,
@@ -671,7 +679,9 @@ async function scheduleQueueRun(env, mode='autoscan', keyword='', opts={}) {
     enqueued += out.enqueued || 0;
     queueMode = out.mode || queueMode;
   }
-  return { ok:true, version:VERSION, queued:true, queue_mode:queueMode, run_id:runId, mode, keyword:keyword||'', enqueued, catalog_sources:allSources.length, message:'Queue/Archive job created. Cloudflare Queue will drain automatically; UI reads from Archive.' };
+  const next_source_offset = (sourceOffset + selected.length) % Math.max(1, allSources.length);
+  const remaining_estimate = Math.max(0, allSources.length - selected.length);
+  return { ok:true, version:VERSION, queued:true, queue_mode:queueMode, run_id:runId, mode, keyword:keyword||'', enqueued, catalog_sources:allSources.length, source_offset:sourceOffset, next_source_offset, remaining_estimate, safe_seed_limit:safeLimit, message:'Queue/Archive job created in safe chunks. AutoPilot drains D1 Shadow Queue without exceeding Cloudflare limits.' };
 }
 async function handleQueueMessage(env, body) {
   await ensureDb(env);

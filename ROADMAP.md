@@ -12,3 +12,6 @@ Next:
 - AutoScan now creates Queue tasks instead of trying to finish all work in one request.
 - Folder-only mode enforced; file links and missing-key folder links are rejected.
 - Added source support including rentry.co and ofversedrops.com.
+
+
+Hotfix4: safe queue seeding added to prevent D1/Worker 1102 subrequest limit.

@@ -15,3 +15,6 @@ Checks performed:
 Deployment notes:
 - Pages/Worker producer binding name can be `QUEUE`.
 - Queue consumer Worker can use `wrangler.queue.jsonc` or dashboard consumer trigger.
+
+
+Hotfix4: safe queue seeding added to prevent D1/Worker 1102 subrequest limit.
