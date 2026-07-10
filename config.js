@@ -1,1 +1,1 @@
-window.NIMBUS_CONFIG = { version: '29.2-high-yield-source-autopilot' };
+window.NIMBUS_CONFIG = { version: '34.0-resilient-orchestrator' };

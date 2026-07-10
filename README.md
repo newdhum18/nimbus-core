@@ -1,6 +1,6 @@
-# Nimbus Core V32 Core Rebuild
+# Nimbus Core V34 Resilient Search
 
-V32 rebuilds the operational core while preserving the existing Dashboard, AutoScan, Search, Extract, Archive, Sources, and Tools pages.
+V34 rebuilds the operational core while preserving the existing Dashboard, AutoScan, Search, Extract, Archive, Sources, and Tools pages.
 
 ## Main corrections
 

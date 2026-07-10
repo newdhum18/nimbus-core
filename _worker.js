@@ -1,8 +1,8 @@
-/* Nimbus Core V32 Core Rebuild
+/* Nimbus Core V34 Resilient Orchestrator
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '32.0-core-rebuild';
+const VERSION = '34.0-resilient-orchestrator';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -14,23 +14,25 @@ const T = {
   sources: 'nimbus_v27sb_sources',
   settings: 'nimbus_v27sb_settings',
   sourceMetrics: 'nimbus_v32_source_metrics',
-  migrations: 'nimbus_v32_schema_migrations'
+  migrations: 'nimbus_v32_schema_migrations',
+  visited: 'nimbus_v33_visited_urls',
+  runTasks: 'nimbus_v33_run_tasks'
 };
-const SOURCE_POLICY_VERSION = 'v32.0-adaptive-high-yield';
-const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 NimbusCore/32';
-const TIMEOUT_MS = 11000;
+const SOURCE_POLICY_VERSION = 'v34.0-evidence-ranked-sources';
+const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 NimbusCore/34';
+const TIMEOUT_MS = 7000;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 const HEALTH_TTL_MS = 1000 * 60 * 60 * 12;
 const DEFAULT_MAX_SOURCE_FETCHES = 24;
 const HARD_MAX_SOURCE_FETCHES = 48;
 const MAX_CRAWL_PAGES = 240;
 const MAX_QUEUE_BATCH = 12;
-const SCHEDULE_SEED_LIMIT = 12; // V29: smaller slices, more continuous rounds, no D1 burst
+const SCHEDULE_SEED_LIMIT = 12; // Small slices for stable continuous runs
 const SCHEDULE_SEED_LIMIT_KEYWORD = 12;
 const SCHEDULE_SEED_LIMIT_AUTOSCAN = 12;
 const SUCCESS_TARGET_LINKS = 100;
 const MAX_DEEP_ROUNDS = 300;
-const REQUEST_BUDGET_MS = 26000;
+const REQUEST_BUDGET_MS = 22000;
 const QUEUE_SOURCE_BATCH = 8;
 const QUEUE_CRAWL_CHILD_LIMIT = 12;
 const QUEUE_MESSAGE_BATCH_LIMIT = 6;
@@ -151,9 +153,9 @@ async function megaApiFolderCheck(link) {
     try { data = JSON.parse(txt); } catch {}
     const first = Array.isArray(data) ? data[0] : data;
     if (typeof first === 'number' && first < 0) return { health:'dead', reason:'mega_api_' + first };
-    if (first && (Array.isArray(first.f) || first.f || first.ok || first.s !== undefined)) return { health:'folder', reason:'mega_api_ok' };
+    if (first && (Array.isArray(first.f) || first.f || first.ok || first.s !== undefined)) return { health:'valid', reason:'mega_api_ok' };
     // MEGA sometimes returns an object with partial metadata for public folders.
-    if (res.status >= 200 && res.status < 300 && txt && !/^\s*\[-?\d+\]\s*$/.test(txt)) return { health:'folder', reason:'mega_api_response' };
+    if (res.status >= 200 && res.status < 300 && txt && !/^\s*\[-?\d+\]\s*$/.test(txt)) return { health:'valid', reason:'mega_api_response' };
   } catch (e) {
     return { health:'unknown', reason:'mega_api_error:' + String(e.message||e).slice(0,120) };
   }
@@ -308,6 +310,14 @@ async function ensureDb(env) {
   await q(env, `CREATE TABLE IF NOT EXISTS ${T.migrations}(
     version TEXT PRIMARY KEY, applied_at TEXT NOT NULL
   )`);
+  await q(env, `CREATE TABLE IF NOT EXISTS ${T.visited}(
+    url_hash TEXT PRIMARY KEY, url TEXT NOT NULL, source TEXT, first_scanned_at TEXT NOT NULL, last_scanned_at TEXT NOT NULL,
+    last_status INTEGER DEFAULT 0, links_found INTEGER DEFAULT 0, content_hash TEXT, scan_count INTEGER DEFAULT 1
+  )`);
+  await q(env, `CREATE TABLE IF NOT EXISTS ${T.runTasks}(
+    id TEXT PRIMARY KEY, run_id TEXT NOT NULL, source_id TEXT, source_name TEXT, query TEXT, status TEXT DEFAULT 'planned',
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(run_id,source_id,query)
+  )`);
   await ensureColumn(env, T.queue, 'lease_id', 'TEXT');
   await ensureColumn(env, T.queue, 'lease_until', 'TEXT');
   await ensureColumn(env, T.queue, 'worker_id', 'TEXT');
@@ -315,6 +325,19 @@ async function ensureDb(env) {
   await ensureColumn(env, T.runs, 'last_heartbeat', 'TEXT');
   await ensureColumn(env, T.runs, 'source_cursor', 'INTEGER DEFAULT 0');
   await ensureColumn(env, T.runs, 'query_cursor', 'INTEGER DEFAULT 0');
+  await ensureColumn(env, T.runs, 'planned_sources', 'INTEGER DEFAULT 0');
+  await ensureColumn(env, T.runs, 'seeded_sources', 'INTEGER DEFAULT 0');
+  await ensureColumn(env, T.runs, 'total_tasks', 'INTEGER DEFAULT 0');
+  await ensureColumn(env, T.runs, 'completed_tasks', 'INTEGER DEFAULT 0');
+  await ensureColumn(env, T.runs, 'failed_tasks', 'INTEGER DEFAULT 0');
+  await ensureColumn(env, T.runs, 'progress_percent', 'REAL DEFAULT 0');
+  await ensureColumn(env, T.runs, 'resume_count', 'INTEGER DEFAULT 0');
+  await ensureColumn(env, T.runs, 'stop_reason', 'TEXT');
+  await ensureColumn(env, T.runs, 'sources_exhausted', 'INTEGER DEFAULT 0');
+  await ensureColumn(env, T.runs, 'progress_floor', 'REAL DEFAULT 0');
+  await ensureColumn(env, T.runs, 'orchestrator', "TEXT DEFAULT 'queue_or_cron'");
+  await ensureColumn(env, T.sourceMetrics, 'consecutive_failures', 'INTEGER DEFAULT 0');
+  await ensureColumn(env, T.sourceMetrics, 'cooldown_until', 'TEXT');
   await runIgnore(q(env, `INSERT OR IGNORE INTO ${T.migrations}(version,applied_at) VALUES(?,?)`, [VERSION, nowIso()]));
   await ensureColumn(env, T.links, 'keyword_key', "TEXT NOT NULL DEFAULT ''");
   await runIgnore(q(env, `UPDATE ${T.links} SET keyword_key=COALESCE(keyword,'') WHERE keyword_key IS NULL OR keyword_key=''`));
@@ -440,7 +463,7 @@ async function cleanInvalidLinks(env) {
   return { ok:true, version:VERSION, stats:await dashboardStats(env) };
 }
 async function getPin(env) { return String(env.AUTH_PIN || env.NIMBUS_PIN || '0000'); }
-function tokenFor(pin) { return 'nimbus_' + hash('pin:' + pin + ':v27'); }
+function tokenFor(pin) { return 'nimbus_' + hash('pin:' + pin + ':v33'); }
 async function requireAuth(req, env) {
   const url = new URL(req.url);
   if (url.pathname.startsWith('/api/login') || url.pathname.startsWith('/api/ping') || url.pathname.startsWith('/reset')) return true;
@@ -514,27 +537,16 @@ function balancedSources(rows, offset=0) {
 function defaultSourceEnabled(src) {
   const id = String(src.id || '').toLowerCase();
   const n = String(src.name || src.id || src.template || '').toLowerCase();
-
-  // V29.2 policy: fewer enabled sources, higher probability, less noise.
-  // Everything low-yield remains available in Sources but OFF by default.
-  if (/github|gist|gitlab|bitbucket|raw\.githubusercontent|youtube|youtu\.be|vimeo|tiktok|instagram|facebook|linkedin|pinterest|slideshare|scribd|issuu|calameo|sourceforge|medium|substack|wix|weebly/.test(n)) return 0;
-
-  // Tier 1: direct APIs / structured public results / comment-rich pages.
-  if (/^meawfy_api|^meawfy_api_folder|^pastebin_archive|^rentry_raw_search_ddg|^pastebin_raw_search_ddg|^reddit_search_json|^reddit_all_url_json|^reddit_megalinks_json|^archive_fulltext|^archive_search|^ofversedrops_web|^keeplinks_web|^duckduckgo_lite|^duckduckgo_html|^brave_web|^google_web|^startpage|^bing_rss/.test(id)) return 1;
-
-  // Tier 2: paste sites, public notes, link hubs, and archives.
-  const highDomains = /rentry|pastebin|paste\.ee|justpaste|controlc|haste|dpaste|pastes\.io|paste\.rs|pastelink|ghostbin|privatebin|keeplinks|reddit|old\.reddit|archive|ofversedrops|meawfy|linktr|linktree|beacons|bio\.link|solo\.to|msha\.ke|taplink|allmylinks|instabio|heylink|lnk\.bio|flow\.page|carrd|campsite|telegra|notion|blogspot|wordpress|tumblr|sites\.google/.test(n);
-
-  // Disable the wide filler catalog by default. It remains manually selectable.
-  if (/^wide_/.test(id)) return 0;
-
-  // Keep only targeted domain search templates, not every generic duplicate.
-  if (/^src_/.test(id)) return highDomains && Number(src.priority||0) >= 88 ? 1 : 0;
-
-  // Keep a tiny set of generic discovery patterns.
-  if (/generic_ddg|generic_rss/.test(id)) return /mega\.nz\/folder|mega\.co\.nz\/#f|index|archive|collection/.test(n) ? 1 : 0;
-
-  return highDomains && Number(src.priority||0) >= 80 ? 1 : 0;
+  const pri = Number(src.priority || 0);
+  // Evidence-ranked V34 policy. Direct structured sources and comment/paste targets first.
+  if (/github|gitlab|bitbucket|youtube|vimeo|tiktok|instagram|facebook|linkedin|pinterest|scribd|slideshare/.test(n)) return 0;
+  if (/^wide_|generic_bing/.test(id)) return 0;
+  if (/meawfy_api|reddit_search_json|reddit_all_url_json|reddit_megalinks_json|archive_search|archive_fulltext|bing_rss/.test(id)) return 1;
+  if (/rentry|pastebin|paste\.ee|justpaste|controlc|dpaste|pastes\.io|paste\.rs|pastelink|telegra\.ph|reddit|old\.reddit|archive\.org|meawfy|keeplinks|ofversedrops/.test(n)) return pri >= 76 ? 1 : 0;
+  if (/duckduckgo_lite|duckduckgo_html|brave_web|startpage|searx/.test(id)) return 1;
+  if (/linktr|beacons|bio\.link|solo\.to|heylink|lnk\.bio|carrd/.test(n)) return pri >= 88 ? 1 : 0;
+  if (/^src_/.test(id)) return pri >= 92 && /rentry|paste|reddit|archive|meawfy|keeplinks|telegra/.test(n) ? 1 : 0;
+  return 0;
 }
 async function sourceOverrideMap(env) {
   const map = new Map();
@@ -545,7 +557,7 @@ async function sourceOverrideMap(env) {
   return map;
 }
 async function getSources(env, opts = {}) {
-  // V29.3 stable source resolver: always starts from the in-memory catalog.
+  // Stable source resolver: always starts from the in-memory catalog.
   // D1 is only used for explicit user overrides (toggle/priority/custom sources).
   if (!opts.skip_policy) await ensureSourcePolicy(env);
   const maxSources = intEnv(env, 'MAX_SOURCES_PER_RUN', 1000, 25, 1000);
@@ -614,13 +626,13 @@ async function applySourcePreset(env, action='high_yield') {
 }
 
 async function ensureSourcePolicy(env) {
-  // V29.3: do NOT bulk-write the whole 1000-source catalog during normal dashboard/autoscan requests.
+  // Do not bulk-write the whole catalog during normal requests.
   // The active source policy is computed from the built-in catalog plus small user overrides.
   // This prevents the Sources page from disappearing and keeps later rounds from running with 0 sources.
   try {
     const current = await getSetting(env, 'source_policy_version', '');
     if (current !== SOURCE_POLICY_VERSION) {
-      // V30: when the policy changes, refresh built-in source overrides once.
+      // Refresh built-in source overrides when the policy changes.
       // This prevents old D1 source states from keeping weak engines enabled forever.
       await applySourcePreset(env, 'high_yield');
       await setSetting(env, 'source_policy_version', SOURCE_POLICY_VERSION);
@@ -711,7 +723,9 @@ async function recordSourceMetric(env, sourceName, m={}) {
     requests=requests+1, successes=successes+excluded.successes, blocked=blocked+excluded.blocked, errors=errors+excluded.errors,
     pages=pages+excluded.pages, candidates=candidates+excluded.candidates, valid_links=valid_links+excluded.valid_links,
     total_response_ms=total_response_ms+excluded.total_response_ms, last_status=excluded.last_status,
-    last_success_at=COALESCE(excluded.last_success_at,last_success_at), last_error=excluded.last_error, updated_at=excluded.updated_at`,
+    last_success_at=COALESCE(excluded.last_success_at,last_success_at), last_error=excluded.last_error, updated_at=excluded.updated_at,
+    consecutive_failures=CASE WHEN excluded.successes>0 THEN 0 ELSE consecutive_failures+1 END,
+    cooldown_until=CASE WHEN excluded.successes>0 THEN NULL WHEN consecutive_failures+1>=5 THEN datetime('now','+30 minutes') ELSE cooldown_until END`,
     [id,name,1,m.success?1:0,m.blocked?1:0,m.error?1:0,m.pages||0,m.candidates||0,m.valid_links||0,m.elapsed||0,m.status||0,m.success?now:null,clamp(m.error||'',400),now]); } catch {}
 }
 
@@ -797,7 +811,7 @@ function parseSearchTargets(text, source, baseUrl) {
   // JSON recursive extraction and comment endpoints
   try { extractJsonUrls(JSON.parse(decoded), urls, baseUrl); } catch {}
   addCommentTargets(decoded, urls, baseUrl);
-  // V29: follow common public redirect/container pages because many MEGA folders are hidden behind link hubs.
+  // Follow common public redirect/container pages.
   const shortRe = /https?:\/\/(?:bit\.ly|sh\.st|shorturl\.at|tinyurl\.com|cutt\.ly|is\.gd|t\.co|keeplinks\.eu|linkvertise\.com|ouo\.io|ouo\.press)\/[^\s"'<> )]+/gi;
   let sm;
   while ((sm = shortRe.exec(decoded)) !== null && urls.size < 160) addCandidateUrl(urls, sm[0], baseUrl);
@@ -821,14 +835,71 @@ async function saveLink(env, data) {
   const now = nowIso();
   await q(env, `INSERT INTO ${T.links}(id,run_id,mode,keyword,keyword_key,link,normalized,type,source,page_url,title,snippet,score,health,first_seen_at,last_seen_at)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(mode, normalized, keyword_key) DO UPDATE SET last_seen_at=excluded.last_seen_at, score=max(score, excluded.score), source=excluded.source, page_url=excluded.page_url, title=COALESCE(excluded.title,title), health='folder'`,
-    [id, data.run_id||'', data.mode||'search', data.keyword||'', keywordKey, norm, norm, type, source, data.page_url||'', data.title||'', data.snippet||'', score, 'folder', now, now]);
+    ON CONFLICT(mode, normalized, keyword_key) DO UPDATE SET last_seen_at=excluded.last_seen_at, score=max(score, excluded.score), source=excluded.source, page_url=excluded.page_url, title=COALESCE(excluded.title,title), health='unverified'`,
+    [id, data.run_id||'', data.mode||'search', data.keyword||'', keywordKey, norm, norm, type, source, data.page_url||'', data.title||'', data.snippet||'', score, 'unverified', now, now]);
   const srcJson = JSON.stringify([source].filter(Boolean));
   await q(env, `INSERT INTO ${T.archive}(normalized,link,type,source,sources,page_url,keyword,first_seen_at,last_seen_at,seen_count,score,health,snippet)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(normalized) DO UPDATE SET last_seen_at=excluded.last_seen_at, seen_count=seen_count+1, score=max(score, excluded.score), health='folder', source=excluded.source, page_url=COALESCE(excluded.page_url,page_url), keyword=COALESCE(NULLIF(excluded.keyword,''),keyword), snippet=COALESCE(excluded.snippet,snippet)`,
-    [norm, norm, type, source, srcJson, data.page_url||'', data.keyword||'', now, now, 1, score, 'folder', data.snippet||'']);
+    ON CONFLICT(normalized) DO UPDATE SET last_seen_at=excluded.last_seen_at, seen_count=seen_count+1, score=max(score, excluded.score), health='unverified', source=excluded.source, page_url=COALESCE(excluded.page_url,page_url), keyword=COALESCE(NULLIF(excluded.keyword,''),keyword), snippet=COALESCE(excluded.snippet,snippet)`,
+    [norm, norm, type, source, srcJson, data.page_url||'', data.keyword||'', now, now, 1, score, 'unverified', data.snippet||'']);
   return true;
+}
+
+const VISIT_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+async function recentlyVisited(env, url) {
+  const row = await first(env, `SELECT last_scanned_at FROM ${T.visited} WHERE url_hash=?`, [hash(url)]);
+  return !!(row && Date.now() - new Date(row.last_scanned_at).getTime() < VISIT_TTL_MS);
+}
+async function recordVisited(env, url, source, status, linksFound, body='') {
+  const now=nowIso();
+  await q(env, `INSERT INTO ${T.visited}(url_hash,url,source,first_scanned_at,last_scanned_at,last_status,links_found,content_hash,scan_count)
+    VALUES(?,?,?,?,?,?,?,?,1) ON CONFLICT(url_hash) DO UPDATE SET last_scanned_at=excluded.last_scanned_at,last_status=excluded.last_status,links_found=excluded.links_found,content_hash=excluded.content_hash,scan_count=scan_count+1`,
+    [hash(url),url,source||'',now,now,status||0,linksFound||0,hash(String(body||'').slice(0,100000))]);
+}
+async function updateRunProgress(env, runId) {
+  if(!runId) return null;
+  const qx=await first(env, `SELECT COUNT(*) total, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) done, SUM(CASE WHEN status IN ('dead_letter','failed') THEN 1 ELSE 0 END) failed, SUM(CASE WHEN status IN ('pending','running') THEN 1 ELSE 0 END) remaining FROM ${T.queue} WHERE run_id=?`,[runId]);
+  const sx=await first(env, `SELECT COUNT(*) total, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) done, SUM(CASE WHEN status IN ('failed','dead_letter') THEN 1 ELSE 0 END) failed FROM ${T.runTasks} WHERE run_id=?`,[runId]);
+  const run=await first(env,`SELECT planned_sources,seeded_sources,status,sources_exhausted,progress_floor FROM ${T.runs} WHERE id=?`,[runId]);
+  const sourceTotal=Math.max(Number(run?.planned_sources||0),Number(sx?.total||0),1);
+  const sourceTerminal=Number(sx?.done||0)+Number(sx?.failed||0);
+  const discoveryPct=Math.min(100,(sourceTerminal/sourceTotal)*100);
+  const queueTotal=Math.max(Number(qx?.total||0),1);
+  const queueTerminal=Number(qx?.done||0)+Number(qx?.failed||0);
+  const queuePct=Math.min(100,(queueTerminal/queueTotal)*100);
+  const exhausted=Number(run?.sources_exhausted||0)===1;
+  let calculated=exhausted ? 60 + queuePct*0.40 : discoveryPct*0.60;
+  const previous=Number(run?.progress_floor||0);
+  const progress=Math.min(100,Math.max(previous,Math.round(calculated*100)/100));
+  const remaining=Number(qx?.remaining||0);
+  let status=run?.status||'running';
+  if(status!=='paused' && exhausted && remaining===0 && sourceTerminal>=sourceTotal){
+    status='done';
+    await finishRun(env,runId);
+  }
+  await q(env,`UPDATE ${T.runs} SET total_tasks=?,completed_tasks=?,failed_tasks=?,progress_percent=?,progress_floor=?,last_heartbeat=?,current_stage=? WHERE id=?`,[Number(qx?.total||0),Number(qx?.done||0),Number(qx?.failed||0),progress,progress,nowIso(),status==='done'?'complete':(exhausted?'draining':'discovery'),runId]);
+  return {total:Number(qx?.total||0),done:Number(qx?.done||0),failed:Number(qx?.failed||0),remaining,source_total:sourceTotal,source_done:sourceTerminal,sources_exhausted:exhausted,progress_percent:status==='done'?100:progress,status};
+}
+async function runSnapshot(env, runId) {
+  await ensureDb(env);
+  const run=runId?await first(env,`SELECT * FROM ${T.runs} WHERE id=?`,[runId]):await first(env,`SELECT * FROM ${T.runs} WHERE status IN ('running','paused') ORDER BY started_at DESC LIMIT 1`);
+  if(!run) return {ok:true,version:VERSION,run:null,progress:null,results:[]};
+  const progress=await updateRunProgress(env,run.id);
+  const results=(await getResults(env,run.mode,run.keyword||'',200)).results;
+  return {ok:true,version:VERSION,run:{...run,...progress},progress,results,stats:await dashboardStats(env)};
+}
+async function resumeRun(env, runId='', opts={}) {
+  await ensureDb(env);
+  let run=runId?await first(env,`SELECT * FROM ${T.runs} WHERE id=?`,[runId]):await first(env,`SELECT * FROM ${T.runs} WHERE status IN ('running','paused') ORDER BY started_at DESC LIMIT 1`);
+  if(!run) return {ok:false,error:'no_resumable_run'};
+  if(run.status==='done' || run.status==='cancelled') return {ok:false,error:'run_not_resumable',status:run.status};
+  await recoverExpiredLeases(env);
+  await q(env,`UPDATE ${T.runs} SET status='running',resume_count=COALESCE(resume_count,0)+1,stop_reason=NULL,last_heartbeat=?,current_stage='resuming' WHERE id=?`,[nowIso(),run.id]);
+  let pending=await queueCount(env,run.id);
+  if(pending<4 && !Number(run.sources_exhausted||0)) await seedQueueSlice(env,run.id,run.mode,run.keyword||'',{max_sources:Number(opts.seed_limit||SCHEDULE_SEED_LIMIT)});
+  let processed={processed:0,found:0,failed:0,mode:'server_queue'};
+  if(!(env.AUTOSCAN_QUEUE||env.QUEUE)) processed=await processQueue(env,run.id,Math.min(Number(opts.limit||10),20));
+  return {...await runSnapshot(env,run.id),resumed:true,processed};
 }
 async function enqueue(env, item) {
   const sourceName = typeof item.source === 'string' ? item.source : (item.source?.name || item.source_name || '');
@@ -843,8 +914,9 @@ async function enqueue(env, item) {
   }
   const qKeyword = item.keyword || item.query || '';
   const id = item.id || 'q_' + hash([item.run_id||'',item.kind,qUrl,qKeyword,item.mode,sourceName].join('|'));
-  await q(env, `INSERT OR IGNORE INTO ${T.queue}(id,run_id,mode,kind,url,keyword,source,priority,status,attempts,max_attempts,available_at,created_at,updated_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+  const result=await q(env, `INSERT OR IGNORE INTO ${T.queue}(id,run_id,mode,kind,url,keyword,source,priority,status,attempts,max_attempts,available_at,created_at,updated_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [id, item.run_id||'', item.mode||'search', item.kind, qUrl, qKeyword, sourceName, item.priority||50, 'pending', 0, item.max_attempts||3, item.available_at||nowIso(), nowIso(), nowIso(), '']);
+  return {id,inserted:Number(result?.meta?.changes||0)===1,qUrl,qKeyword,sourceName};
 }
 async function enqueueCloud(env, body) {
   const qbind = env.AUTOSCAN_QUEUE || env.QUEUE;
@@ -867,16 +939,17 @@ async function enqueueTask(env, item, preferCloud = true) {
   return 'd1';
 }
 async function enqueueManyCloud(env, items) {
-  // Hotfix 3: Pages cannot reliably act as a Cloudflare Queue consumer.
-  // Therefore every task is persisted in the D1 shadow queue first and processed by /api/v28/tick.
-  // If a real Worker consumer is added later, the same bindings can still be used, but the UI no longer
-  // depends on Cloudflare Queue draining messages in the background.
-  let n = 0;
-  for (const it of items) {
-    await enqueue(env, { ...it, id:it.id || 'q_' + hash([it.kind,it.url||it.template||'',it.query||it.keyword||'',it.mode,it.run_id,it.source_name||''].join('|')) });
-    n++;
+  let inserted=0, sent=0;
+  const qbind=env.AUTOSCAN_QUEUE||env.QUEUE;
+  for (const original of items) {
+    const stableId=original.id||'q_'+hash([original.run_id||'',original.kind,original.url||original.template||'',original.query||original.keyword||'',original.mode,original.source_name||original.source?.name||''].join('|'));
+    const it={...original,id:stableId};
+    const saved=await enqueue(env,it);
+    if(!saved.inserted) continue;
+    inserted++;
+    if(qbind?.send){ try{await qbind.send(it);sent++;}catch(e){await logEvent(env,'warn','queue_send_failed',{id:stableId,error:String(e.message||e).slice(0,200)});} }
   }
-  return { mode:'d1-shadow-autopilot', enqueued:n };
+  return {mode:qbind?.send?'cloud_queue_with_d1_shadow':'d1_shadow_fallback',enqueued:inserted,sent};
 }
 async function startRun(env, mode, keyword) {
   await ensureDb(env);
@@ -894,12 +967,15 @@ async function finishRun(env, runId) {
 }
 async function runStats(env, runId) {
   const p = await first(env, `SELECT COUNT(*) pages, COUNT(DISTINCT source) sources FROM ${T.pages} WHERE run_id=?`, [runId]);
-  const l = await first(env, `SELECT COUNT(*) links, SUM(CASE WHEN health IN ('alive','folder') THEN 1 ELSE 0 END) alive, SUM(CASE WHEN health='dead' THEN 1 ELSE 0 END) dead, SUM(CASE WHEN health NOT IN ('alive','folder','dead') THEN 1 ELSE 0 END) unknown FROM ${T.links} WHERE run_id=?`, [runId]);
+  const l = await first(env, `SELECT COUNT(*) links, SUM(CASE WHEN health IN ('alive','valid') THEN 1 ELSE 0 END) alive, SUM(CASE WHEN health='dead' THEN 1 ELSE 0 END) dead, SUM(CASE WHEN health NOT IN ('alive','valid','dead') THEN 1 ELSE 0 END) unknown FROM ${T.links} WHERE run_id=?`, [runId]);
   return { pages:p?.pages||0, sources:p?.sources||0, links:l?.links||0, alive:l?.alive||0, dead:l?.dead||0, unknown:l?.unknown||0 };
 }
 async function processSourceFetch(env, runId, mode, keyword, src, query, started = Date.now(), preferCloud = true) {
   let direct = 0, queued = 0;
+  const metric=await first(env,`SELECT cooldown_until FROM ${T.sourceMetrics} WHERE source_id=?`,['sm_'+hash(String(src.name||'unknown').toLowerCase())]);
+  if(metric?.cooldown_until && new Date(metric.cooldown_until).getTime()>Date.now()) return {direct:0,queued:0,status:429,targets:0,skipped:'source_cooldown'};
   const url = sourceUrl(src, query);
+  if(await recentlyVisited(env,url)){ await recordSourceMetric(env,src.name,{status:208,elapsed:0,pages:0,candidates:0,valid_links:0,success:true}); return {direct:0,queued:0,status:208,targets:0,skipped:'recently_visited_source'}; }
   const got = await cachedFetch(env, url, src.name);
   const links = extractMegaLinks(got.text);
   for (const link of links) {
@@ -909,7 +985,8 @@ async function processSourceFetch(env, runId, mode, keyword, src, query, started
     ['pg_'+hash(runId+url), runId, mode, realSourceLabel(src.name, url), url, query, got.status||0, 0, links.length, nowIso(), got.error||'']);
   const targetLimit = mode === 'autoscan' ? QUEUE_CRAWL_CHILD_LIMIT : 6;
   const targets = got.blocked ? [] : parseSearchTargets(got.text, src, got.finalUrl||url).slice(0, targetLimit);
-  await recordSourceMetric(env, src.name, {status:got.status, elapsed:0, pages:1, candidates:targets.length, valid_links:direct, blocked:got.blocked, success:got.status>=200&&got.status<400&&!got.blocked});
+  await recordVisited(env,url,src.name,got.status||0,links.length,got.text);
+  await recordSourceMetric(env, src.name, {status:got.status, elapsed:Date.now()-started, pages:1, candidates:targets.length, valid_links:direct, blocked:got.blocked, error:got.error, success:got.status>=200&&got.status<400&&!got.blocked});
   const tasks = targets.map(t => ({ run_id:runId, mode, kind:'crawl', url:t, keyword:keyword||query, source:hostOf(t)||src.name, priority: src.priority || 50, max_attempts:3 }));
   if (tasks.length) {
     if (preferCloud && (env.AUTOSCAN_QUEUE || env.QUEUE)) { await enqueueManyCloud(env, tasks); queued += tasks.length; }
@@ -926,26 +1003,34 @@ async function setSetting(env, key, value) {
 }
 async function seedQueueSlice(env, runId, mode='autoscan', keyword='', opts={}) {
   await ensureDb(env);
-  const allSources = await getSources(env, {offset:0});
-  const queries = buildQueries(keyword, mode);
-  if (!allSources.length || !queries.length) return { enqueued:0, next_source_offset:0, exhausted:true };
-  const key = 'run_offset:' + runId;
-  let sourceOffset = Number(opts.source_offset ?? await getSetting(env, key, '0')) || 0;
-  sourceOffset = Math.max(0, sourceOffset) % allSources.length;
-  const defaultLimit = mode === 'search' ? SCHEDULE_SEED_LIMIT_KEYWORD : SCHEDULE_SEED_LIMIT_AUTOSCAN;
-  const safeLimit = Math.min(Number(opts.max_sources||0)||defaultLimit, defaultLimit, allSources.length);
-  const selected = [];
-  for (let i=0; i<safeLimit; i++) selected.push(allSources[(sourceOffset+i)%allSources.length]);
-  const tasks = selected.map((src,i)=>({ kind:'source', run_id:runId, mode, keyword:keyword||'', source:src, source_name:src.name||'source', query:queries[(sourceOffset+i)%queries.length], priority:src.priority||50 }));
-  const out = await enqueueManyCloud(env, tasks);
-  const next = (sourceOffset + selected.length) % allSources.length;
-  await setSetting(env, key, next);
-  return { enqueued:out.enqueued||0, queue_mode:out.mode||'d1-shadow', source_offset:sourceOffset, next_source_offset:next, catalog_sources:allSources.length, safe_seed_limit:safeLimit };
+  const allSources=await getSources(env,{offset:0});
+  const queries=buildQueries(keyword,mode);
+  if(!allSources.length||!queries.length) return {enqueued:0,next_source_offset:0,exhausted:true};
+  const run=await first(env,`SELECT source_cursor,sources_exhausted,status FROM ${T.runs} WHERE id=?`,[runId]);
+  if(!run) return {enqueued:0,error:'run_not_found',exhausted:true};
+  if(run.status==='paused') return {enqueued:0,paused:true,exhausted:false};
+  if(Number(run.sources_exhausted||0)===1) return {enqueued:0,next_source_offset:Number(run.source_cursor||allSources.length),exhausted:true};
+  const sourceOffset=Math.max(0,Number(opts.source_offset??run.source_cursor??0)||0);
+  if(sourceOffset>=allSources.length){await q(env,`UPDATE ${T.runs} SET sources_exhausted=1,current_stage='draining',last_heartbeat=? WHERE id=?`,[nowIso(),runId]);return {enqueued:0,next_source_offset:sourceOffset,exhausted:true};}
+  const defaultLimit=mode==='search'?SCHEDULE_SEED_LIMIT_KEYWORD:SCHEDULE_SEED_LIMIT_AUTOSCAN;
+  const safeLimit=Math.min(Number(opts.max_sources||0)||defaultLimit,defaultLimit,allSources.length-sourceOffset);
+  const selected=allSources.slice(sourceOffset,sourceOffset+safeLimit);
+  const tasks=selected.map((src,i)=>({kind:'source',run_id:runId,mode,keyword:keyword||'',source:src,source_name:src.name||'source',query:queries[(sourceOffset+i)%queries.length],priority:src.priority||50}));
+  for(const t of tasks){const sid=String(t.source?.id||t.source_name||'');await q(env,`INSERT OR IGNORE INTO ${T.runTasks}(id,run_id,source_id,source_name,query,status,created_at,updated_at) VALUES(?,?,?,?,?,'planned',?,?)`,['rt_'+hash(runId+'|'+sid+'|'+t.query),runId,sid,t.source_name||'',t.query,nowIso(),nowIso()]);}
+  const out=await enqueueManyCloud(env,tasks);
+  const next=sourceOffset+selected.length;
+  const exhausted=next>=allSources.length;
+  await q(env,`UPDATE ${T.runs} SET source_cursor=?,seeded_sources=?,sources_exhausted=?,current_stage=?,last_heartbeat=? WHERE id=?`,[next,next,exhausted?1:0,exhausted?'draining':'discovery',nowIso(),runId]);
+  return {enqueued:out.enqueued||0,sent:out.sent||0,queue_mode:out.mode,source_offset:sourceOffset,next_source_offset:next,catalog_sources:allSources.length,safe_seed_limit:safeLimit,exhausted};
 }
 
 async function scheduleQueueRun(env, mode='autoscan', keyword='', opts={}) {
   await ensureDb(env);
-  const runId = await startRun(env, mode, keyword||'');
+  let runId = String(opts.run_id||'');
+  if(runId){ const ex=await first(env,`SELECT id,status,mode,keyword FROM ${T.runs} WHERE id=?`,[runId]); if(!ex || ['done','cancelled'].includes(ex.status) || ex.mode!==mode || String(ex.keyword||'')!==String(keyword||'')) runId=''; }
+  if(!runId) runId = await startRun(env, mode, keyword||'');
+  const srcCount=(await getSources(env,{offset:0})).length;
+  await q(env,`UPDATE ${T.runs} SET planned_sources=?,status='running',last_heartbeat=?,orchestrator=? WHERE id=?`,[srcCount,nowIso(),(env.AUTOSCAN_QUEUE||env.QUEUE)?'cloud_queue':'cron_d1_fallback',runId]);
   const seeded = await seedQueueSlice(env, runId, mode, keyword||'', opts||{});
   return { ok:true, version:VERSION, queued:true, run_id:runId, mode, keyword:keyword||'', ...seeded, remaining_estimate:Math.max(0,(seeded.catalog_sources||0)-(seeded.safe_seed_limit||0)), message:'Queue/Archive job created in safe chunks. AutoPilot continues seeding slices and draining D1 Shadow Queue.' };
 }
@@ -1008,6 +1093,7 @@ async function runSearch(env, mode, keyword, quick = false, opts = {}) {
   return { ok:true, version:VERSION, run_id:runId, mode, keyword:keyword||'', source_fetches:sourceFetches, source_offset:sourceOffset, next_source_offset, next_query_offset, direct_links:direct, queued, processed, health, elapsed_ms:Date.now()-started, catalog_sources:allSources.length, auto_batch:true, results:results.results, stats: await dashboardStats(env) };
 }
 async function crawlPage(env, item) {
+  if (!item.force && await recentlyVisited(env,item.url)) return {found:0,children:0,skipped:'recently_visited'};
   const got = await cachedFetch(env, item.url, item.source);
   let found = 0, children = 0;
   const links = extractMegaLinks(got.text);
@@ -1016,6 +1102,7 @@ async function crawlPage(env, item) {
   }
   await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
     ['pg_'+hash((item.run_id||'')+item.url), item.run_id||'', item.mode||'', hostOf(item.url)||item.source, item.url, item.keyword||'', got.status||0, 1, found, nowIso(), got.error||'']);
+  await recordVisited(env,item.url,item.source,got.status||0,found,got.text);
   const discovered = (got.blocked ? [] : parseSearchTargets(got.text, {name:item.source||hostOf(item.url)}, got.finalUrl||item.url))
     .filter(u => !/\.(?:jpg|jpeg|png|gif|webp|css|ico|svg|woff2?)(?:$|[?#])/i.test(u))
     .slice(0, 4);
@@ -1043,6 +1130,7 @@ async function claimQueueItems(env, runId='', limit=MAX_QUEUE_BATCH) {
 async function processQueue(env, runId = '', limit = MAX_QUEUE_BATCH) {
   await ensureDb(env);
   limit=Math.max(1,Math.min(Number(limit)||MAX_QUEUE_BATCH,50));
+  if(runId){const state=await first(env,`SELECT status FROM ${T.runs} WHERE id=?`,[runId]);if(!state)return {processed:0,found:0,failed:0,claimed:0,error:'run_not_found'};if(state.status==='paused')return {processed:0,found:0,failed:0,claimed:0,paused:true};if(['done','cancelled'].includes(state.status))return {processed:0,found:0,failed:0,claimed:0,status:state.status};}
   const rows=await claimQueueItems(env,runId,limit);
   let processed=0, found=0, failed=0;
   for (const item of rows) {
@@ -1054,15 +1142,18 @@ async function processQueue(env, runId = '', limit = MAX_QUEUE_BATCH) {
       else throw new Error('unknown_queue_kind:'+item.kind);
       found+=r.found||0;
       await q(env, `UPDATE ${T.queue} SET status='done', lease_id=NULL, lease_until=NULL, worker_id=NULL, updated_at=?, error='' WHERE id=? AND lease_id=?`, [nowIso(),item.id,item.lease_id]);
+      if(item.kind==='source') await q(env,`UPDATE ${T.runTasks} SET status='done',updated_at=? WHERE run_id=? AND source_name=? AND query=?`,[nowIso(),item.run_id,item.source,item.keyword]);
       processed++;
     } catch(e) {
       failed++; const attempts=Number(item.attempts||1); const terminal=attempts>=Number(item.max_attempts||3); const status=terminal?'dead_letter':'pending';
       const next=new Date(Date.now()+Math.min(900000,15000*Math.pow(2,Math.max(0,attempts-1)))).toISOString();
       await q(env, `UPDATE ${T.queue} SET status=?, available_at=?, lease_id=NULL, lease_until=NULL, worker_id=NULL, updated_at=?, error=? WHERE id=? AND lease_id=?`, [status,next,nowIso(),clamp(String(e.message||e),400),item.id,item.lease_id]);
+      if(terminal&&item.kind==='source') await q(env,`UPDATE ${T.runTasks} SET status='failed',updated_at=? WHERE run_id=? AND source_name=? AND query=?`,[nowIso(),item.run_id,item.source,item.keyword]);
     }
   }
   if(runId) await q(env,`UPDATE ${T.runs} SET last_heartbeat=?, current_stage=? WHERE id=?`,[nowIso(),rows.length?'crawl':'idle',runId]);
-  return {processed,found,failed,claimed:rows.length};
+  const progress=runId?await updateRunProgress(env,runId):null;
+  return {processed,found,failed,claimed:rows.length,progress};
 }
 
 async function queueCount(env, runId='') {
@@ -1099,7 +1190,7 @@ async function healthOne(env, link) {
   if (health === 'unknown') {
     try {
       const res = await fetchWithTimeout(norm, { method:'HEAD', redirect:'follow' }, 7000);
-      if (res.status >= 200 && res.status < 400) health = 'folder';
+      if (res.status >= 200 && res.status < 400) health = 'unknown';
       else if ([404,410].includes(res.status)) health = 'dead';
       else health = 'unknown';
       reason = 'head_' + res.status;
@@ -1114,7 +1205,7 @@ async function checkBatch(env, runId='', limit=20) {
   let alive=0, dead=0, unknown=0;
   await Promise.all((rows.results||[]).map(async r => {
     const h = (await healthOne(env, r.normalized)).health;
-    if (h==='alive') alive++; else if (h==='dead') dead++; else unknown++;
+    if (h==='alive'||h==='valid') alive++; else if (h==='dead') dead++; else unknown++;
   }));
   return { checked:(rows.results||[]).length, alive, dead, unknown };
 }
@@ -1156,7 +1247,7 @@ async function getArchive(env, limit=2000) {
 async function dashboardStats(env) {
   await ensureDb(env);
   const archive = await runIgnore(first(env, `SELECT COUNT(*) total FROM ${T.archive}`));
-  const links = await first(env, `SELECT COUNT(*) total, SUM(CASE WHEN health IN ('alive','folder') THEN 1 ELSE 0 END) alive, SUM(CASE WHEN health='dead' THEN 1 ELSE 0 END) dead, SUM(CASE WHEN health NOT IN ('alive','folder','dead') THEN 1 ELSE 0 END) unknown FROM ${T.links}`);
+  const links = await first(env, `SELECT COUNT(*) total, SUM(CASE WHEN health IN ('alive','valid') THEN 1 ELSE 0 END) alive, SUM(CASE WHEN health='dead' THEN 1 ELSE 0 END) dead, SUM(CASE WHEN health NOT IN ('alive','valid','dead') THEN 1 ELSE 0 END) unknown FROM ${T.links}`);
   const pages = await first(env, `SELECT COUNT(*) total FROM ${T.pages}`);
   const runs = await first(env, `SELECT COUNT(*) total FROM ${T.runs}`);
   const queue = await first(env, `SELECT SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) pending, SUM(CASE WHEN status='running' THEN 1 ELSE 0 END) running, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) done, SUM(CASE WHEN status IN ('failed','dead_letter') THEN 1 ELSE 0 END) failed FROM ${T.queue}`);
@@ -1176,10 +1267,10 @@ async function diagnostics(env) {
     const c = await first(env, `SELECT COUNT(*) c FROM ${t}`);
     tables[t] = c?.c ?? 0;
   }
-  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference','sources_manager','toggle_sources','default_high_yield_sources','github_disabled_by_default','v29_sources_sections','v29_enable_disable_all','v29_meawfy_api','v29_real_success_target_100','v29_redirector_targets','v29_archive_csv','v29_1_mega_api_validator','v29_1_continuous_slice_seeding','v29_1_deeper_comment_targets','v29_2_lean_high_yield_policy','v29_2_auto_source_policy_migration','v29_2_active_sources_under_120','v29_2_less_bing_noise','v29_3_stable_source_catalog','v29_3_no_zero_source_rounds','v29_3_sources_ui_catalog_fallback','v30_bing_redirect_decoder','v30_duckduckgo_google_redirect_decoder','v30_raw_paste_targets','v30_search_engine_rebalance','v30_policy_refresh','v32_atomic_queue_claim','v32_queue_leases','v32_dead_letter','v32_source_metrics','v32_response_classifier','v32_schema_migrations','v32_run_heartbeat'] };
+  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['single_persistent_run','server_queue_orchestration','cron_resume_fallback','pause_resume','monotonic_scan_progress','global_url_dedup','source_fetch_dedup','atomic_queue_claim','queue_leases','dead_letter','source_metrics','response_classifier','schema_migrations','run_heartbeat','folder_only_mode','valid_key_required','reddit_json_comments','github_comments_optional','raw_paste_targets','redirect_decoders','archive_csv_json','source_on_off','evidence_ranked_sources'] };
 }
 
-async function startV28Job(env, mode='autoscan', keyword='', opts={}) {
+async function startResilientJob(env, mode='autoscan', keyword='', opts={}) {
   // Hotfix 3: create the D1 shadow queue and immediately drain a small first batch.
   // This proves the pipeline is active and avoids the previous state where runs increased but pages stayed 0.
   const started = Date.now();
@@ -1188,34 +1279,24 @@ async function startV28Job(env, mode='autoscan', keyword='', opts={}) {
   const first = await processQueue(env, scheduled.run_id||'', firstLimit);
   return { ...scheduled, first_processed:first, pending:await queueCount(env, scheduled.run_id||''), elapsed_ms:Date.now()-started, stats:await dashboardStats(env), results:(await getResults(env, mode, keyword||'', 1000)).results };
 }
-async function tickV28Job(env, runId, mode='autoscan', keyword='', opts={}) {
-  // Always drain the D1 shadow queue in small safe batches. This makes AutoPilot work even when
-  // Cloudflare Queue consumer is not attached to the Pages deployment.
-  const started = Date.now();
-  const limit = Math.min(Number(opts.limit||10)||10, 14);
-  let processed = await processQueue(env, runId||'', limit);
-  // Fallback: if the specific run id has no rows, drain the global queue. This helps after browser reloads
-  // or when the frontend did not persist the latest run_id correctly.
-  if (!(processed.processed||processed.failed) && runId) processed = await processQueue(env, '', Math.min(limit, 8));
-  let pending = await queueCount(env, runId||'');
-  let seeded = null;
-  // V29.1: keep the scan alive. When the current slice is almost drained, seed the next slice safely.
-  if (runId && pending < 6 && Date.now() - started < REQUEST_BUDGET_MS - 3000) {
-    seeded = await seedQueueSlice(env, runId, mode||'autoscan', keyword||'', { max_sources: Number(opts.seed_limit||SCHEDULE_SEED_LIMIT)||SCHEDULE_SEED_LIMIT });
-    pending = await queueCount(env, runId||'');
-    // V29.3: if a fresh slice was seeded, immediately drain a tiny part of it so the UI never shows a
-    // useless round with 0 sources/0 processed after the first slice completes.
-    if ((seeded?.enqueued||0) > 0 && Date.now() - started < REQUEST_BUDGET_MS - 5000) {
-      const extra = await processQueue(env, runId||'', Math.min(limit, 6));
-      processed = {
-        processed:(processed.processed||0)+(extra.processed||0),
-        found:(processed.found||0)+(extra.found||0),
-        failed:(processed.failed||0)+(extra.failed||0)
-      };
-      pending = await queueCount(env, runId||'');
-    }
+async function tickResilientJob(env, runId, mode='autoscan', keyword='', opts={}) {
+  const started=Date.now();
+  const run=await first(env,`SELECT * FROM ${T.runs} WHERE id=?`,[runId]);
+  if(!run) return {ok:false,error:'run_not_found'};
+  if(run.status==='paused') return {ok:true,version:VERSION,run_id:runId,paused:true,snapshot:await runSnapshot(env,runId)};
+  if(['done','cancelled'].includes(run.status)) return {ok:true,version:VERSION,run_id:runId,status:run.status,snapshot:await runSnapshot(env,runId)};
+  const limit=Math.min(Number(opts.limit||10)||10,14);
+  let processed={processed:0,found:0,failed:0,mode:'cloud_queue'};
+  if(!(env.AUTOSCAN_QUEUE||env.QUEUE)) processed=await processQueue(env,runId,limit);
+  let pending=await queueCount(env,runId);
+  let seeded=null;
+  const fresh=await first(env,`SELECT sources_exhausted FROM ${T.runs} WHERE id=?`,[runId]);
+  if(!Number(fresh?.sources_exhausted||0) && pending<6 && Date.now()-started<REQUEST_BUDGET_MS-3000){
+    seeded=await seedQueueSlice(env,runId,mode||run.mode||'autoscan',keyword||run.keyword||'',{max_sources:Number(opts.seed_limit||SCHEDULE_SEED_LIMIT)||SCHEDULE_SEED_LIMIT});
+    pending=await queueCount(env,runId);
   }
-  return { ok:true, version:VERSION, run_id:runId||'', mode, keyword:keyword||'', elapsed_ms:Date.now()-started, pending, processed, seeded, stats:await dashboardStats(env), results:(await getResults(env, mode, keyword||'', 1000)).results };
+  const progress=await updateRunProgress(env,runId);
+  return {ok:true,version:VERSION,run_id:runId,mode:run.mode,keyword:run.keyword||'',elapsed_ms:Date.now()-started,pending,processed,seeded,progress,stats:await dashboardStats(env)};
 }
 
 function csvEscape(s) { s=String(s??''); return '"'+s.replace(/"/g,'""')+'"'; }
@@ -1263,8 +1344,11 @@ async function handleApi(req, env, ctx) {
     if (path === '/api/db/clean') { await cleanData(env); return json({ok:true, version:VERSION, cleaned:true}); }
     if (path === '/api/db/clean-invalid') { const out = await cleanInvalidLinks(env); return json({ok:true, version:VERSION, ...out}); }
     if (path === '/api/diagnostics') return json(await diagnostics(env));
-    if (path === '/api/v28/start' || path === '/api/v29/start') { const b=await parseBody(req); return json(await startV28Job(env, b.mode||'autoscan', b.keyword||'', b)); }
-    if (path === '/api/v28/tick' || path === '/api/v29/tick') { const b=await parseBody(req); return json(await tickV28Job(env, b.run_id||'', b.mode||'autoscan', b.keyword||'', b)); }
+    if (path === '/api/runs/start') { const b=await parseBody(req); const out=await scheduleQueueRun(env,b.mode||'autoscan',b.keyword||'',b); if(!(env.AUTOSCAN_QUEUE||env.QUEUE)&&ctx?.waitUntil) ctx.waitUntil(tickResilientJob(env,out.run_id,b.mode||'autoscan',b.keyword||'',{limit:12,seed_limit:12})); return json(out); }
+    if (path === '/api/runs/resume') { const b=await parseBody(req); return json(await resumeRun(env,b.run_id||'',b)); }
+    if (path === '/api/runs/snapshot') return json(await runSnapshot(env,url.searchParams.get('run_id')||''));
+    if (path === '/api/runs/pause') { const b=await parseBody(req); await q(env,`UPDATE ${T.runs} SET status='paused',stop_reason='user_paused',last_heartbeat=? WHERE id=?`,[nowIso(),b.run_id]); return json(await runSnapshot(env,b.run_id)); }
+    if (path === '/api/runs/tick') { const b=await parseBody(req); const out=await tickResilientJob(env,b.run_id||'',b.mode||'autoscan',b.keyword||'',b); return json({...out,snapshot:await runSnapshot(env,b.run_id||'')}); }
     if (path === '/api/autoscan') { const b = await parseBody(req); const out = ((env.AUTOSCAN_QUEUE || env.QUEUE) || b.queue) ? await scheduleQueueRun(env, 'autoscan', b.keyword||'', b) : await runSearch(env, 'autoscan', b.keyword||'', false, b); return json(out); }
     if (path === '/api/search') { const b = await parseBody(req); if (!String(b.keyword||'').trim()) return json({ok:false, error:'keyword_required'}, 400); const out = ((env.AUTOSCAN_QUEUE || env.QUEUE) || b.queue) ? await scheduleQueueRun(env, 'search', String(b.keyword||'').trim(), b) : await runSearch(env, 'search', String(b.keyword||'').trim(), false, b); return json(out); }
     if (path === '/api/extract') { const b = await parseBody(req); if (!b.url) return json({ok:false,error:'url_required'},400); return json(await extractFromUrl(env, b.url, b.mode||'url', b.keyword||'')); }
@@ -1294,30 +1378,46 @@ async function handleApi(req, env, ctx) {
 }
 async function handleReset(req, env) { await hardReset(env); return json({ok:true, version:VERSION, message:'D1 hard reset complete', next:'/' }); }
 async function scheduled(event, env, ctx) {
-  ctx.waitUntil((async()=>{ await ensureDb(env); if (env.AUTOSCAN_QUEUE || env.QUEUE) await scheduleQueueRun(env, 'autoscan', '', {max_sources:18}); else { await runSearch(env, 'autoscan', '', true, { max_sources: 12, deep_rounds: 3 }); await processQueue(env, '', 8); } })());
+  ctx.waitUntil((async()=>{
+    await ensureDb(env);
+    const active=await first(env,`SELECT id,mode,keyword,status,sources_exhausted FROM ${T.runs} WHERE status='running' ORDER BY started_at DESC LIMIT 1`);
+    if(active){
+      await recoverExpiredLeases(env);
+      if(!(env.AUTOSCAN_QUEUE||env.QUEUE)) await processQueue(env,active.id,18);
+      const pending=await queueCount(env,active.id);
+      if(!Number(active.sources_exhausted||0)&&pending<8) await seedQueueSlice(env,active.id,active.mode,active.keyword||'',{max_sources:12});
+      await updateRunProgress(env,active.id);
+      return;
+    }
+    await scheduleQueueRun(env,'autoscan','',{max_sources:12});
+  })());
 }
+
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (url.pathname.startsWith('/api/')) return handleApi(req, env, ctx);
     if (url.pathname === '/reset') return handleReset(req, env);
-    return env.ASSETS ? env.ASSETS.fetch(req) : text('Nimbus Core V32 Core Rebuild');
+    return env.ASSETS ? env.ASSETS.fetch(req) : text('Nimbus Core V34 Resilient Orchestrator');
   },
   async queue(batch, env, ctx) {
     await ensureDb(env);
     const outcomes = [];
     for (const msg of batch.messages) {
       try {
+        const b0=msg.body||{}; const rs=b0.run_id?await first(env,`SELECT status FROM ${T.runs} WHERE id=?`,[b0.run_id]):null; if(rs?.status==='paused'){msg.retry();continue;} if(rs&&['done','cancelled'].includes(rs.status)){msg.ack();continue;}
         const out = await handleQueueMessage(env, msg.body);
         outcomes.push(out);
-        try { const b=msg.body||{}; const sourceName=typeof b.source==='string'?b.source:(b.source?.name||b.source_name||''); let qUrl=b.url||''; if(!qUrl&&b.kind==='source'&&b.source?.template) qUrl=sourceUrl(b.source,b.query||b.keyword||'mega.nz/folder'); const qKeyword=b.keyword||b.query||''; const qid=b.id||'q_'+hash([b.run_id||'',b.kind,qUrl,qKeyword,b.mode,sourceName].join('|')); await q(env,`UPDATE ${T.queue} SET status='done',updated_at=?,error='' WHERE id=?`,[nowIso(),qid]); } catch {}
+        try { const b=msg.body||{}; const sourceName=typeof b.source==='string'?b.source:(b.source?.name||b.source_name||''); let qUrl=b.url||''; if(!qUrl&&b.kind==='source'&&b.source?.template) qUrl=sourceUrl(b.source,b.query||b.keyword||'mega.nz/folder'); const qKeyword=b.keyword||b.query||''; const qid=b.id||'q_'+hash([b.run_id||'',b.kind,qUrl,qKeyword,b.mode,sourceName].join('|')); await q(env,`UPDATE ${T.queue} SET status='done',updated_at=?,error='' WHERE id=?`,[nowIso(),qid]); if(b.kind==='source') await q(env,`UPDATE ${T.runTasks} SET status='done',updated_at=? WHERE run_id=? AND source_name=? AND query=?`,[nowIso(),b.run_id,sourceName,b.query||b.keyword||'']); } catch {}
         msg.ack();
       } catch (e) {
         outcomes.push({ ok:false, error:String(e.message||e).slice(0,300) });
+        try{const b=msg.body||{};const qid=b.id||'';if(qid)await q(env,`UPDATE ${T.queue} SET attempts=attempts+1,status=CASE WHEN attempts+1>=max_attempts THEN 'dead_letter' ELSE 'pending' END,available_at=?,updated_at=?,error=? WHERE id=?`,[new Date(Date.now()+30000).toISOString(),nowIso(),clamp(String(e.message||e),400),qid]);}catch{}
         msg.retry();
       }
     }
-    ctx.waitUntil(logEvent(env, 'info', 'queue_batch_processed', { count:batch.messages.length, outcomes:outcomes.slice(0,5) }));
+    const runIds=[...new Set(batch.messages.map(m=>m.body?.run_id).filter(Boolean))];
+    ctx.waitUntil(Promise.all([logEvent(env,'info','queue_batch_processed',{count:batch.messages.length,outcomes:outcomes.slice(0,5)}),...runIds.map(id=>updateRunProgress(env,id))]));
   },
   scheduled
 };
