@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "nimbus-core-queue",
+  "main": "queue-consumer.js",
+  "compatibility_date": "2026-07-11",
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nimbus-db",
+      "database_id": "ab619b87-8888-4eea-a632-304af715c786"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "QUEUE",
+        "queue": "nimbus-autoscan-queue"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "nimbus-autoscan-queue",
+        "max_batch_size": 1,
+        "max_batch_timeout": 2,
+        "max_retries": 5,
+        "retry_delay": 30,
+        "max_concurrency": 1
+      }
+    ]
+  },
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  }
+}
