@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "nimbus-core",
-  "compatibility_date": "2026-07-11",
+  "compatibility_date": "2026-07-09",
   "pages_build_output_dir": ".",
   "d1_databases": [
     {
