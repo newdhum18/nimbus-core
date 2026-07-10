@@ -1,0 +1,2 @@
+-- Nimbus Core V35.2 uses ensureDb() for idempotent migration.
+-- Open /api/db/repair once after deployment to create nimbus_v352_* tables.
