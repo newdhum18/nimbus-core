@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "nimbus-core-queue",
   "main": "queue-consumer.js",
-  "compatibility_date": "2026-07-11",
+  "compatibility_date": "2026-07-09",
   "workers_dev": true,
   "d1_databases": [
     {

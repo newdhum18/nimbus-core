@@ -1,4 +1,6 @@
-# Nimbus Core V35.2 — Free-Plan Safe Unified Pipeline
+FIX V35.2.1: تم توحيد compatibility_date إلى 2026-07-09 في إعدادات Pages وWorker لمنع خطأ Cloudflare 10021.
+
+# Nimbus Core V35.2.1 — Free-Plan Safe Unified Pipeline
 
 نسخة موحدة ونظيفة لمشروع Nimbus Core، مصممة للعمل على Cloudflare Pages + D1 + Queues + Worker Consumer + Cron.
 

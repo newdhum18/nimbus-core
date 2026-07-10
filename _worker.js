@@ -1,4 +1,4 @@
-const VERSION = '35.2.0-free-plan-safe';
+const VERSION = '35.2.1-free-plan-safe';
 const T = {
   migrations: 'nimbus_v352_migrations',
   runs: 'nimbus_v352_runs',
