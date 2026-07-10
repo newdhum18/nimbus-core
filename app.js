@@ -1,5 +1,5 @@
 (() => {
-  const cfg = window.NIMBUS_CONFIG || { version: '29-hypersearch-sources-engine', apiBase: '' };
+  const cfg = window.NIMBUS_CONFIG || { version: '32-core-rebuild', apiBase: '' };
   const $ = (s) => document.querySelector(s);
   const out = $('#output') || $('#results') || null;
   const write = (data) => {

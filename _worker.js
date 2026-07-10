@@ -1,8 +1,8 @@
-/* Nimbus Core V30 HyperSearch
+/* Nimbus Core V32 Core Rebuild
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '30.0-target-decoder-search-engine';
+const VERSION = '32.0-core-rebuild';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -12,10 +12,12 @@ const T = {
   cache: 'nimbus_v27sb_cache',
   events: 'nimbus_v27sb_events',
   sources: 'nimbus_v27sb_sources',
-  settings: 'nimbus_v27sb_settings'
+  settings: 'nimbus_v27sb_settings',
+  sourceMetrics: 'nimbus_v32_source_metrics',
+  migrations: 'nimbus_v32_schema_migrations'
 };
-const SOURCE_POLICY_VERSION = 'v30.0-target-decoder-high-yield';
-const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 NimbusCore/30';
+const SOURCE_POLICY_VERSION = 'v32.0-adaptive-high-yield';
+const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 NimbusCore/32';
 const TIMEOUT_MS = 11000;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 const HEALTH_TTL_MS = 1000 * 60 * 60 * 12;
@@ -218,6 +220,11 @@ async function runIgnore(promise) { try { return await promise; } catch (e) { re
 async function fetchWithTimeout(url, init = {}, timeout = TIMEOUT_MS) {
   const ac = new AbortController();
   const id = setTimeout(() => ac.abort('timeout'), timeout);
+  const headers = new Headers(init.headers || {});
+  if (!headers.has('user-agent')) headers.set('user-agent', DEFAULT_UA);
+  if (!headers.has('accept')) headers.set('accept', 'text/html,application/xhtml+xml,application/json,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5');
+  if (!headers.has('accept-language')) headers.set('accept-language', 'en-US,en;q=0.8');
+  init = { ...init, headers };
   try {
     const res = await fetch(url, { ...init, signal: ac.signal, headers: { 'user-agent': DEFAULT_UA, 'accept': '*/*', ...(init.headers||{}) } });
     return res;
@@ -292,6 +299,23 @@ async function ensureDb(env) {
   await q(env, `CREATE TABLE IF NOT EXISTS ${T.settings}(
     key TEXT PRIMARY KEY, value TEXT, updated_at TEXT NOT NULL
   )`);
+  await q(env, `CREATE TABLE IF NOT EXISTS ${T.sourceMetrics}(
+    source_id TEXT PRIMARY KEY, source_name TEXT, requests INTEGER DEFAULT 0, successes INTEGER DEFAULT 0,
+    blocked INTEGER DEFAULT 0, errors INTEGER DEFAULT 0, pages INTEGER DEFAULT 0, candidates INTEGER DEFAULT 0,
+    valid_links INTEGER DEFAULT 0, total_response_ms INTEGER DEFAULT 0, last_status INTEGER DEFAULT 0,
+    last_success_at TEXT, last_error TEXT, updated_at TEXT NOT NULL
+  )`);
+  await q(env, `CREATE TABLE IF NOT EXISTS ${T.migrations}(
+    version TEXT PRIMARY KEY, applied_at TEXT NOT NULL
+  )`);
+  await ensureColumn(env, T.queue, 'lease_id', 'TEXT');
+  await ensureColumn(env, T.queue, 'lease_until', 'TEXT');
+  await ensureColumn(env, T.queue, 'worker_id', 'TEXT');
+  await ensureColumn(env, T.runs, 'current_stage', "TEXT DEFAULT 'discovery'");
+  await ensureColumn(env, T.runs, 'last_heartbeat', 'TEXT');
+  await ensureColumn(env, T.runs, 'source_cursor', 'INTEGER DEFAULT 0');
+  await ensureColumn(env, T.runs, 'query_cursor', 'INTEGER DEFAULT 0');
+  await runIgnore(q(env, `INSERT OR IGNORE INTO ${T.migrations}(version,applied_at) VALUES(?,?)`, [VERSION, nowIso()]));
   await ensureColumn(env, T.links, 'keyword_key', "TEXT NOT NULL DEFAULT ''");
   await runIgnore(q(env, `UPDATE ${T.links} SET keyword_key=COALESCE(keyword,'') WHERE keyword_key IS NULL OR keyword_key=''`));
   // Remove unusable new-format MEGA links that were collected by older versions without a decryption key.
@@ -305,7 +329,9 @@ async function ensureDb(env) {
     `CREATE INDEX IF NOT EXISTS idx_${T.archive}_score ON ${T.archive}(score DESC)`,
     `CREATE INDEX IF NOT EXISTS idx_${T.queue}_status ON ${T.queue}(status, priority DESC, available_at)`,
     `CREATE INDEX IF NOT EXISTS idx_${T.pages}_run ON ${T.pages}(run_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_${T.cache}_expires ON ${T.cache}(expires_at)`
+    `CREATE INDEX IF NOT EXISTS idx_${T.cache}_expires ON ${T.cache}(expires_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_${T.queue}_lease ON ${T.queue}(status, lease_until)`,
+    `CREATE INDEX IF NOT EXISTS idx_${T.sourceMetrics}_yield ON ${T.sourceMetrics}(valid_links DESC, successes DESC)`
   ];
   for (const s of idx) await runIgnore(q(env, s));
   // Sources are no longer seeded into D1 during AutoScan.
@@ -662,16 +688,33 @@ function rawPageVariants(u) {
   return out;
 }
 async function cachedFetch(env, url, sourceName) {
-  // D1 cache was intentionally removed from the hot path.
-  // Writing cache rows for every source consumed the Worker subrequest budget before searching began.
+  const started = Date.now();
+  let status = 0, txt = '', error = '', contentType = '', finalUrl = url;
   try {
-    const res = await fetchWithTimeout(url, {}, TIMEOUT_MS);
-    const txt = await bodyText(res);
-    return { fromCache:false, status:res.status, text:txt };
-  } catch (e) {
-    return { fromCache:false, status:0, text:'', error:String(e.message||e) };
-  }
+    const res = await fetchWithTimeout(url, { redirect:'follow' }, TIMEOUT_MS);
+    status = res.status;
+    contentType = String(res.headers.get('content-type') || '').toLowerCase();
+    finalUrl = res.url || url;
+    txt = await bodyText(res);
+  } catch (e) { error = String(e.message||e); }
+  const lower = txt.slice(0,12000).toLowerCase();
+  const blocked = status === 403 || status === 429 || /captcha|cf-chl-|cloudflare ray id|access denied|verify you are human|unusual traffic/.test(lower);
+  const kind = blocked ? 'blocked' : (/json/.test(contentType) || /^[\s\n]*[\[{]/.test(txt) ? 'json' : (/xml|rss|atom/.test(contentType) || /<rss\b|<feed\b/i.test(txt) ? 'xml' : 'html'));
+  const elapsed = Date.now()-started;
+  await recordSourceMetric(env, sourceName || hostOf(url), {status, elapsed, blocked, error, success:status>=200&&status<400&&!blocked});
+  return { fromCache:false, status, text:txt, error, contentType, finalUrl, blocked, kind, elapsed };
 }
+async function recordSourceMetric(env, sourceName, m={}) {
+  const name = String(sourceName||'unknown'); const id='sm_'+hash(name.toLowerCase()); const now=nowIso();
+  try { await q(env, `INSERT INTO ${T.sourceMetrics}(source_id,source_name,requests,successes,blocked,errors,pages,candidates,valid_links,total_response_ms,last_status,last_success_at,last_error,updated_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET
+    requests=requests+1, successes=successes+excluded.successes, blocked=blocked+excluded.blocked, errors=errors+excluded.errors,
+    pages=pages+excluded.pages, candidates=candidates+excluded.candidates, valid_links=valid_links+excluded.valid_links,
+    total_response_ms=total_response_ms+excluded.total_response_ms, last_status=excluded.last_status,
+    last_success_at=COALESCE(excluded.last_success_at,last_success_at), last_error=excluded.last_error, updated_at=excluded.updated_at`,
+    [id,name,1,m.success?1:0,m.blocked?1:0,m.error?1:0,m.pages||0,m.candidates||0,m.valid_links||0,m.elapsed||0,m.status||0,m.success?now:null,clamp(m.error||'',400),now]); } catch {}
+}
+
 function addCandidateUrl(set, val, baseUrl) {
   if (!val || set.size >= 180) return;
   const decoded = decodeLoose(String(val));
@@ -799,7 +842,7 @@ async function enqueue(env, item) {
     } catch {}
   }
   const qKeyword = item.keyword || item.query || '';
-  const id = item.id || 'q_' + hash([item.kind,qUrl,qKeyword,item.mode,sourceName].join('|'));
+  const id = item.id || 'q_' + hash([item.run_id||'',item.kind,qUrl,qKeyword,item.mode,sourceName].join('|'));
   await q(env, `INSERT OR IGNORE INTO ${T.queue}(id,run_id,mode,kind,url,keyword,source,priority,status,attempts,max_attempts,available_at,created_at,updated_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [id, item.run_id||'', item.mode||'search', item.kind, qUrl, qKeyword, sourceName, item.priority||50, 'pending', 0, item.max_attempts||3, item.available_at||nowIso(), nowIso(), nowIso(), '']);
 }
@@ -839,6 +882,7 @@ async function startRun(env, mode, keyword) {
   await ensureDb(env);
   const runId = uid('run');
   await q(env, `INSERT INTO ${T.runs}(id,mode,keyword,status,started_at,notes) VALUES(?,?,?,?,?,?)`, [runId, mode, keyword||'', 'running', nowIso(), '']);
+  await q(env, `UPDATE ${T.runs} SET last_heartbeat=?, current_stage='discovery' WHERE id=?`, [nowIso(), runId]);
   return runId;
 }
 async function finishRun(env, runId) {
@@ -864,7 +908,8 @@ async function processSourceFetch(env, runId, mode, keyword, src, query, started
   await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
     ['pg_'+hash(runId+url), runId, mode, realSourceLabel(src.name, url), url, query, got.status||0, 0, links.length, nowIso(), got.error||'']);
   const targetLimit = mode === 'autoscan' ? QUEUE_CRAWL_CHILD_LIMIT : 6;
-  const targets = parseSearchTargets(got.text, src, url).slice(0, targetLimit);
+  const targets = got.blocked ? [] : parseSearchTargets(got.text, src, got.finalUrl||url).slice(0, targetLimit);
+  await recordSourceMetric(env, src.name, {status:got.status, elapsed:0, pages:1, candidates:targets.length, valid_links:direct, blocked:got.blocked, success:got.status>=200&&got.status<400&&!got.blocked});
   const tasks = targets.map(t => ({ run_id:runId, mode, kind:'crawl', url:t, keyword:keyword||query, source:hostOf(t)||src.name, priority: src.priority || 50, max_attempts:3 }));
   if (tasks.length) {
     if (preferCloud && (env.AUTOSCAN_QUEUE || env.QUEUE)) { await enqueueManyCloud(env, tasks); queued += tasks.length; }
@@ -971,7 +1016,7 @@ async function crawlPage(env, item) {
   }
   await q(env, `INSERT OR IGNORE INTO ${T.pages}(id,run_id,mode,source,url,title,status,depth,links_found,scanned_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
     ['pg_'+hash((item.run_id||'')+item.url), item.run_id||'', item.mode||'', hostOf(item.url)||item.source, item.url, item.keyword||'', got.status||0, 1, found, nowIso(), got.error||'']);
-  const discovered = parseSearchTargets(got.text, {name:item.source||hostOf(item.url)}, item.url)
+  const discovered = (got.blocked ? [] : parseSearchTargets(got.text, {name:item.source||hostOf(item.url)}, got.finalUrl||item.url))
     .filter(u => !/\.(?:jpg|jpeg|png|gif|webp|css|ico|svg|woff2?)(?:$|[?#])/i.test(u))
     .slice(0, 4);
   for (const u of discovered) {
@@ -980,33 +1025,44 @@ async function crawlPage(env, item) {
   }
   return { found, children, status:got.status||0 };
 }
+async function recoverExpiredLeases(env) {
+  await q(env, `UPDATE ${T.queue} SET status='pending', lease_id=NULL, lease_until=NULL, worker_id=NULL, available_at=?, updated_at=?, error=CASE WHEN error='' THEN 'lease_expired' ELSE error END WHERE status='running' AND lease_until IS NOT NULL AND lease_until<?`, [nowIso(),nowIso(),nowIso()]);
+}
+async function claimQueueItems(env, runId='', limit=MAX_QUEUE_BATCH) {
+  await recoverExpiredLeases(env);
+  const candidates = await all(env, `SELECT id FROM ${T.queue} WHERE status='pending' AND available_at<=? ${runId?'AND run_id=?':''} ORDER BY priority DESC, created_at ASC LIMIT ?`, runId?[nowIso(),runId,limit*3]:[nowIso(),limit*3]);
+  const workerId=uid('worker'), leaseUntil=new Date(Date.now()+90000).toISOString(), claimed=[];
+  for (const row of (candidates.results||[])) {
+    if (claimed.length>=limit) break;
+    const lease=uid('lease');
+    const r=await q(env, `UPDATE ${T.queue} SET status='running', attempts=attempts+1, lease_id=?, lease_until=?, worker_id=?, updated_at=? WHERE id=? AND status='pending' AND available_at<=?`, [lease,leaseUntil,workerId,nowIso(),row.id,nowIso()]);
+    if (Number(r?.meta?.changes||0)===1) { const item=await first(env,`SELECT * FROM ${T.queue} WHERE id=?`,[row.id]); if(item) claimed.push(item); }
+  }
+  return claimed;
+}
 async function processQueue(env, runId = '', limit = MAX_QUEUE_BATCH) {
   await ensureDb(env);
-  const rows = await all(env, `SELECT * FROM ${T.queue} WHERE status='pending' AND available_at<=? ${runId?'AND run_id=?':''} ORDER BY priority DESC, created_at ASC LIMIT ?`, runId ? [nowIso(), runId, limit] : [nowIso(), limit]);
+  limit=Math.max(1,Math.min(Number(limit)||MAX_QUEUE_BATCH,50));
+  const rows=await claimQueueItems(env,runId,limit);
   let processed=0, found=0, failed=0;
-  for (const item of (rows.results||[])) {
-    await q(env, `UPDATE ${T.queue} SET status='running', attempts=attempts+1, updated_at=? WHERE id=?`, [nowIso(), item.id]);
+  for (const item of rows) {
     try {
-      let r = {found:0};
-      if (item.kind === 'source') {
-        const src = { name:item.source || hostOf(item.url) || 'source', template:item.url, priority:item.priority || 50 };
-        r = await processSourceFetch(env, item.run_id || '', item.mode || 'autoscan', item.keyword || 'mega.nz/folder', src, item.keyword || 'mega.nz/folder', Date.now(), false);
-        r.found = (r.direct || 0);
-      }
-      else if (item.kind === 'crawl') r = await crawlPage(env, item);
-      else if (item.kind === 'health') r = await healthOne(env, item.url);
-      found += r.found || 0;
-      await q(env, `UPDATE ${T.queue} SET status='done', updated_at=?, error='' WHERE id=?`, [nowIso(), item.id]);
+      let r={found:0};
+      if(item.kind==='source') { const src={name:item.source||hostOf(item.url)||'source',template:item.url,priority:item.priority||50}; r=await processSourceFetch(env,item.run_id||'',item.mode||'autoscan',item.keyword||'mega.nz/folder',src,item.keyword||'mega.nz/folder',Date.now(),false); r.found=r.direct||0; }
+      else if(item.kind==='crawl') r=await crawlPage(env,item);
+      else if(item.kind==='health') r=await healthOne(env,item.url);
+      else throw new Error('unknown_queue_kind:'+item.kind);
+      found+=r.found||0;
+      await q(env, `UPDATE ${T.queue} SET status='done', lease_id=NULL, lease_until=NULL, worker_id=NULL, updated_at=?, error='' WHERE id=? AND lease_id=?`, [nowIso(),item.id,item.lease_id]);
       processed++;
-    } catch (e) {
-      failed++;
-      const attempts = (item.attempts||0)+1;
-      const status = attempts >= (item.max_attempts||3) ? 'failed' : 'pending';
-      const next = new Date(Date.now() + Math.min(300000, 15000 * attempts)).toISOString();
-      await q(env, `UPDATE ${T.queue} SET status=?, attempts=?, available_at=?, updated_at=?, error=? WHERE id=?`, [status, attempts, next, nowIso(), String(e.message||e).slice(0,400), item.id]);
+    } catch(e) {
+      failed++; const attempts=Number(item.attempts||1); const terminal=attempts>=Number(item.max_attempts||3); const status=terminal?'dead_letter':'pending';
+      const next=new Date(Date.now()+Math.min(900000,15000*Math.pow(2,Math.max(0,attempts-1)))).toISOString();
+      await q(env, `UPDATE ${T.queue} SET status=?, available_at=?, lease_id=NULL, lease_until=NULL, worker_id=NULL, updated_at=?, error=? WHERE id=? AND lease_id=?`, [status,next,nowIso(),clamp(String(e.message||e),400),item.id,item.lease_id]);
     }
   }
-  return { processed, found, failed };
+  if(runId) await q(env,`UPDATE ${T.runs} SET last_heartbeat=?, current_stage=? WHERE id=?`,[nowIso(),rows.length?'crawl':'idle',runId]);
+  return {processed,found,failed,claimed:rows.length};
 }
 
 async function queueCount(env, runId='') {
@@ -1103,7 +1159,7 @@ async function dashboardStats(env) {
   const links = await first(env, `SELECT COUNT(*) total, SUM(CASE WHEN health IN ('alive','folder') THEN 1 ELSE 0 END) alive, SUM(CASE WHEN health='dead' THEN 1 ELSE 0 END) dead, SUM(CASE WHEN health NOT IN ('alive','folder','dead') THEN 1 ELSE 0 END) unknown FROM ${T.links}`);
   const pages = await first(env, `SELECT COUNT(*) total FROM ${T.pages}`);
   const runs = await first(env, `SELECT COUNT(*) total FROM ${T.runs}`);
-  const queue = await first(env, `SELECT SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) pending, SUM(CASE WHEN status='running' THEN 1 ELSE 0 END) running, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) done, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed FROM ${T.queue}`);
+  const queue = await first(env, `SELECT SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) pending, SUM(CASE WHEN status='running' THEN 1 ELSE 0 END) running, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) done, SUM(CASE WHEN status IN ('failed','dead_letter') THEN 1 ELSE 0 END) failed FROM ${T.queue}`);
   const cache = await first(env, `SELECT COUNT(*) total, SUM(hits) hits FROM ${T.cache}`);
   const allSrc = await getSources(env, {include_disabled:true});
   const sourcesTotal = allSrc.length;
@@ -1120,7 +1176,7 @@ async function diagnostics(env) {
     const c = await first(env, `SELECT COUNT(*) c FROM ${t}`);
     tables[t] = c?.c ?? 0;
   }
-  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference','sources_manager','toggle_sources','default_high_yield_sources','github_disabled_by_default','v29_sources_sections','v29_enable_disable_all','v29_meawfy_api','v29_real_success_target_100','v29_redirector_targets','v29_archive_csv','v29_1_mega_api_validator','v29_1_continuous_slice_seeding','v29_1_deeper_comment_targets','v29_2_lean_high_yield_policy','v29_2_auto_source_policy_migration','v29_2_active_sources_under_120','v29_2_less_bing_noise','v29_3_stable_source_catalog','v29_3_no_zero_source_rounds','v29_3_sources_ui_catalog_fallback','v30_bing_redirect_decoder','v30_duckduckgo_google_redirect_decoder','v30_raw_paste_targets','v30_search_engine_rebalance','v30_policy_refresh'] };
+  return { ok:true, version:VERSION, db_bound:!!env.DB, tables, stats:await dashboardStats(env), features:['separate_autoscan_page','separate_keyword_search_page','integrated_extractor','multi_source','json_html_rss_sources','crawler','queue','cache','health','dashboard','csv_json_export','db_repair','deep_200_round_processing','encoded_url_extraction','old_mega_format_extraction','reddit_json_targets','wide_1000_source_catalog','adaptive_source_budget','safe_query_sanitizer','false_positive_url_guard','one_button_auto_batch','no_d1_seed_hotpath','balanced_source_rotation','low_subrequest_deep','valid_mega_key_required','ios_universal_open_links','autopilot_continuous_frontend','v28_virtual_queue_scheduler','balanced_round_robin_groups','source_host_attribution','safari_self_navigation_mega_open','folder_only_mode','permanent_d1_archive','ofversedrops_source','real_source_label_preference','sources_manager','toggle_sources','default_high_yield_sources','github_disabled_by_default','v29_sources_sections','v29_enable_disable_all','v29_meawfy_api','v29_real_success_target_100','v29_redirector_targets','v29_archive_csv','v29_1_mega_api_validator','v29_1_continuous_slice_seeding','v29_1_deeper_comment_targets','v29_2_lean_high_yield_policy','v29_2_auto_source_policy_migration','v29_2_active_sources_under_120','v29_2_less_bing_noise','v29_3_stable_source_catalog','v29_3_no_zero_source_rounds','v29_3_sources_ui_catalog_fallback','v30_bing_redirect_decoder','v30_duckduckgo_google_redirect_decoder','v30_raw_paste_targets','v30_search_engine_rebalance','v30_policy_refresh','v32_atomic_queue_claim','v32_queue_leases','v32_dead_letter','v32_source_metrics','v32_response_classifier','v32_schema_migrations','v32_run_heartbeat'] };
 }
 
 async function startV28Job(env, mode='autoscan', keyword='', opts={}) {
@@ -1219,6 +1275,7 @@ async function handleApi(req, env, ctx) {
     if (path === '/api/archive') return json(await getArchive(env, Number(url.searchParams.get('limit')||2000)));
     if (path === '/api/status') return json(await diagnostics(env));
     if (path === '/api/stats') return json({ok:true, version:VERSION, stats:await dashboardStats(env)});
+    if (path === '/api/source-metrics') { await ensureDb(env); const r=await all(env,`SELECT *, CASE WHEN requests>0 THEN ROUND(valid_links*100.0/requests,2) ELSE 0 END yield_per_100, CASE WHEN requests>0 THEN ROUND(total_response_ms*1.0/requests,0) ELSE 0 END avg_response_ms FROM ${T.sourceMetrics} ORDER BY valid_links DESC, successes DESC, requests DESC LIMIT 2000`); return json({ok:true,version:VERSION,metrics:r.results||[]}); }
     if (path === '/api/sources') {
       await ensureDb(env);
       if (req.method==='GET') { const rows = await getSources(env,{include_disabled:true, skip_policy:true}); return json({ok:true, version:VERSION, total:rows.length, enabled:rows.filter(s=>Number(s.enabled)===1).length, disabled:rows.filter(s=>Number(s.enabled)!==1).length, groups:[...new Set(rows.map(s=>s.category||'web'))].length, sources: rows}); }
@@ -1244,7 +1301,7 @@ export default {
     const url = new URL(req.url);
     if (url.pathname.startsWith('/api/')) return handleApi(req, env, ctx);
     if (url.pathname === '/reset') return handleReset(req, env);
-    return env.ASSETS ? env.ASSETS.fetch(req) : text('Nimbus Core V30 HyperSearch Sources');
+    return env.ASSETS ? env.ASSETS.fetch(req) : text('Nimbus Core V32 Core Rebuild');
   },
   async queue(batch, env, ctx) {
     await ensureDb(env);
@@ -1253,6 +1310,7 @@ export default {
       try {
         const out = await handleQueueMessage(env, msg.body);
         outcomes.push(out);
+        try { const b=msg.body||{}; const sourceName=typeof b.source==='string'?b.source:(b.source?.name||b.source_name||''); let qUrl=b.url||''; if(!qUrl&&b.kind==='source'&&b.source?.template) qUrl=sourceUrl(b.source,b.query||b.keyword||'mega.nz/folder'); const qKeyword=b.keyword||b.query||''; const qid=b.id||'q_'+hash([b.run_id||'',b.kind,qUrl,qKeyword,b.mode,sourceName].join('|')); await q(env,`UPDATE ${T.queue} SET status='done',updated_at=?,error='' WHERE id=?`,[nowIso(),qid]); } catch {}
         msg.ack();
       } catch (e) {
         outcomes.push({ ok:false, error:String(e.message||e).slice(0,300) });

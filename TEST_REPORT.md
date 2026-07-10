@@ -1,23 +1,41 @@
-# Nimbus Core V30 Test Report
+# Nimbus Core V32 Test Report
 
-Version: 30.0-target-decoder-search-engine
+Version: `32.0-core-rebuild`
 
-Status: PASS
+## Passed locally
 
-Local checks completed:
-- JavaScript syntax check for `_worker.js`: PASS
-- JavaScript syntax check for `queue-consumer.js`: PASS
-- MEGA folder extraction: PASS
-- MEGA file rejection: PASS
-- Encoded MEGA extraction: PASS
-- Bing `/ck/a?u=a1...` target decoder: PASS
-- DuckDuckGo `uddg=` target decoder: PASS
-- Google `/url?q=` target decoder support: PRESENT
-- Rentry raw target generation: PASS
-- Pastebin raw target generation: PASS
-- 1000-source catalog retained: PASS
-- High-yield enabled sources: 107
-- GitHub/social/video disabled by default: PASS
-- D1 source policy refresh on version change: PASS
+- `_worker.js` syntax check.
+- `queue-consumer.js` syntax check.
+- Complete folder link accepted.
+- MEGA file link rejected.
+- Folder without key rejected.
+- New-format folder parts parsed.
+- Direct MEGA extraction.
+- Percent-encoded redirect extraction.
+- Pastebin raw conversion.
+- Rentry raw conversion.
+- DuckDuckGo target decoding.
+- Search target parser follows decoded result.
+- Source catalog contains exactly 1000 records.
+- Default source policy enables exactly 107 records.
+- Queue IDs now include `run_id`.
+- Queue claim is conditional on pending state.
+- Queue leases, recovery, worker identity, exponential retry, and dead-letter state are present.
+- Canonical D1 schema is present in `schema.sql`.
+- Queue consumer no longer duplicates the full worker source.
 
-Important note: public search results can still return zero if indexed pages do not contain complete `mega.nz/folder/<id>#<key>` links. V30 fixes the major decoder issue that previously caused Bing/DDG/Google result wrappers to be ignored.
+## Not falsely marked as passed
+
+The following require a deployed Cloudflare environment and live network testing:
+
+- D1 production migration against the user's existing database.
+- Queue producer-to-consumer delivery.
+- Multiple concurrent Worker instances.
+- Live Meawfy response schema and availability.
+- Live Google, Brave, DuckDuckGo, Startpage, Bing, Reddit, GitHub, Telegram, and Archive behavior.
+- CAPTCHA and rate-limit behavior from Cloudflare IP ranges.
+- Browser-rendered JavaScript-heavy comments. V32 detects blocked/dynamic responses but does not include a provisioned headless-browser binding.
+- Actual number of live MEGA folders returned by third-party sources.
+
+Local result: **PASS**  
+Production/live-source result: **requires deployment verification**

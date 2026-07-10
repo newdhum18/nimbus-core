@@ -1,22 +1,36 @@
-# Nimbus Core V30 HyperSearch
+# Nimbus Core V32 Core Rebuild
 
-V30 focuses on the core issue found in V29.x: search engines were returning redirect wrapper URLs, but the app was not decoding them into real target pages before crawling. V30 adds target decoding for Bing, DuckDuckGo, and Google and follows raw paste/comment pages.
+V32 rebuilds the operational core while preserving the existing Dashboard, AutoScan, Search, Extract, Archive, Sources, and Tools pages.
 
-## Highlights
+## Main corrections
 
-- Bing `/ck/a?u=a1...` decoder.
-- DuckDuckGo `uddg` decoder.
-- Google `/url?q=` decoder.
-- Raw paste targets for Pastebin, Rentry, dpaste, hastebin, and paste.rs.
-- Search engine rebalance: DuckDuckGo Lite / HTML, Brave, Google, Startpage, and Bing RSS are prioritized; Bing Web is no longer a primary default source.
-- High-yield default policy: 107 enabled sources out of 1000.
-- GitHub, video, and social sources remain OFF by default.
-- Queue and D1 shadow queue remain safe and chunked.
+- Queue task IDs are isolated by `run_id`, preventing one run from suppressing another run's tasks.
+- D1 queue tasks use conditional claims, 90-second leases, expired-lease recovery, worker IDs, exponential retry delay, and dead-letter state.
+- The queue consumer imports the shared worker core instead of duplicating the full application.
+- `schema.sql` is now a complete canonical schema and the worker records schema versions.
+- Runs store heartbeat and current stage data.
+- Fetches use stable request headers, response-type classification, redirect following, and block/CAPTCHA detection.
+- Per-source metrics record requests, successes, blocks, errors, candidates, valid links, and average response time.
+- `/api/source-metrics` exposes measured source performance.
+- MEGA folder-only rules, required keys, redirect decoding, raw paste variants, comment targets, Archive, CSV/JSON export, and the 100-link success target remain enabled.
 
-## After deploy
+## Deployment
 
-1. Open Tools.
-2. Press Repair DB.
-3. Open Sources.
-4. Press High Yield Defaults.
-5. Run AutoScan.
+1. Apply `schema.sql` to the D1 database or call `/api/db/repair` after deployment.
+2. Deploy the Pages project using `wrangler.jsonc`.
+3. Deploy the queue consumer using `wrangler.queue.jsonc` when Cloudflare Queues are enabled.
+4. Bind D1 as `DB` and the queue producer as `QUEUE`.
+5. Set `AUTH_PIN` or `NIMBUS_PIN` instead of relying on the development default.
+
+## Verification
+
+Run:
+
+```bash
+npm test
+npm run check
+```
+
+Local tests verify syntax, MEGA folder filtering, missing-key rejection, file rejection, encoded-link extraction, redirect decoding, raw paste conversion, search-target parsing, source catalog size, and the default source policy.
+
+Live search yield, third-party endpoint availability, Cloudflare Queue delivery, and D1 behavior under production concurrency must still be verified after deployment because they require the user's Cloudflare environment and external websites.
