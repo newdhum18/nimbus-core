@@ -2,7 +2,7 @@ NIMBUS CORE V34 — سجل التقدم الكامل القابل للنسخ
 ====================================================
 
 الحالة العامة:
-تم تحويل V33 إلى V34.1 Clean Orchestrator مع الحفاظ على Dashboard وAutoScan وSearch وExtract وArchive وSources وTools.
+تم تحويل V33 إلى V34.2 Resilient Pipeline مع الحفاظ على Dashboard وAutoScan وSearch وExtract وArchive وSources وTools.
 
 تم تنفيذه بالكامل داخل الكود:
 1. Run واحد دائم لكل عملية بحث.

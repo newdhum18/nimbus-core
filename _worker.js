@@ -2,7 +2,7 @@
  * Fresh Cloudflare Pages Worker + D1 app.
  * Frontend and extraction are integrated; AutoScan and Keyword Search are separated by mode.
  */
-const VERSION = '34.1-clean-orchestrator';
+const VERSION = '34.2-resilient-pipeline';
 const T = {
   runs: 'nimbus_v27sb_runs',
   pages: 'nimbus_v27sb_pages',
@@ -18,7 +18,7 @@ const T = {
   visited: 'nimbus_v33_visited_urls',
   runTasks: 'nimbus_v33_run_tasks'
 };
-const SOURCE_POLICY_VERSION = 'v34.1-evidence-ranked-sources';
+const SOURCE_POLICY_VERSION = 'v34.2-evidence-ranked-sources';
 const DEFAULT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 NimbusCore/34';
 const TIMEOUT_MS = 7000;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
@@ -626,19 +626,16 @@ async function applySourcePreset(env, action='high_yield') {
 }
 
 async function ensureSourcePolicy(env) {
-  // Do not bulk-write the whole catalog during normal requests.
-  // The active source policy is computed from the built-in catalog plus small user overrides.
-  // This prevents the Sources page from disappearing and keeps later rounds from running with 0 sources.
+  // Never write the full 1000-row catalog during a normal API request.
+  // Defaults are computed in memory; D1 stores only explicit user overrides.
+  // Bulk presets remain available only when the user presses High Yield / Enable All / Disable All.
   try {
     const current = await getSetting(env, 'source_policy_version', '');
     if (current !== SOURCE_POLICY_VERSION) {
-      // Refresh built-in source overrides when the policy changes.
-      // This prevents old D1 source states from keeping weak engines enabled forever.
-      await applySourcePreset(env, 'high_yield');
       await setSetting(env, 'source_policy_version', SOURCE_POLICY_VERSION);
-      await logEvent(env, 'info', 'source_policy_marker_updated', { version:SOURCE_POLICY_VERSION });
+      await logEvent(env, 'info', 'source_policy_marker_updated', { version:SOURCE_POLICY_VERSION, bulk_write:false });
     }
-    return { ok:true, applied: current !== SOURCE_POLICY_VERSION };
+    return { ok:true, applied: current !== SOURCE_POLICY_VERSION, bulk_write:false };
   } catch (e) {
     return { ok:false, applied:false, error:String(e.message||e).slice(0,300) };
   }
@@ -895,11 +892,10 @@ async function resumeRun(env, runId='', opts={}) {
   if(run.status==='done' || run.status==='cancelled') return {ok:false,error:'run_not_resumable',status:run.status};
   await recoverExpiredLeases(env);
   await q(env,`UPDATE ${T.runs} SET status='running',resume_count=COALESCE(resume_count,0)+1,stop_reason=NULL,last_heartbeat=?,current_stage='resuming' WHERE id=?`,[nowIso(),run.id]);
-  let pending=await queueCount(env,run.id);
-  if(pending<4 && !Number(run.sources_exhausted||0)) await seedQueueSlice(env,run.id,run.mode,run.keyword||'',{max_sources:Number(opts.seed_limit||SCHEDULE_SEED_LIMIT)});
-  let processed={processed:0,found:0,failed:0,mode:'server_queue'};
-  if(!(env.AUTOSCAN_QUEUE||env.QUEUE)) processed=await processQueue(env,run.id,Math.min(Number(opts.limit||10),20));
-  return {...await runSnapshot(env,run.id),resumed:true,processed};
+  // Resume must make progress even when D1 contains orphaned shadow rows that were never delivered to Cloud Queue.
+  const processed=await processQueue(env,run.id,Math.min(Math.max(1,Number(opts.limit||3)),6));
+  const orchestration=await orchestrateRun(env,run.id,{seed_limit:Number(opts.seed_limit||SCHEDULE_SEED_LIMIT),threshold:6});
+  return {...await runSnapshot(env,run.id),resumed:true,processed,orchestration};
 }
 async function enqueue(env, item) {
   const sourceName = typeof item.source === 'string' ? item.source : (item.source?.name || item.source_name || '');
@@ -1165,6 +1161,26 @@ async function queueCount(env, runId='') {
   const r = await first(env, `SELECT COUNT(*) c FROM ${T.queue} WHERE status='pending' ${runId?'AND run_id=?':''}`, runId?[runId]:[]);
   return r?.c || 0;
 }
+async function queueOutstanding(env, runId='') {
+  const r = await first(env, `SELECT COUNT(*) c FROM ${T.queue} WHERE status IN ('pending','running','leased','retry_wait') ${runId?'AND run_id=?':''}`, runId?[runId]:[]);
+  return Number(r?.c || 0);
+}
+async function orchestrateRun(env, runId, opts={}) {
+  if (!runId) return {ok:false,error:'missing_run_id'};
+  const run = await first(env, `SELECT * FROM ${T.runs} WHERE id=?`, [runId]);
+  if (!run) return {ok:false,error:'run_not_found'};
+  if (run.status==='paused' || run.status==='done' || run.status==='cancelled') return {ok:true,status:run.status,seeded:null};
+  await recoverExpiredLeases(env);
+  let outstanding = await queueOutstanding(env, runId);
+  let seeded = null;
+  const threshold = Math.max(1, Number(opts.threshold || 4));
+  if (!Number(run.sources_exhausted||0) && outstanding <= threshold) {
+    seeded = await seedQueueSlice(env, runId, run.mode, run.keyword||'', {max_sources:Number(opts.seed_limit||SCHEDULE_SEED_LIMIT)||SCHEDULE_SEED_LIMIT});
+    outstanding = await queueOutstanding(env, runId);
+  }
+  const progress = await updateRunProgress(env, runId);
+  return {ok:true,status:progress?.status||run.status,outstanding,seeded,progress};
+}
 async function deepProcessQueue(env, runId='', rounds=MAX_DEEP_ROUNDS, batch=MAX_QUEUE_BATCH, startedAt=Date.now()) {
   let totalProcessed=0, totalFound=0, totalFailed=0, loops=0;
   for (let i=0; i<rounds; i++) {
@@ -1255,7 +1271,7 @@ async function dashboardStats(env) {
   const links = await first(env, `SELECT COUNT(*) total, SUM(CASE WHEN health IN ('alive','valid') THEN 1 ELSE 0 END) alive, SUM(CASE WHEN health='dead' THEN 1 ELSE 0 END) dead, SUM(CASE WHEN health NOT IN ('alive','valid','dead') THEN 1 ELSE 0 END) unknown FROM ${T.links}`);
   const pages = await first(env, `SELECT COUNT(*) total FROM ${T.pages}`);
   const runs = await first(env, `SELECT COUNT(*) total FROM ${T.runs}`);
-  const queue = await first(env, `SELECT SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) pending, SUM(CASE WHEN status='running' THEN 1 ELSE 0 END) running, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) done, SUM(CASE WHEN status IN ('failed','dead_letter') THEN 1 ELSE 0 END) failed FROM ${T.queue}`);
+  const queue = await first(env, `SELECT SUM(CASE WHEN status IN ('pending','running','leased','retry_wait') THEN 1 ELSE 0 END) pending, SUM(CASE WHEN status='running' THEN 1 ELSE 0 END) running, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) done, SUM(CASE WHEN status IN ('failed','dead_letter') THEN 1 ELSE 0 END) failed FROM ${T.queue}`);
   const cache = await first(env, `SELECT COUNT(*) total, SUM(hits) hits FROM ${T.cache}`);
   const allSrc = await getSources(env, {include_disabled:true});
   const sourcesTotal = allSrc.length;
@@ -1293,15 +1309,9 @@ async function tickResilientJob(env, runId, mode='autoscan', keyword='', opts={}
   const limit=Math.min(Number(opts.limit||10)||10,14);
   let processed={processed:0,found:0,failed:0,mode:'cloud_queue'};
   if(!(env.AUTOSCAN_QUEUE||env.QUEUE)) processed=await processQueue(env,runId,limit);
-  let pending=await queueCount(env,runId);
-  let seeded=null;
-  const fresh=await first(env,`SELECT sources_exhausted FROM ${T.runs} WHERE id=?`,[runId]);
-  if(!Number(fresh?.sources_exhausted||0) && pending<6 && Date.now()-started<REQUEST_BUDGET_MS-3000){
-    seeded=await seedQueueSlice(env,runId,mode||run.mode||'autoscan',keyword||run.keyword||'',{max_sources:Number(opts.seed_limit||SCHEDULE_SEED_LIMIT)||SCHEDULE_SEED_LIMIT});
-    pending=await queueCount(env,runId);
-  }
-  const progress=await updateRunProgress(env,runId);
-  return {ok:true,version:VERSION,run_id:runId,mode:run.mode,keyword:run.keyword||'',elapsed_ms:Date.now()-started,pending,processed,seeded,progress,stats:await dashboardStats(env)};
+  const orchestration=await orchestrateRun(env,runId,{seed_limit:Number(opts.seed_limit||SCHEDULE_SEED_LIMIT)||SCHEDULE_SEED_LIMIT,threshold:6});
+  const pending=await queueOutstanding(env,runId);
+  return {ok:true,version:VERSION,run_id:runId,mode:run.mode,keyword:run.keyword||'',elapsed_ms:Date.now()-started,pending,processed,seeded:orchestration.seeded,progress:orchestration.progress,stats:await dashboardStats(env)};
 }
 
 function csvEscape(s) { s=String(s??''); return '"'+s.replace(/"/g,'""')+'"'; }
@@ -1387,13 +1397,9 @@ async function scheduled(event, env, ctx) {
     await ensureDb(env);
     const active=await first(env,`SELECT id,mode,keyword,status,sources_exhausted FROM ${T.runs} WHERE status='running' ORDER BY started_at DESC LIMIT 1`);
     if(active){
-      await recoverExpiredLeases(env);
-      // Drain a very small D1 shadow batch as a safety net. This handles orphaned tasks
-      // left by older deployments or transient queue-send failures without depending on Safari.
+      // Safety-drain a tiny D1 batch, then immediately seed the next source slice when the run is low on work.
       await processQueue(env,active.id,3);
-      const pending=await queueCount(env,active.id);
-      if(!Number(active.sources_exhausted||0)&&pending<8) await seedQueueSlice(env,active.id,active.mode,active.keyword||'',{max_sources:12});
-      await updateRunProgress(env,active.id);
+      await orchestrateRun(env,active.id,{seed_limit:12,threshold:6});
       return;
     }
     await scheduleQueueRun(env,'autoscan','',{max_sources:12});
@@ -1424,7 +1430,7 @@ export default {
       }
     }
     const runIds=[...new Set(batch.messages.map(m=>m.body?.run_id).filter(Boolean))];
-    ctx.waitUntil(Promise.all([logEvent(env,'info','queue_batch_processed',{count:batch.messages.length,outcomes:outcomes.slice(0,5)}),...runIds.map(id=>updateRunProgress(env,id))]));
+    ctx.waitUntil(Promise.all([logEvent(env,'info','queue_batch_processed',{count:batch.messages.length,outcomes:outcomes.slice(0,5)}),...runIds.map(id=>orchestrateRun(env,id,{seed_limit:SCHEDULE_SEED_LIMIT,threshold:4}))]));
   },
   scheduled
 };

@@ -1,4 +1,4 @@
-NIMBUS CORE V34.1 CLEAN ORCHESTRATOR
+NIMBUS CORE V34.2 RESILIENT PIPELINE
 =====================================
 
 سبب إعادة البناء
@@ -16,14 +16,14 @@ NIMBUS CORE V34.1 CLEAN ORCHESTRATOR
 7. جعل Repair DB يعرض حالة واضحة ثم يحدث Dashboard وSources.
 8. منع اختفاء قائمة Sources عند فشل طلب مؤقت، والاحتفاظ بالنسخة السابقة.
 9. جعل Sources API يطبق سياسة المصادر الصحيحة قبل الإرجاع.
-10. تحديث الإصدار وCache إلى V34.1 لتجنب ملفات Safari القديمة.
+10. تحديث الإصدار وCache إلى V34.2 لتجنب ملفات Safari القديمة.
 11. المحافظة على Folder-only ورفض file ورفض folder بدون key.
 12. المحافظة على Archive وPause وResume وON/OFF وCron وD1.
 
 الاختبارات المحلية
 ------------------
 Core tests: 12 PASS
-V34.1 regression tests: 21 PASS
+V34.2 regression tests: 26 PASS
 _worker.js syntax: PASS
 queue-consumer.js syntax: PASS
 Catalog: 1000

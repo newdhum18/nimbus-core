@@ -1,0 +1,59 @@
+NIMBUS CORE V34.2 — تقرير الفحص الشامل والإصلاح
+================================================
+
+النسخة التي تم فحصها:
+nimbus-core-v34.1-clean-orchestrator(1).zip
+
+النتيجة العامة:
+النسخة V34.1 كانت تحتوي على تحسينات صحيحة، لكن سبب التوقف عند نسبة منخفضة لم يكن إعداد Cloudflare وحده. وجد الفحص أن الاستمرارية بين دفعات المصادر تعتمد عمليًا على Cron كل خمس دقائق، بينما Queue Consumer كان يحدّث التقدم فقط ولا يزرع الدفعة التالية مباشرة. كذلك Resume لا يعالج مهام D1 المعلقة عند وجود Cloud Queue، وسياسة المصادر كانت قادرة على كتابة 1000 سجل أثناء طلب عادي، مما يفسر بطء Repair DB واختفاء صفحة Sources عند فشل الطلب.
+
+الإصلاحات المنفذة في V34.2:
+1. إضافة orchestrateRun بعد كل دفعة Queue ناجحة.
+2. Queue Consumer يزرع شريحة المصادر التالية فور انخفاض المهام المتبقية، دون انتظار Cron.
+3. Resume يعالج دفعة أمان صغيرة من D1 Shadow Queue حتى مع وجود Cloud Queue.
+4. Cron بقي كطبقة استعادة، وليس المحرك الوحيد لاستمرار الجولات.
+5. حساب Queue Pending أصبح يشمل pending/running/leased/retry_wait.
+6. منع كتابة كتالوج 1000 مصدر تلقائيًا أثناء Refresh/Stats/Repair DB.
+7. الاحتفاظ بخيارات High Yield / Enable All / Disable All كعمليات صريحة فقط.
+8. إزالة limits.cpu_ms وsubrequests غير المدعومة على الخطة المجانية.
+9. تثبيت Queue Producer binding باسم QUEUE داخل Worker المستهلك.
+10. تثبيت Consumer على batch size = 1 وconcurrency = 1 للاختبار الآمن.
+11. تحديث الإصدار وService Worker cache إلى V34.2 لمنع Safari من استخدام ملفات قديمة.
+12. الحفاظ على Folder-only ورفض file ورفض folder بدون key والأرشيف وPause/Resume.
+
+الأسباب المؤكدة التي كانت تؤدي إلى الفشل:
+- الدفعة التالية من المصادر لا تُزرع مباشرة بعد انتهاء Queue batch.
+- Resume يصبح شبه بلا تأثير إذا كانت D1 تحتوي Pending orphan rows مع وجود Cloud Queue.
+- ensureSourcePolicy كان ينفذ Bulk UPSERT لعدد 1000 مصدر عند تغير Marker.
+- wrangler.queue.jsonc الأصلي أعاد limits غير مدعومة وbatch size مرتفعًا.
+- الاعتماد على Cron كل خمس دقائق يجعل النظام يبدو متوقفًا بين الجولات.
+
+الاختبارات المحلية:
+- _worker.js syntax: PASS
+- queue-consumer.js syntax: PASS
+- Frontend inline JavaScript syntax: PASS
+- Core tests: 12 PASS
+- V34.2 regression/static tests: 26 PASS
+- Catalog: 1000
+- Default enabled: 84
+
+ما لم يتم إثباته محليًا:
+- استجابة Meawfy والمصادر الحية وقت النشر.
+- سلوك D1 وQueue تحت حمل حقيقي طويل.
+- حدود الخطة المجانية أثناء ساعات من AutoScan.
+- Browser Rendering للمواقع المعتمدة بالكامل على JavaScript.
+
+قرار النشر:
+ارفع V34.2 إلى Staging/Production التجريبي بعد أخذ نسخة احتياطية من المستودع. لا تمسح D1 أو Archive. امسح فقط رسائل Cloud Queue القديمة قبل أول Run جديد.
+
+خطوات ما بعد الرفع:
+1. تأكد من Pages Deployment = Success.
+2. تأكد من Queue Worker Deployment = Success.
+3. تأكد من DB → nimbus-db.
+4. تأكد من QUEUE → nimbus-autoscan-queue داخل nimbus-core-queue.
+5. تأكد من Consumer وCron */5 * * * *.
+6. Purge لرسائل Queue القديمة.
+7. Logout/Login لتحديث Cache وToken.
+8. Repair DB مرة واحدة.
+9. Refresh Sources والتأكد من 1000/84.
+10. تشغيل Keyword Search صغير ومراقبة أن Source progress يتقدم دون انتظار خمس دقائق بين كل شريحة.

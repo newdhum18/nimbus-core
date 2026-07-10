@@ -1,10 +1,10 @@
 {
-  "name": "nimbus-core-v34-1-clean-orchestrator",
+  "name": "nimbus-core-v34-2-resilient-pipeline",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node tests/core.test.mjs && node tests/v34.test.mjs",
     "check": "node --check _worker.js && node --check queue-consumer.js && npm test"
   },
-  "version": "34.1.0"
+  "version": "34.2.0"
 }

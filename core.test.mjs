@@ -23,4 +23,4 @@ const catalog = core.catalogSources();
 assert.equal(catalog.length, 1000);
 const enabled = catalog.filter(core.defaultSourceEnabled).length;
 assert.ok(enabled > 0 && enabled < 200);
-console.log(JSON.stringify({ok:true, tests:12, catalog:catalog.length, default_enabled:enabled, version:'34.1-clean-orchestrator'}, null, 2));
+console.log(JSON.stringify({ok:true, tests:12, catalog:catalog.length, default_enabled:enabled, version:'34.2-resilient-pipeline'}, null, 2));

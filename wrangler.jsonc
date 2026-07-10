@@ -10,16 +10,9 @@
       "database_id": "ab619b87-8888-4eea-a632-304af715c786"
     }
   ],
-  "limits": {
-    "cpu_ms": 30000,
-    "subrequests": 1000
-  },
   "queues": {
     "producers": [
-      {
-        "binding": "QUEUE",
-        "queue": "nimbus-autoscan-queue"
-      }
+      { "binding": "QUEUE", "queue": "nimbus-autoscan-queue" }
     ]
   }
 }

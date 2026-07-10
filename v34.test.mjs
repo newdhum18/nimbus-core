@@ -7,7 +7,7 @@ const sw=fs.readFileSync('service-worker.js','utf8');
 const queueCfg=fs.readFileSync('wrangler.queue.jsonc','utf8');
 const checks=[];
 function ok(name, cond){assert.ok(cond,name);checks.push(name)}
-ok('V34.1 version', worker.includes("34.1-clean-orchestrator"));
+ok('V34.2 version', worker.includes("34.2-resilient-pipeline"));
 ok('No global queue fallback', !worker.includes("processQueue(env, '', Math.min"));
 ok('Pause checked server side', worker.includes("state.status==='paused'"));
 ok('Source cursor does not wrap', !worker.includes("(sourceOffset + selected.length) % allSources.length"));
@@ -29,4 +29,9 @@ ok('crawl children are sent to cloud queue', worker.includes('await enqueueManyC
 ok('progress counts all nonterminal queue states', worker.includes("status IN ('pending','running','leased','retry_wait')"));
 ok('frontend clears expired auth automatically', ui.includes("session_expired"));
 ok('frontend protects against disappearing source catalog', ui.includes('empty_source_catalog'));
+ok('Queue batch orchestrates next source slice', worker.includes('runIds.map(id=>orchestrateRun'));
+ok('Resume drains orphaned D1 shadow tasks', worker.includes('Resume must make progress even when D1 contains orphaned shadow rows'));
+ok('Normal source reads avoid 1000-row policy write', worker.includes('bulk_write:false') && !worker.match(/ensureSourcePolicy[\s\S]{0,1200}applySourcePreset\(env, 'high_yield'\)/));
+ok('Free plan config has no custom limits', !queueCfg.includes('"limits"'));
+ok('Conservative queue batch size', queueCfg.includes('"max_batch_size": 1') && queueCfg.includes('"max_concurrency": 1'));
 console.log(JSON.stringify({ok:true,tests:checks.length,checks},null,2));
