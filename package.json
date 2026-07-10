@@ -1,0 +1,10 @@
+{
+  "name": "nimbus-core-v34-1-clean-orchestrator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/core.test.mjs && node tests/v34.test.mjs",
+    "check": "node --check _worker.js && node --check queue-consumer.js && npm test"
+  },
+  "version": "34.1.0"
+}

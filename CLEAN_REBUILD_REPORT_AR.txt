@@ -1,0 +1,53 @@
+NIMBUS CORE V34.1 CLEAN ORCHESTRATOR
+=====================================
+
+سبب إعادة البناء
+----------------
+تم تأكيد أن توقف V34 لم يكن سببه D1 أو ربط Queue الأساسي. السبب الجوهري كان أن Queue Consumer يستطيع استهلاك مهام المصدر، لكنه لم يكن يملك Producer binding لإعادة إرسال مهام Crawl الفرعية إلى نفس Queue. بعض المهام الفرعية كانت تحفظ في D1 Shadow Queue فقط، بينما Cron كان يتجنب معالجة D1 عند وجود Cloud Queue. النتيجة: ارتفاع Pending، توقف النسبة، Resume لا يحرك العمل، وظهور No active run مع بقاء مهام.
+
+الإصلاحات المنفذة
+-----------------
+1. إضافة Producer binding باسم QUEUE إلى Worker المستهلك نفسه.
+2. إرسال Crawl child tasks إلى Cloudflare Queue مع D1 Shadow بدل D1 فقط.
+3. إبقاء Cron safety drain صغير لمعالجة المهام اليتيمة أو فشل الإرسال المؤقت.
+4. احتساب pending/running/leased/retry_wait ضمن تقدم Run.
+5. التحقق من Token عند فتح التطبيق وحذف Token المنتهي تلقائياً.
+6. إظهار session_expired بدلاً من بقاء الواجهة في unauthorized.
+7. جعل Repair DB يعرض حالة واضحة ثم يحدث Dashboard وSources.
+8. منع اختفاء قائمة Sources عند فشل طلب مؤقت، والاحتفاظ بالنسخة السابقة.
+9. جعل Sources API يطبق سياسة المصادر الصحيحة قبل الإرجاع.
+10. تحديث الإصدار وCache إلى V34.1 لتجنب ملفات Safari القديمة.
+11. المحافظة على Folder-only ورفض file ورفض folder بدون key.
+12. المحافظة على Archive وPause وResume وON/OFF وCron وD1.
+
+الاختبارات المحلية
+------------------
+Core tests: 12 PASS
+V34.1 regression tests: 21 PASS
+_worker.js syntax: PASS
+queue-consumer.js syntax: PASS
+Catalog: 1000
+Default enabled: 84
+
+ما لا يمكن إثباته محلياً
+-----------------------
+1. استجابة المصادر الحية وحالات 403/429/Captcha.
+2. استهلاك Queue الحقيقي بعد النشر.
+3. أداء D1 وCPU في حساب Cloudflare الفعلي.
+4. Browser rendering للمواقع التي تتطلب JavaScript.
+
+طريقة الرفع الصحيحة
+-------------------
+1. احذف جميع ملفات مستودع GitHub الحالي أو أنشئ مستودعاً جديداً نظيفاً.
+2. ارفع محتويات هذا ZIP فقط إلى جذر المستودع.
+3. انتظر نجاح Pages deployment.
+4. تأكد أن Pages bindings هي DB -> nimbus-db وQUEUE -> nimbus-autoscan-queue.
+5. Worker nimbus-core-queue يجب أن يستخدم:
+   npx wrangler deploy --config wrangler.queue.jsonc
+6. تأكد من Queue Bindings:
+   Producer nimbus-core -> Queue -> Consumer nimbus-core-queue.
+7. تأكد من Cron: */5 * * * *
+8. Purge لرسائل Queue القديمة قبل أول اختبار.
+9. افتح التطبيق، Logout ثم Login لإزالة Cache/Token القديم.
+10. شغل Repair DB مرة واحدة.
+11. اختبر Keyword Search صغيراً وراقب Queue Acknowledged وD1 pages.
