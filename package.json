@@ -1,9 +1,0 @@
-{
-  "name": "nimbus-core-v34",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "test": "node tests/core.test.mjs && node tests/v34.test.mjs",
-    "check": "node --check _worker.js && node --check queue-consumer.js && npm test"
-  }
-}
