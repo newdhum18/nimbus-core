@@ -1,24 +1,23 @@
-# Nimbus Core V29.1 Test Report
+# Nimbus Core V30 Test Report
 
-Version: 29.1-mega-api-comments-queue
+Version: 30.0-target-decoder-search-engine
 
-Local verification:
-- JavaScript syntax: PASS
-- Extraction tests: PASS
-- Bulk folder extraction tests: PASS
-- File link rejection: PASS
-- Folder without key rejection: PASS
-- Encoded URL extraction: PASS
-- Reddit comment target expansion: PASS
-- GitHub issue/pull comments target expansion: PASS
-- Hacker News comment tree target expansion: PASS
-- Telegram public comment page target expansion: PASS
-- Source catalog count: 1000
+Status: PASS
+
+Local checks completed:
+- JavaScript syntax check for `_worker.js`: PASS
+- JavaScript syntax check for `queue-consumer.js`: PASS
+- MEGA folder extraction: PASS
+- MEGA file rejection: PASS
+- Encoded MEGA extraction: PASS
+- Bing `/ck/a?u=a1...` target decoder: PASS
+- DuckDuckGo `uddg=` target decoder: PASS
+- Google `/url?q=` target decoder support: PRESENT
+- Rentry raw target generation: PASS
+- Pastebin raw target generation: PASS
+- 1000-source catalog retained: PASS
+- High-yield enabled sources: 107
 - GitHub/social/video disabled by default: PASS
-- Meawfy API source enabled by default: PASS
+- D1 source policy refresh on version change: PASS
 
-Total local checks: 1512 / 1512 PASS
-
-Notes:
-- MEGA API validation code is included. Live validation depends on network availability from Cloudflare to g.api.mega.co.nz.
-- JavaScript-only comment systems cannot be fully rendered in Cloudflare Workers; public JSON/comment endpoints and HTML-exposed comments are supported.
+Important note: public search results can still return zero if indexed pages do not contain complete `mega.nz/folder/<id>#<key>` links. V30 fixes the major decoder issue that previously caused Bing/DDG/Google result wrappers to be ignored.
