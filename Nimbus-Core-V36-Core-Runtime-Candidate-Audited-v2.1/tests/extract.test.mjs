@@ -1,0 +1,55 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { classifyMegaFolder, extractMegaFolders } from "../src/extract/mega.js";
+import { unwrapCommonRedirect } from "../src/extract/redirects.js";
+
+const modern = "https://mega.nz/folder/AbCdEf12#AbCdEfGhIjKlMnOpQrStUv";
+const legacy = "https://mega.nz/#F!AbCdEf12!AbCdEfGhIjKlMnOpQrStUv";
+
+test("accepts modern folder", () => {
+  assert.equal(classifyMegaFolder(modern).valid, true);
+});
+
+test("accepts legacy when enabled", () => {
+  assert.equal(classifyMegaFolder(legacy).valid, true);
+});
+
+test("rejects legacy when disabled", () => {
+  assert.equal(classifyMegaFolder(legacy, { allowLegacy: false }).valid, false);
+});
+
+test("rejects file link", () => {
+  const result = classifyMegaFolder("https://mega.nz/file/AbCdEf12#AbCdEfGhIjKlMnOpQrStUv");
+  assert.equal(result.valid, false);
+  assert.equal(result.type, "file");
+});
+
+test("rejects missing key", () => {
+  assert.equal(classifyMegaFolder("https://mega.nz/folder/AbCdEf12").valid, false);
+});
+
+test("deduplicates", () => {
+  assert.equal(extractMegaFolders(`${modern} ${modern}`).length, 1);
+});
+
+test("extracts escaped slash URL", () => {
+  const escaped = modern.replaceAll("/", "\\/");
+  assert.equal(extractMegaFolders(escaped).length, 1);
+});
+
+test("extracts HTML entity hash", () => {
+  const encoded = modern.replace("#", "&#35;");
+  assert.equal(extractMegaFolders(encoded).length, 1);
+});
+
+test("extracts percent encoded URL", () => {
+  assert.equal(extractMegaFolders(encodeURIComponent(modern)).length, 1);
+});
+
+test("redirect unwrap is safe", () => {
+  assert.equal(
+    unwrapCommonRedirect(`https://example.com/?url=${encodeURIComponent(modern)}`),
+    modern
+  );
+  assert.equal(unwrapCommonRedirect("not-a-url"), "not-a-url");
+});

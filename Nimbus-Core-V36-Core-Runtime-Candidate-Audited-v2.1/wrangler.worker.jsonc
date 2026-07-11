@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nimbus-core-v36-worker",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-07-11",
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nimbus-core-v36-db",
+      "database_id": "REPLACE_WITH_APPROVED_D1_DATABASE_ID"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "QUEUE",
+        "queue": "nimbus-core-v36-queue"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "nimbus-core-v36-queue",
+        "max_batch_size": 1,
+        "max_batch_timeout": 2,
+        "max_retries": 5,
+        "retry_delay": 30,
+        "max_concurrency": 1
+      }
+    ]
+  },
+  "observability": {
+    "enabled": true
+  }
+}

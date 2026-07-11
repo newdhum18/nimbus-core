@@ -1,0 +1,31 @@
+{
+  "name": "nimbus-core-v36",
+  "version": "36.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Nimbus Core V36 modular runtime candidate",
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "build:web": "node scripts/build-web.mjs",
+    "check:config": "node scripts/check-config.mjs",
+    "check:release": "node scripts/check-release.mjs",
+    "validate": "npm run clean && npm run check:config && npm test && npm run check:cloudflare && npm run check:runtime && npm run build:web",
+    "validate:source": "npm run clean && npm run check:config && npm test",
+    "predeploy:worker": "npm run validate && npm run check:release",
+    "deploy:worker": "wrangler deploy --config wrangler.worker.jsonc",
+    "deploy:worker:dry": "wrangler deploy --dry-run --outdir .wrangler/dry-run --config wrangler.worker.jsonc",
+    "db:apply:local": "wrangler d1 execute nimbus-core-v36-db --local --file=src/db/schema.sql --config wrangler.worker.jsonc",
+    "db:apply:remote": "wrangler d1 execute nimbus-core-v36-db --remote --file=src/db/schema.sql --config wrangler.worker.jsonc",
+    "check:cloudflare": "node scripts/validate-cloudflare.mjs",
+    "check:runtime": "node scripts/validate-runtime.mjs",
+    "test:core": "node --test tests/*.test.mjs",
+    "verify": "npm run validate:source && npm run build:web"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "wrangler": "4.110.0"
+  }
+}
