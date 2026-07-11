@@ -4,13 +4,15 @@
   "main": "src/worker.js",
   "compatibility_date": "2026-07-11",
   "workers_dev": true,
+
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "nimbus-core-v36-db",
-      "database_id": "REPLACE_WITH_APPROVED_D1_DATABASE_ID"
+      "database_id": "bfe40290-c3bc-45c1-b91d-9af58baf9738"
     }
   ],
+
   "queues": {
     "producers": [
       {
@@ -18,6 +20,7 @@
         "queue": "nimbus-core-v36-queue"
       }
     ],
+
     "consumers": [
       {
         "queue": "nimbus-core-v36-queue",
@@ -29,6 +32,7 @@
       }
     ]
   },
+
   "observability": {
     "enabled": true
   }
