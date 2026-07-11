@@ -13,6 +13,7 @@ function run(command, args, options = {}) {
     });
 
     child.once("error", reject);
+
     child.once("exit", (code, signal) => {
       if (code === 0) {
         resolve();
@@ -84,9 +85,7 @@ async function waitForWorker({
         signal: AbortSignal.timeout(2000)
       });
 
-      if (response.ok) {
-        return response;
-      }
+      if (response.ok) return response;
 
       lastError = new Error(
         `Worker returned HTTP ${response.status} while waiting for ${url}`
@@ -109,7 +108,7 @@ async function waitForWorker({
   );
 }
 
-async function fetchJson(url, options) {
+async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
     ...options,
     signal: AbortSignal.timeout(5000)
@@ -135,6 +134,40 @@ async function fetchJson(url, options) {
   return payload;
 }
 
+async function stopProcessGroup(worker, processState) {
+  if (!worker || processState.exited) return;
+
+  try {
+    process.kill(-worker.pid, "SIGTERM");
+  } catch {
+    try {
+      worker.kill("SIGTERM");
+    } catch {}
+  }
+
+  await Promise.race([
+    new Promise((resolve) => worker.once("exit", resolve)),
+    sleep(5000)
+  ]);
+
+  if (!processState.exited) {
+    try {
+      process.kill(-worker.pid, "SIGKILL");
+    } catch {
+      try {
+        worker.kill("SIGKILL");
+      } catch {}
+    }
+
+    await Promise.race([
+      new Promise((resolve) => worker.once("exit", resolve)),
+      sleep(3000)
+    ]);
+  }
+
+  await sleep(1000);
+}
+
 await rm(".wrangler", { recursive: true, force: true });
 await mkdir(".wrangler", { recursive: true });
 
@@ -148,6 +181,7 @@ const configPath = ".validation.runtime.json";
 await writeFile(configPath, JSON.stringify(config, null, 2));
 
 const port = await freePort();
+
 const processState = {
   exited: false,
   code: null,
@@ -158,8 +192,7 @@ const processState = {
 let worker;
 
 try {
-  await run("npx", [
-    "wrangler",
+  await run("wrangler", [
     "d1",
     "execute",
     "nimbus-core-v36-db",
@@ -172,9 +205,8 @@ try {
   ]);
 
   worker = spawn(
-    "npx",
+    "wrangler",
     [
-      "wrangler",
       "dev",
       "--local",
       "--ip",
@@ -191,7 +223,8 @@ try {
       env: {
         ...process.env,
         CI: "true"
-      }
+      },
+      detached: true
     }
   );
 
@@ -270,19 +303,12 @@ try {
 
   console.log("Local Worker runtime validation PASS");
 } finally {
-  if (worker && !processState.exited) {
-    worker.kill("SIGTERM");
-
-    await Promise.race([
-      new Promise((resolve) => worker.once("exit", resolve)),
-      sleep(3000)
-    ]);
-
-    if (!processState.exited) {
-      worker.kill("SIGKILL");
-    }
-  }
+  await stopProcessGroup(worker, processState);
 
   await rm(configPath, { force: true });
+
+  // لا نحذف .wrangler هنا فورًا؛ لأن Wrangler قد يكمل إغلاق
+  // عمليات داخلية قصيرة بعد توقف الخادم.
+  await sleep(1500);
   await rm(".wrangler", { recursive: true, force: true });
 }
