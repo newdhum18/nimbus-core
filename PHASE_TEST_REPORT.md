@@ -1,33 +1,19 @@
-# Test Report
+# Phase 10 Test Report
 
-## Summary
+Version: 36.6.0
+Status: PASS LOCAL / READY FOR GITHUB BRANCH VALIDATION
 
-Total automated tests: 45  
-Passed: 45  
-Failed: 0  
-Skipped: 0
+## Results
 
-## Completed checks
+- Automated Node tests: 82 passed, 0 failed, 0 skipped.
+- Source validation: PASS.
+- Web build: PASS.
+- Static Cloudflare configuration validation: PASS.
+- Wrangler Worker bundle dry-run: PASS.
+- Local D1 schema application twice: PASS.
+- Local Worker runtime validation: PASS.
+- Official resource-name validation: PASS.
 
-- Clean source check: PASS
-- Configuration validation: PASS
-- Architecture tests: PASS
-- Batch tests: PASS
-- Config tests: PASS
-- CORS tests: PASS
-- Extraction tests: PASS
-- Queue unit tests: PASS
-- Router tests: PASS
-- Schema tests: PASS
-- Search tests: PASS
-- Sources tests: PASS
-- Web build: PASS
-- Wrangler Worker dry-run: PASS
-- Local D1 schema application: PASS
-- Local D1 second application: PASS
+## Scope limits
 
-## Important limitation
-
-The release gate is expected to fail until the real D1 database ID replaces the placeholder in `wrangler.worker.jsonc`.
-
-Live Cloudflare deployment and end-to-end production tests were not executed.
+No GitHub push, pull request, Cloudflare deployment, production D1 migration, or live search-engine request was performed.

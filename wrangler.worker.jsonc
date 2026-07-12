@@ -9,7 +9,8 @@
     {
       "binding": "DB",
       "database_name": "nimbus-core-v36-db",
-      "database_id": "bfe40290-c3bc-45c1-b91d-9af58baf9738"
+      "database_id": "bfe40290-c3bc-45c1-b91d-9af58baf9738",
+      "migrations_dir": "src/db/migrations"
     }
   ],
 

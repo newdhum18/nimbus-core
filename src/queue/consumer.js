@@ -5,6 +5,7 @@ import { uid, nowIso } from "../db/queries.js";
 import { syncRunProgress } from "../runs/progress.js";
 import { recordSourceResult } from "../sources/metrics.js";
 import { SYSTEM } from "../config.js";
+import { validateTaskMessage } from "./contract.js";
 
 async function event(db, {
   runId = null,
@@ -84,7 +85,8 @@ async function persistLinks(env, task, pageId, links) {
   return inserted;
 }
 
-async function processTask(env, taskId) {
+export async function processTask(env, messageBody) {
+  const taskId = messageBody.task_id;
   const task = await env.DB.prepare(`
     SELECT t.*,r.status run_status
     FROM run_tasks t
@@ -93,6 +95,10 @@ async function processTask(env, taskId) {
   `).bind(taskId).first();
 
   if (!task) return { action: "ack", reason: "missing_task" };
+  if (task.run_id !== messageBody.run_id) {
+    await event(env.DB, { runId: task.run_id, taskId, type: "queue_message_rejected", level: "warning", message: "Queue message run mismatch", details: { message_run_id: messageBody.run_id, message_id: messageBody.message_id } }).catch(() => {});
+    return { action: "ack", reason: "cross_run_mismatch" };
+  }
   if (["completed", "cancelled", "dead"].includes(task.status)) {
     return { action: "ack", reason: "terminal_task" };
   }
@@ -213,13 +219,14 @@ async function processTask(env, taskId) {
 export async function consumeBatch(batch, env) {
   for (const message of batch.messages) {
     try {
-      const body = message.body || {};
-      if (body.type !== "run_task" || !body.taskId) {
+      const validation = validateTaskMessage(message.body);
+      if (!validation.ok) {
+        console.warn("queue_message_rejected", validation.reason, validation.fields || []);
         message.ack();
         continue;
       }
 
-      const result = await processTask(env, body.taskId);
+      const result = await processTask(env, validation.value);
       if (result.action === "retry") {
         message.retry({ delaySeconds: result.delaySeconds || SYSTEM.queueRetryDelaySeconds });
       } else {

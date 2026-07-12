@@ -1,9 +1,9 @@
 {
   "name": "nimbus-core-v36",
-  "version": "36.1.0",
+  "version": "36.6.0",
   "private": true,
   "type": "module",
-  "description": "Nimbus Core V36 modular runtime candidate",
+  "description": "Nimbus Core V36 Phase 10 search adapter core",
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "test": "node --test tests/*.test.mjs",
@@ -15,12 +15,18 @@
     "predeploy:worker": "npm run validate && npm run check:release",
     "deploy:worker": "wrangler deploy --config wrangler.worker.jsonc",
     "deploy:worker:dry": "wrangler deploy --dry-run --outdir .wrangler/dry-run --config wrangler.worker.jsonc",
-    "db:apply:local": "wrangler d1 execute nimbus-core-v36-db --local --file=src/db/schema.sql --config wrangler.worker.jsonc",
-    "db:apply:remote": "wrangler d1 execute nimbus-core-v36-db --remote --file=src/db/schema.sql --config wrangler.worker.jsonc",
+    "db:apply:local": "wrangler d1 migrations apply nimbus-core-v36-db --local --config wrangler.worker.jsonc",
+    "db:apply:remote": "wrangler d1 migrations apply nimbus-core-v36-db --remote --config wrangler.worker.jsonc",
     "check:cloudflare": "node scripts/validate-cloudflare.mjs",
     "check:runtime": "node scripts/validate-runtime.mjs",
     "test:core": "node --test tests/*.test.mjs",
-    "verify": "npm run validate:source && npm run build:web"
+    "verify": "npm run validate:source && npm run build:web",
+    "db:test": "node --test tests/database-core.test.mjs",
+    "db:verify": "npm run db:test && npm test",
+    "db:migrate:local": "node scripts/db-migrate-local.mjs",
+    "db:migrate:dry": "node scripts/db-migrate-local.mjs --dry-run",
+    "db:inspect:local": "node scripts/db-inspect-local.mjs",
+    "db:repair:local": "node scripts/db-repair-local.mjs"
   },
   "engines": {
     "node": ">=22"

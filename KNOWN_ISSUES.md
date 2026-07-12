@@ -1,23 +1,6 @@
-# Known Issues — Runtime Candidate v2.0
+# Known Issues and Deferred Validation
 
-## Deployment blocker
-
-`wrangler.worker.jsonc` still contains `REPLACE_WITH_APPROVED_D1_DATABASE_ID`.
-It must be replaced by the real ID for `nimbus-core-v36-db` before any Worker deploy.
-
-## Not yet production-proven
-
-- Remote D1 schema application.
-- Long live Queue run.
-- Retry-to-dead path under Cloudflare delivery.
-- Live-source availability and blocking behavior.
-- Link health classification.
-- Cloudflare Access.
-- Cron recovery.
-
-## Deliberately deferred
-
-- Browser Rendering.
-- Automated source disabling/re-enabling.
-- Scheduled AutoScan.
-- Advanced health checker.
+1. Phase 10 must still pass GitHub Actions on the branch `phase-10-search-adapters`.
+2. No production deployment is approved until the pull request checks pass and the user explicitly approves merging into `main`.
+3. Search adapters are deterministic parser/building components; live-engine compatibility and orchestration belong to later phases.
+4. Search-engine HTML can change over time, so each live adapter will require monitored fixtures and controlled runtime tests before production use.

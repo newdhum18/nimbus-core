@@ -45,9 +45,10 @@ test("known endpoint with wrong method returns 405", async () => {
 
 test("run state conflict exposes run_id in the standard error envelope", async () => {
   const fakeDb = {
-    prepare() {
+    prepare(sql) {
       return {
         bind() { return this; },
+        async first() { return sql.includes("SELECT * FROM runs") ? { id: "run_123", status: "completed" } : null; },
         async run() { return { meta: { changes: 0 } }; }
       };
     }

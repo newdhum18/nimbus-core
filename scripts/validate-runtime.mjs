@@ -5,6 +5,9 @@ import net from "node:net";
 const sleep = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
+const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
+const wranglerArgs = ["--yes", "wrangler"];
+
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -192,7 +195,7 @@ const processState = {
 let worker;
 
 try {
-  await run("wrangler", [
+  await run(npxCommand, [...wranglerArgs,
     "d1",
     "execute",
     "nimbus-core-v36-db",
@@ -205,8 +208,8 @@ try {
   ]);
 
   worker = spawn(
-    "wrangler",
-    [
+    npxCommand,
+    [...wranglerArgs,
       "dev",
       "--local",
       "--ip",

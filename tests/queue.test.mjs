@@ -39,7 +39,7 @@ test("paused queued task returns to pending and message is acknowledged", async 
   let acknowledged = false;
   let retried = false;
   const message = {
-    body: { type: "run_task", taskId: "task_1" },
+    body: { schema: "nimbus.queue.v1", type: "run_task", message_id: "msg_1", run_id: "run_1", task_id: "task_1", attempt: 0, enqueued_at: "2026-07-12T00:00:00.000Z" },
     ack() { acknowledged = true; },
     retry() { retried = true; }
   };

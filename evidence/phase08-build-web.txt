@@ -1,0 +1,5 @@
+
+> nimbus-core-v36@36.4.0 build:web
+> node scripts/build-web.mjs
+
+Built web assets to dist/

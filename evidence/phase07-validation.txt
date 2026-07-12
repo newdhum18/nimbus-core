@@ -1,0 +1,1201 @@
+
+> nimbus-core-v36@36.3.0 validate
+> npm run clean && npm run check:config && npm test && npm run check:cloudflare && npm run check:runtime && npm run build:web
+
+
+> nimbus-core-v36@36.3.0 clean
+> node scripts/clean.mjs
+
+Cleaned generated directories
+
+> nimbus-core-v36@36.3.0 check:config
+> node scripts/check-config.mjs
+
+Configuration validation PASS
+
+> nimbus-core-v36@36.3.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: approved modules exist
+ok 1 - approved modules exist
+  ---
+  duration_ms: 7.09873
+  type: 'test'
+  ...
+# Subtest: source package does not contain dist
+ok 2 - source package does not contain dist
+  ---
+  duration_ms: 1.557141
+  type: 'test'
+  ...
+# Subtest: no old resource names in configs
+ok 3 - no old resource names in configs
+  ---
+  duration_ms: 2.315512
+  type: 'test'
+  ...
+# Subtest: worker remains small and modular
+ok 4 - worker remains small and modular
+  ---
+  duration_ms: 2.7812
+  type: 'test'
+  ...
+# Subtest: 300 items use fifteen batches of twenty
+ok 5 - 300 items use fifteen batches of twenty
+  ---
+  duration_ms: 0.705172
+  type: 'test'
+  ...
+# Subtest: oversized batch is rejected
+ok 6 - oversized batch is rejected
+  ---
+  duration_ms: 1.975178
+  type: 'test'
+  ...
+# Subtest: invalid handler is rejected
+ok 7 - invalid handler is rejected
+  ---
+  duration_ms: 0.351399
+  type: 'test'
+  ...
+# Subtest: partial failures are reported
+ok 8 - partial failures are reported
+  ---
+  duration_ms: 0.497431
+  type: 'test'
+  ...
+# Subtest: fixed system identity
+ok 9 - fixed system identity
+  ---
+  duration_ms: 0.648248
+  type: 'test'
+  ...
+# Subtest: worker configuration is clean
+ok 10 - worker configuration is clean
+  ---
+  duration_ms: 6.170028
+  type: 'test'
+  ...
+# Subtest: Pages has no backend bindings
+ok 11 - Pages has no backend bindings
+  ---
+  duration_ms: 1.238265
+  type: 'test'
+  ...
+# Subtest: allows production Pages origin
+ok 12 - allows production Pages origin
+  ---
+  duration_ms: 0.789757
+  type: 'test'
+  ...
+# Subtest: allows only project preview origins
+ok 13 - allows only project preview origins
+  ---
+  duration_ms: 0.185244
+  type: 'test'
+  ...
+# Subtest: rejects non-https and invalid origins
+ok 14 - rejects non-https and invalid origins
+  ---
+  duration_ms: 0.15559
+  type: 'test'
+  ...
+# Subtest: does not reflect an unapproved origin
+ok 15 - does not reflect an unapproved origin
+  ---
+  duration_ms: 94.058257
+  type: 'test'
+  ...
+# (node:22816) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: migration checksum is the real SHA-256 of its SQL file
+ok 16 - migration checksum is the real SHA-256 of its SQL file
+  ---
+  duration_ms: 75.697223
+  type: 'test'
+  ...
+# Subtest: fresh database creates exactly the approved eleven tables
+ok 17 - fresh database creates exactly the approved eleven tables
+  ---
+  duration_ms: 5.097568
+  type: 'test'
+  ...
+# Subtest: schema is idempotent across three consecutive applications
+ok 18 - schema is idempotent across three consecutive applications
+  ---
+  duration_ms: 3.630275
+  type: 'test'
+  ...
+# Subtest: single-active-run partial unique index is enforced
+ok 19 - single-active-run partial unique index is enforced
+  ---
+  duration_ms: 2.652235
+  type: 'test'
+  ...
+# Subtest: foreign keys cascade run-owned records
+ok 20 - foreign keys cascade run-owned records
+  ---
+  duration_ms: 3.293722
+  type: 'test'
+  ...
+# Subtest: folder-only and completeness constraints reject invalid rows
+ok 21 - folder-only and completeness constraints reject invalid rows
+  ---
+  duration_ms: 3.103917
+  type: 'test'
+  ...
+# Subtest: pagination and operational indexes are present
+ok 22 - pagination and operational indexes are present
+  ---
+  duration_ms: 77.432868
+  type: 'test'
+  ...
+# Subtest: nullable source task identity is duplicate-safe
+ok 23 - nullable source task identity is duplicate-safe
+  ---
+  duration_ms: 7.640506
+  type: 'test'
+  ...
+# Subtest: database source seed is deterministic at 300 total and 80 enabled
+ok 24 - database source seed is deterministic at 300 total and 80 enabled
+  ---
+  duration_ms: 6.065133
+  type: 'test'
+  ...
+# Subtest: upgrade path applies pending migrations after version one
+ok 25 - upgrade path applies pending migrations after version one
+  ---
+  duration_ms: 6.334856
+  type: 'test'
+  ...
+# Subtest: migration history rejects checksum drift
+ok 26 - migration history rejects checksum drift
+  ---
+  duration_ms: 1.978514
+  type: 'test'
+  ...
+# Subtest: accepts modern folder
+ok 27 - accepts modern folder
+  ---
+  duration_ms: 1.051574
+  type: 'test'
+  ...
+# Subtest: accepts legacy when enabled
+ok 28 - accepts legacy when enabled
+  ---
+  duration_ms: 0.282667
+  type: 'test'
+  ...
+# Subtest: rejects legacy when disabled
+ok 29 - rejects legacy when disabled
+  ---
+  duration_ms: 0.457311
+  type: 'test'
+  ...
+# Subtest: rejects file link
+ok 30 - rejects file link
+  ---
+  duration_ms: 0.178754
+  type: 'test'
+  ...
+# Subtest: rejects missing key
+ok 31 - rejects missing key
+  ---
+  duration_ms: 0.171804
+  type: 'test'
+  ...
+# Subtest: deduplicates
+ok 32 - deduplicates
+  ---
+  duration_ms: 0.627738
+  type: 'test'
+  ...
+# Subtest: extracts escaped slash URL
+ok 33 - extracts escaped slash URL
+  ---
+  duration_ms: 0.229359
+  type: 'test'
+  ...
+# Subtest: extracts HTML entity hash
+ok 34 - extracts HTML entity hash
+  ---
+  duration_ms: 0.244051
+  type: 'test'
+  ...
+# Subtest: extracts percent encoded URL
+ok 35 - extracts percent encoded URL
+  ---
+  duration_ms: 0.603411
+  type: 'test'
+  ...
+# Subtest: redirect unwrap is safe
+ok 36 - redirect unwrap is safe
+  ---
+  duration_ms: 0.524234
+  type: 'test'
+  ...
+# Subtest: paused queued task returns to pending and message is acknowledged
+ok 37 - paused queued task returns to pending and message is acknowledged
+  ---
+  duration_ms: 2.088597
+  type: 'test'
+  ...
+# Subtest: consumer can acquire a task while producer state is still dispatching
+ok 38 - consumer can acquire a task while producer state is still dispatching
+  ---
+  duration_ms: 0.375415
+  type: 'test'
+  ...
+# Subtest: health route works without bindings
+ok 39 - health route works without bindings
+  ---
+  duration_ms: 88.231391
+  type: 'test'
+  ...
+# Subtest: bindings route reports false bindings
+ok 40 - bindings route reports false bindings
+  ---
+  duration_ms: 0.51388
+  type: 'test'
+  ...
+# Subtest: unknown route returns structured 404 with CORS
+ok 41 - unknown route returns structured 404 with CORS
+  ---
+  duration_ms: 0.746944
+  type: 'test'
+  ...
+# Subtest: known endpoint with wrong method returns 405
+ok 42 - known endpoint with wrong method returns 405
+  ---
+  duration_ms: 0.63609
+  type: 'test'
+  ...
+# Subtest: run state conflict exposes run_id in the standard error envelope
+ok 43 - run state conflict exposes run_id in the standard error envelope
+  ---
+  duration_ms: 0.930295
+  type: 'test'
+  ...
+# (node:22851) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: run state machine allows only approved transitions
+ok 44 - run state machine allows only approved transitions
+  ---
+  duration_ms: 0.945928
+  type: 'test'
+  ...
+# Subtest: lifecycle applies optimistic transitions and records events
+ok 45 - lifecycle applies optimistic transitions and records events
+  ---
+  duration_ms: 79.546242
+  type: 'test'
+  ...
+# Subtest: terminal run cannot be restarted
+ok 46 - terminal run cannot be restarted
+  ---
+  duration_ms: 7.688157
+  type: 'test'
+  ...
+# Subtest: recovery is explicit and idempotent once active
+ok 47 - recovery is explicit and idempotent once active
+  ---
+  duration_ms: 6.806964
+  type: 'test'
+  ...
+# Subtest: positiveInt accepts boundaries and defaults
+ok 48 - positiveInt accepts boundaries and defaults
+  ---
+  duration_ms: 0.690931
+  type: 'test'
+  ...
+# Subtest: positiveInt rejects invalid values
+ok 49 - positiveInt rejects invalid values
+  ---
+  duration_ms: 0.293204
+  type: 'test'
+  ...
+# Subtest: nonEmptyString normalizes keyword
+ok 50 - nonEmptyString normalizes keyword
+  ---
+  duration_ms: 0.157784
+  type: 'test'
+  ...
+# Subtest: CSV export escapes commas, quotes and newlines
+ok 51 - CSV export escapes commas, quotes and newlines
+  ---
+  duration_ms: 0.747069
+  type: 'test'
+  ...
+# Subtest: schema contains approved tables only
+ok 52 - schema contains approved tables only
+  ---
+  duration_ms: 5.337604
+  type: 'test'
+  ...
+# Subtest: links are unique per run rather than globally
+ok 53 - links are unique per run rather than globally
+  ---
+  duration_ms: 1.640159
+  type: 'test'
+  ...
+# Subtest: task recovery fields exist
+ok 54 - task recovery fields exist
+  ---
+  duration_ms: 2.518251
+  type: 'test'
+  ...
+# Subtest: keyword query includes folder pattern
+ok 55 - keyword query includes folder pattern
+  ---
+  duration_ms: 1.027853
+  type: 'test'
+  ...
+# Subtest: blank keyword is rejected
+ok 56 - blank keyword is rejected
+  ---
+  duration_ms: 0.435083
+  type: 'test'
+  ...
+# Subtest: autoscan rounds are stable
+ok 57 - autoscan rounds are stable
+  ---
+  duration_ms: 0.178845
+  type: 'test'
+  ...
+# Subtest: ranking penalizes failures
+ok 58 - ranking penalizes failures
+  ---
+  duration_ms: 0.178524
+  type: 'test'
+  ...
+# Subtest: URL guard blocks local/private addresses
+ok 59 - URL guard blocks local/private addresses
+  ---
+  duration_ms: 0.577874
+  type: 'test'
+  ...
+# Subtest: URL guard blocks credentials, private ranges and unsupported ports
+ok 60 - URL guard blocks credentials, private ranges and unsupported ports
+  ---
+  duration_ms: 0.232433
+  type: 'test'
+  ...
+# Subtest: catalog has exactly 300 sources
+ok 61 - catalog has exactly 300 sources
+  ---
+  duration_ms: 3.195146
+  type: 'test'
+  ...
+# Subtest: catalog has exactly 80 enabled defaults
+ok 62 - catalog has exactly 80 enabled defaults
+  ---
+  duration_ms: 0.753533
+  type: 'test'
+  ...
+# Subtest: source IDs are unique
+ok 63 - source IDs are unique
+  ---
+  duration_ms: 1.822313
+  type: 'test'
+  ...
+# Subtest: source templates are unique
+ok 64 - source templates are unique
+  ---
+  duration_ms: 0.625124
+  type: 'test'
+  ...
+# Subtest: all templates use q placeholder
+ok 65 - all templates use q placeholder
+  ---
+  duration_ms: 0.629681
+  type: 'test'
+  ...
+1..65
+# tests 65
+# suites 0
+# pass 65
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 559.086033
+
+> nimbus-core-v36@36.3.0 check:cloudflare
+> node scripts/validate-cloudflare.mjs
+
+
+ ⛅️ wrangler 4.110.0
+────────────────────
+Total Upload: 61.92 KiB / gzip: 16.28 KiB
+Your Worker has access to the following bindings:
+Binding                                Resource         
+env.QUEUE (nimbus-core-v36-queue)      Queue            
+env.DB (nimbus-core-v36-db)            D1 Database      
+
+--dry-run: exiting now.
+
+ ⛅️ wrangler 4.110.0
+────────────────────
+Resource location: local 
+
+Use --remote if you want to access the remote instance.
+
+🌀 Executing on local database nimbus-core-v36-db (00000000-0000-0000-0000-000000000000) from .wrangler/state/v3/d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 32 commands executed successfully.
+[
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 1
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 1
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 3
+    }
+  }
+]
+
+ ⛅️ wrangler 4.110.0
+────────────────────
+Resource location: local 
+
+Use --remote if you want to access the remote instance.
+
+🌀 Executing on local database nimbus-core-v36-db (00000000-0000-0000-0000-000000000000) from .wrangler/state/v3/d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 32 commands executed successfully.
+[
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 1
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 5
+    }
+  }
+]
+Cloudflare dry-run and D1 idempotency validation PASS
+
+> nimbus-core-v36@36.3.0 check:runtime
+> node scripts/validate-runtime.mjs
+
+
+ ⛅️ wrangler 4.110.0
+────────────────────
+Resource location: local 
+
+Use --remote if you want to access the remote instance.
+
+🌀 Executing on local database nimbus-core-v36-db (00000000-0000-0000-0000-000000000000) from .wrangler/state/v3/d1:
+🌀 To execute on your remote database, add a --remote flag to your wrangler command.
+🚣 32 commands executed successfully.
+[
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 1
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 0
+    }
+  },
+  {
+    "results": [],
+    "success": true,
+    "meta": {
+      "duration": 2
+    }
+  }
+]
+
+ ⛅️ wrangler 4.110.0
+────────────────────
+Your Worker has access to the following bindings:
+Binding                                Resource         Mode
+env.QUEUE (nimbus-core-v36-queue)      Queue            local
+env.DB (nimbus-core-v36-db)            D1 Database      local
+
+⎔ Starting local server...
+[wrangler:warn] Unable to fetch the `Request.cf` object! Falling back to a default placeholder...
+TimeoutError: The operation was aborted due to timeout
+    at new DOMException (node:internal/per_context/domexception:53:5)
+    at Timeout._onTimeout (node:internal/abort_controller:155:9)
+    at listOnTimeout (node:internal/timers:588:17)
+    at process.processTimers (node:internal/timers:523:7)
+    at /mnt/data/phase7_work/Nimbus-Core-V36-Phase-06.1-Database-Core-Final-v1.4.1/node_modules/undici/index.js:157:7
+    at async setupCf (/mnt/data/phase7_work/Nimbus-Core-V36-Phase-06.1-Database-Core-Final-v1.4.1/node_modules/miniflare/dist/src/index.js:58508:17)
+    at async #assembleConfig (/mnt/data/phase7_work/Nimbus-Core-V36-Phase-06.1-Database-Core-Final-v1.4.1/node_modules/miniflare/dist/src/index.js:91113:26)
+    at async #assembleAndUpdateConfig (/mnt/data/phase7_work/Nimbus-Core-V36-Phase-06.1-Database-Core-Final-v1.4.1/node_modules/miniflare/dist/src/index.js:91455:20)
+    at async Mutex.runWith (/mnt/data/phase7_work/Nimbus-Core-V36-Phase-06.1-Database-Core-Final-v1.4.1/node_modules/miniflare/dist/src/index.js:59727:48)
+[wrangler:warn] Unable to fetch the `Request.cf` object! Falling back to a default placeholder...
+TimeoutError: The operation was aborted due to timeout
+    at new DOMException (node:internal/per_context/domexception:53:5)
+    at Timeout._onTimeout (node:internal/abort_controller:155:9)
+    at listOnTimeout (node:internal/timers:588:17)
+    at process.processTimers (node:internal/timers:523:7)
+    at /mnt/data/phase7_work/Nimbus-Core-V36-Phase-06.1-Database-Core-Final-v1.4.1/node_modules/undici/index.js:157:7
+    at async setupCf (/mnt/data/phase7_work/Nimbus-Core-V36-Phase-06.1-Database-Core-Final-v1.4.1/node_modules/miniflare/dist/src/index.js:58508:17)
+    at async #assembleConfig (/mnt/data/phase7_work/Nimbus-Core-V36-Phase-06.1-Database-Core-Final-v1.4.1/node_modules/miniflare/dist/src/index.js:91113:26)
+    at async #assembleAndUpdateConfig (/mnt/data/phase7_work/Nimbus-Core-V36-Phase-06.1-Database-Core-Final-v1.4.1/node_modules/miniflare/dist/src/index.js:91455:20)
+    at async Mutex.runWith (/mnt/data/phase7_work/Nimbus-Core-V36-Phase-06.1-Database-Core-Final-v1.4.1/node_modules/miniflare/dist/src/index.js:59727:48)
+    at async #waitForReady (/mnt/data/phase7_work/Nimbus-Core-V36-Phase-06.1-Database-Core-Final-v1.4.1/node_modules/miniflare/dist/src/index.js:91634:5)
+    at async #onBundleComplete (/mnt/data/phase7_work/Nimbus-Core-V36-Phase-06.1-Database-Core-Final-v1.4.1/node_modules/wrangler/wrangler-dist/cli.js:364353:33)
+    at async Mutex.runWith (/mnt/data/phase7_work/Nimbus-Core-V36-Phase-06.1-Database-Core-Final-v1.4.1/node_modules/miniflare/dist/src/index.js:59727:48)
+⎔ Connection status updated
+Your Worker has access to the following bindings:
+Binding                                Resource         Mode
+env.QUEUE (nimbus-core-v36-queue)      Queue            local
+env.DB (nimbus-core-v36-db)            D1 Database      local
+
+[wrangler:info] Ready on http://127.0.0.1:45215
+[wrangler:info] GET /health 200 OK (9ms)
+[wrangler:info] GET /bindings 200 OK (3ms)
+[wrangler:info] GET /api/foundation/db-test 200 OK (22ms)
+[wrangler:info] POST /api/sources/reset 200 OK (70ms)
+[wrangler:info] GET /api/diagnostics 200 OK (8ms)
+Local Worker runtime validation PASS
+
+> nimbus-core-v36@36.3.0 build:web
+> node scripts/build-web.mjs
+
+Built web assets to dist/
