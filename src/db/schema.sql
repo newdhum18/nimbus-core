@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS runs (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_runs_single_active
 ON runs((1)) WHERE status IN ('running','paused','recovering');
+CREATE INDEX IF NOT EXISTS idx_runs_created_at ON runs(created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_runs_status_updated ON runs(status, updated_at DESC);
 
 CREATE TABLE IF NOT EXISTS sources (
   id TEXT PRIMARY KEY,
@@ -41,9 +43,8 @@ CREATE TABLE IF NOT EXISTS sources (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
-
-CREATE INDEX IF NOT EXISTS idx_sources_enabled_priority
-ON sources(enabled, priority DESC);
+CREATE INDEX IF NOT EXISTS idx_sources_enabled_priority ON sources(enabled, priority DESC, id ASC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sources_template_url ON sources(template_url);
 
 CREATE TABLE IF NOT EXISTS run_tasks (
   id TEXT PRIMARY KEY,
@@ -63,12 +64,9 @@ CREATE TABLE IF NOT EXISTS run_tasks (
   last_error TEXT,
   UNIQUE(run_id, source_id, url, task_type)
 );
-
-CREATE INDEX IF NOT EXISTS idx_tasks_run_status
-ON run_tasks(run_id, status, priority DESC);
-
-CREATE INDEX IF NOT EXISTS idx_tasks_lease
-ON run_tasks(status, lease_until);
+CREATE INDEX IF NOT EXISTS idx_tasks_run_status ON run_tasks(run_id, status, priority DESC, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_tasks_lease ON run_tasks(status, lease_until);
+CREATE INDEX IF NOT EXISTS idx_tasks_status_updated ON run_tasks(status, updated_at ASC);
 
 CREATE TABLE IF NOT EXISTS source_metrics (
   source_id TEXT PRIMARY KEY REFERENCES sources(id) ON DELETE CASCADE,
@@ -101,9 +99,8 @@ CREATE TABLE IF NOT EXISTS pages (
   error_message TEXT,
   UNIQUE(run_id, normalized_url)
 );
-
-CREATE INDEX IF NOT EXISTS idx_pages_run
-ON pages(run_id, fetched_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pages_run ON pages(run_id, fetched_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_pages_source ON pages(source_id, fetched_at DESC);
 
 CREATE TABLE IF NOT EXISTS links (
   id TEXT PRIMARY KEY,
@@ -120,12 +117,9 @@ CREATE TABLE IF NOT EXISTS links (
   checked_at TEXT,
   UNIQUE(run_id, normalized_url)
 );
-
-CREATE INDEX IF NOT EXISTS idx_links_run
-ON links(run_id, discovered_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_links_normalized
-ON links(normalized_url);
+CREATE INDEX IF NOT EXISTS idx_links_run ON links(run_id, discovered_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_links_normalized ON links(normalized_url);
+CREATE INDEX IF NOT EXISTS idx_links_validation ON links(validation_status, checked_at ASC);
 
 CREATE TABLE IF NOT EXISTS visited_urls (
   normalized_url TEXT PRIMARY KEY,
@@ -135,6 +129,7 @@ CREATE TABLE IF NOT EXISTS visited_urls (
   last_seen_at TEXT NOT NULL,
   visit_count INTEGER NOT NULL DEFAULT 1 CHECK(visit_count >= 1)
 );
+CREATE INDEX IF NOT EXISTS idx_visited_last_seen ON visited_urls(last_seen_at DESC, normalized_url ASC);
 
 CREATE TABLE IF NOT EXISTS events (
   id TEXT PRIMARY KEY,
@@ -146,12 +141,9 @@ CREATE TABLE IF NOT EXISTS events (
   details_json TEXT,
   created_at TEXT NOT NULL
 );
-
-CREATE INDEX IF NOT EXISTS idx_events_recent
-ON events(created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_events_run
-ON events(run_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_events_recent ON events(created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_events_run ON events(run_id, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_events_task ON events(task_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
@@ -168,6 +160,313 @@ CREATE TABLE IF NOT EXISTS dead_tasks (
   final_error TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
-
-INSERT OR IGNORE INTO schema_migrations(version,name,checksum,applied_at)
-VALUES(1,'v36_clean_foundation_schema','v36-schema-1','2026-07-11T00:00:00.000Z');
+CREATE INDEX IF NOT EXISTS idx_dead_tasks_run ON dead_tasks(run_id, created_at DESC, id DESC);
+-- Phase 06.1: close nullable source task uniqueness gap.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_identity
+ON run_tasks(run_id, COALESCE(source_id, ''), url, task_type);
+-- Phase 06.1: deterministic 300-source / 80-enabled database seed.
+INSERT INTO sources(id,name,category,source_type,template_url,enabled,default_enabled,priority,rank_score,created_at,updated_at) VALUES
+('high_001','bing-rss rentry.co','paste','rss','https://www.bing.com/search?format=rss&q=site%3Arentry.co%20{q}%20%22mega.nz%2Ffolder%22',1,1,999,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_002','ddg-lite rentry.co','paste','html','https://lite.duckduckgo.com/lite/?q=site%3Arentry.co%20{q}%20%22mega.nz%2Ffolder%22',1,1,998,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_003','ddg-html rentry.co','paste','html','https://duckduckgo.com/html/?q=site%3Arentry.co%20{q}%20%22mega.nz%2Ffolder%22',1,1,997,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_004','bing-web rentry.co','paste','html','https://www.bing.com/search?q=site%3Arentry.co%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,996,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_005','bing-rss pastebin.com','paste','rss','https://www.bing.com/search?format=rss&q=site%3Apastebin.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,995,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_006','ddg-lite pastebin.com','paste','html','https://lite.duckduckgo.com/lite/?q=site%3Apastebin.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,994,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_007','ddg-html pastebin.com','paste','html','https://duckduckgo.com/html/?q=site%3Apastebin.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,993,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_008','bing-web pastebin.com','paste','html','https://www.bing.com/search?q=site%3Apastebin.com%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,992,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_009','bing-rss paste.ee','paste','rss','https://www.bing.com/search?format=rss&q=site%3Apaste.ee%20{q}%20%22mega.nz%2Ffolder%22',1,1,991,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_010','ddg-lite paste.ee','paste','html','https://lite.duckduckgo.com/lite/?q=site%3Apaste.ee%20{q}%20%22mega.nz%2Ffolder%22',1,1,990,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_011','ddg-html paste.ee','paste','html','https://duckduckgo.com/html/?q=site%3Apaste.ee%20{q}%20%22mega.nz%2Ffolder%22',1,1,989,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_012','bing-web paste.ee','paste','html','https://www.bing.com/search?q=site%3Apaste.ee%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,988,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_013','bing-rss justpaste.it','paste','rss','https://www.bing.com/search?format=rss&q=site%3Ajustpaste.it%20{q}%20%22mega.nz%2Ffolder%22',1,1,987,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_014','ddg-lite justpaste.it','paste','html','https://lite.duckduckgo.com/lite/?q=site%3Ajustpaste.it%20{q}%20%22mega.nz%2Ffolder%22',1,1,986,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_015','ddg-html justpaste.it','paste','html','https://duckduckgo.com/html/?q=site%3Ajustpaste.it%20{q}%20%22mega.nz%2Ffolder%22',1,1,985,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_016','bing-web justpaste.it','paste','html','https://www.bing.com/search?q=site%3Ajustpaste.it%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,984,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_017','bing-rss controlc.com','paste','rss','https://www.bing.com/search?format=rss&q=site%3Acontrolc.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,983,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_018','ddg-lite controlc.com','paste','html','https://lite.duckduckgo.com/lite/?q=site%3Acontrolc.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,982,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_019','ddg-html controlc.com','paste','html','https://duckduckgo.com/html/?q=site%3Acontrolc.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,981,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_020','bing-web controlc.com','paste','html','https://www.bing.com/search?q=site%3Acontrolc.com%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,980,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_021','bing-rss dpaste.org','paste','rss','https://www.bing.com/search?format=rss&q=site%3Adpaste.org%20{q}%20%22mega.nz%2Ffolder%22',1,1,979,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_022','ddg-lite dpaste.org','paste','html','https://lite.duckduckgo.com/lite/?q=site%3Adpaste.org%20{q}%20%22mega.nz%2Ffolder%22',1,1,978,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_023','ddg-html dpaste.org','paste','html','https://duckduckgo.com/html/?q=site%3Adpaste.org%20{q}%20%22mega.nz%2Ffolder%22',1,1,977,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_024','bing-web dpaste.org','paste','html','https://www.bing.com/search?q=site%3Adpaste.org%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,976,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_025','bing-rss pastes.io','paste','rss','https://www.bing.com/search?format=rss&q=site%3Apastes.io%20{q}%20%22mega.nz%2Ffolder%22',1,1,975,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_026','ddg-lite pastes.io','paste','html','https://lite.duckduckgo.com/lite/?q=site%3Apastes.io%20{q}%20%22mega.nz%2Ffolder%22',1,1,974,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_027','ddg-html pastes.io','paste','html','https://duckduckgo.com/html/?q=site%3Apastes.io%20{q}%20%22mega.nz%2Ffolder%22',1,1,973,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_028','bing-web pastes.io','paste','html','https://www.bing.com/search?q=site%3Apastes.io%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,972,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_029','bing-rss paste.rs','paste','rss','https://www.bing.com/search?format=rss&q=site%3Apaste.rs%20{q}%20%22mega.nz%2Ffolder%22',1,1,971,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_030','ddg-lite paste.rs','paste','html','https://lite.duckduckgo.com/lite/?q=site%3Apaste.rs%20{q}%20%22mega.nz%2Ffolder%22',1,1,970,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_031','ddg-html paste.rs','paste','html','https://duckduckgo.com/html/?q=site%3Apaste.rs%20{q}%20%22mega.nz%2Ffolder%22',1,1,969,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_032','bing-web paste.rs','paste','html','https://www.bing.com/search?q=site%3Apaste.rs%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,968,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_033','bing-rss pastelink.net','paste','rss','https://www.bing.com/search?format=rss&q=site%3Apastelink.net%20{q}%20%22mega.nz%2Ffolder%22',1,1,967,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_034','ddg-lite pastelink.net','paste','html','https://lite.duckduckgo.com/lite/?q=site%3Apastelink.net%20{q}%20%22mega.nz%2Ffolder%22',1,1,966,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_035','ddg-html pastelink.net','paste','html','https://duckduckgo.com/html/?q=site%3Apastelink.net%20{q}%20%22mega.nz%2Ffolder%22',1,1,965,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_036','bing-web pastelink.net','paste','html','https://www.bing.com/search?q=site%3Apastelink.net%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,964,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_037','bing-rss telegra.ph','web','rss','https://www.bing.com/search?format=rss&q=site%3Atelegra.ph%20{q}%20%22mega.nz%2Ffolder%22',1,1,963,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_038','ddg-lite telegra.ph','web','html','https://lite.duckduckgo.com/lite/?q=site%3Atelegra.ph%20{q}%20%22mega.nz%2Ffolder%22',1,1,962,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_039','ddg-html telegra.ph','web','html','https://duckduckgo.com/html/?q=site%3Atelegra.ph%20{q}%20%22mega.nz%2Ffolder%22',1,1,961,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_040','bing-web telegra.ph','web','html','https://www.bing.com/search?q=site%3Atelegra.ph%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,960,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_041','bing-rss reddit.com','community','rss','https://www.bing.com/search?format=rss&q=site%3Areddit.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,959,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_042','ddg-lite reddit.com','community','html','https://lite.duckduckgo.com/lite/?q=site%3Areddit.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,958,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_043','ddg-html reddit.com','community','html','https://duckduckgo.com/html/?q=site%3Areddit.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,957,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_044','bing-web reddit.com','community','html','https://www.bing.com/search?q=site%3Areddit.com%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,956,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_045','bing-rss old.reddit.com','community','rss','https://www.bing.com/search?format=rss&q=site%3Aold.reddit.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,955,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_046','ddg-lite old.reddit.com','community','html','https://lite.duckduckgo.com/lite/?q=site%3Aold.reddit.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,954,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_047','ddg-html old.reddit.com','community','html','https://duckduckgo.com/html/?q=site%3Aold.reddit.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,953,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_048','bing-web old.reddit.com','community','html','https://www.bing.com/search?q=site%3Aold.reddit.com%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,952,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_049','bing-rss archive.org','archive','rss','https://www.bing.com/search?format=rss&q=site%3Aarchive.org%20{q}%20%22mega.nz%2Ffolder%22',1,1,951,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_050','ddg-lite archive.org','archive','html','https://lite.duckduckgo.com/lite/?q=site%3Aarchive.org%20{q}%20%22mega.nz%2Ffolder%22',1,1,950,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_051','ddg-html archive.org','archive','html','https://duckduckgo.com/html/?q=site%3Aarchive.org%20{q}%20%22mega.nz%2Ffolder%22',1,1,949,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_052','bing-web archive.org','archive','html','https://www.bing.com/search?q=site%3Aarchive.org%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,948,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_053','bing-rss github.com','code','rss','https://www.bing.com/search?format=rss&q=site%3Agithub.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,947,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_054','ddg-lite github.com','code','html','https://lite.duckduckgo.com/lite/?q=site%3Agithub.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,946,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_055','ddg-html github.com','code','html','https://duckduckgo.com/html/?q=site%3Agithub.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,945,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_056','bing-web github.com','code','html','https://www.bing.com/search?q=site%3Agithub.com%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,944,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_057','bing-rss gist.github.com','code','rss','https://www.bing.com/search?format=rss&q=site%3Agist.github.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,943,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_058','ddg-lite gist.github.com','code','html','https://lite.duckduckgo.com/lite/?q=site%3Agist.github.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,942,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_059','ddg-html gist.github.com','code','html','https://duckduckgo.com/html/?q=site%3Agist.github.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,941,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_060','bing-web gist.github.com','code','html','https://www.bing.com/search?q=site%3Agist.github.com%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,940,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_061','bing-rss raw.githubusercontent.com','code','rss','https://www.bing.com/search?format=rss&q=site%3Araw.githubusercontent.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,939,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_062','ddg-lite raw.githubusercontent.com','code','html','https://lite.duckduckgo.com/lite/?q=site%3Araw.githubusercontent.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,938,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_063','ddg-html raw.githubusercontent.com','code','html','https://duckduckgo.com/html/?q=site%3Araw.githubusercontent.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,937,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_064','bing-web raw.githubusercontent.com','code','html','https://www.bing.com/search?q=site%3Araw.githubusercontent.com%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,936,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_065','bing-rss gitlab.com','code','rss','https://www.bing.com/search?format=rss&q=site%3Agitlab.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,935,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_066','ddg-lite gitlab.com','code','html','https://lite.duckduckgo.com/lite/?q=site%3Agitlab.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,934,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_067','ddg-html gitlab.com','code','html','https://duckduckgo.com/html/?q=site%3Agitlab.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,933,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_068','bing-web gitlab.com','code','html','https://www.bing.com/search?q=site%3Agitlab.com%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,932,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_069','bing-rss notion.site','web','rss','https://www.bing.com/search?format=rss&q=site%3Anotion.site%20{q}%20%22mega.nz%2Ffolder%22',1,1,931,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_070','ddg-lite notion.site','web','html','https://lite.duckduckgo.com/lite/?q=site%3Anotion.site%20{q}%20%22mega.nz%2Ffolder%22',1,1,930,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_071','ddg-html notion.site','web','html','https://duckduckgo.com/html/?q=site%3Anotion.site%20{q}%20%22mega.nz%2Ffolder%22',1,1,929,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_072','bing-web notion.site','web','html','https://www.bing.com/search?q=site%3Anotion.site%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,928,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_073','bing-rss linktr.ee','web','rss','https://www.bing.com/search?format=rss&q=site%3Alinktr.ee%20{q}%20%22mega.nz%2Ffolder%22',1,1,927,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_074','ddg-lite linktr.ee','web','html','https://lite.duckduckgo.com/lite/?q=site%3Alinktr.ee%20{q}%20%22mega.nz%2Ffolder%22',1,1,926,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_075','ddg-html linktr.ee','web','html','https://duckduckgo.com/html/?q=site%3Alinktr.ee%20{q}%20%22mega.nz%2Ffolder%22',1,1,925,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_076','bing-web linktr.ee','web','html','https://www.bing.com/search?q=site%3Alinktr.ee%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,924,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_077','bing-rss blogspot.com','web','rss','https://www.bing.com/search?format=rss&q=site%3Ablogspot.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,923,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_078','ddg-lite blogspot.com','web','html','https://lite.duckduckgo.com/lite/?q=site%3Ablogspot.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,922,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_079','ddg-html blogspot.com','web','html','https://duckduckgo.com/html/?q=site%3Ablogspot.com%20{q}%20%22mega.nz%2Ffolder%22',1,1,921,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('high_080','bing-web blogspot.com','web','html','https://www.bing.com/search?q=site%3Ablogspot.com%20{q}%20%22mega.nz%2Ffolder%22&count=20',1,1,920,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_001','bing-rss hastebin.com','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22',0,0,499,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_002','ddg-lite hastebin.com','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22',0,0,498,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_003','ddg-html hastebin.com','reserve','html','https://duckduckgo.com/html/?q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22',0,0,497,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_004','bing-rss hastebin.com archive','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,496,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_005','ddg-lite hastebin.com archive','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,495,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_006','ddg-html hastebin.com archive','reserve','html','https://duckduckgo.com/html/?q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,494,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_007','bing-rss hastebin.com collection','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,493,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_008','ddg-lite hastebin.com collection','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,492,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_009','ddg-html hastebin.com collection','reserve','html','https://duckduckgo.com/html/?q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,491,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_010','bing-rss hastebin.com public','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,490,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_011','ddg-lite hastebin.com public','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,489,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_012','ddg-html hastebin.com public','reserve','html','https://duckduckgo.com/html/?q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,488,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_013','bing-rss hastebin.com index','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,487,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_014','ddg-lite hastebin.com index','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,486,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_015','ddg-html hastebin.com index','reserve','html','https://duckduckgo.com/html/?q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,485,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_016','bing-rss hastebin.com folder','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,484,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_017','ddg-lite hastebin.com folder','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,483,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_018','ddg-html hastebin.com folder','reserve','html','https://duckduckgo.com/html/?q=site%3Ahastebin.com%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,482,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_019','bing-rss github.io','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22',0,0,481,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_020','ddg-lite github.io','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22',0,0,480,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_021','ddg-html github.io','reserve','html','https://duckduckgo.com/html/?q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22',0,0,479,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_022','bing-rss github.io archive','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,478,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_023','ddg-lite github.io archive','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,477,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_024','ddg-html github.io archive','reserve','html','https://duckduckgo.com/html/?q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,476,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_025','bing-rss github.io collection','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,475,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_026','ddg-lite github.io collection','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,474,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_027','ddg-html github.io collection','reserve','html','https://duckduckgo.com/html/?q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,473,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_028','bing-rss github.io public','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,472,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_029','ddg-lite github.io public','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,471,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_030','ddg-html github.io public','reserve','html','https://duckduckgo.com/html/?q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,470,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_031','bing-rss github.io index','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,469,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_032','ddg-lite github.io index','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,468,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_033','ddg-html github.io index','reserve','html','https://duckduckgo.com/html/?q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,467,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_034','bing-rss github.io folder','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,466,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_035','ddg-lite github.io folder','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,465,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_036','ddg-html github.io folder','reserve','html','https://duckduckgo.com/html/?q=site%3Agithub.io%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,464,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_037','bing-rss bitbucket.org','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22',0,0,463,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_038','ddg-lite bitbucket.org','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22',0,0,462,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_039','ddg-html bitbucket.org','reserve','html','https://duckduckgo.com/html/?q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22',0,0,461,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_040','bing-rss bitbucket.org archive','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,460,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_041','ddg-lite bitbucket.org archive','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,459,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_042','ddg-html bitbucket.org archive','reserve','html','https://duckduckgo.com/html/?q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,458,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_043','bing-rss bitbucket.org collection','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,457,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_044','ddg-lite bitbucket.org collection','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,456,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_045','ddg-html bitbucket.org collection','reserve','html','https://duckduckgo.com/html/?q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,455,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_046','bing-rss bitbucket.org public','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,454,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_047','ddg-lite bitbucket.org public','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,453,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_048','ddg-html bitbucket.org public','reserve','html','https://duckduckgo.com/html/?q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,452,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_049','bing-rss bitbucket.org index','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,451,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_050','ddg-lite bitbucket.org index','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,450,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_051','ddg-html bitbucket.org index','reserve','html','https://duckduckgo.com/html/?q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,449,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_052','bing-rss bitbucket.org folder','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,448,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_053','ddg-lite bitbucket.org folder','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,447,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_054','ddg-html bitbucket.org folder','reserve','html','https://duckduckgo.com/html/?q=site%3Abitbucket.org%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,446,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_055','bing-rss sourceforge.net','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22',0,0,445,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_056','ddg-lite sourceforge.net','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22',0,0,444,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_057','ddg-html sourceforge.net','reserve','html','https://duckduckgo.com/html/?q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22',0,0,443,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_058','bing-rss sourceforge.net archive','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,442,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_059','ddg-lite sourceforge.net archive','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,441,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_060','ddg-html sourceforge.net archive','reserve','html','https://duckduckgo.com/html/?q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,440,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_061','bing-rss sourceforge.net collection','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,439,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_062','ddg-lite sourceforge.net collection','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,438,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_063','ddg-html sourceforge.net collection','reserve','html','https://duckduckgo.com/html/?q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,437,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_064','bing-rss sourceforge.net public','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,436,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_065','ddg-lite sourceforge.net public','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,435,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_066','ddg-html sourceforge.net public','reserve','html','https://duckduckgo.com/html/?q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,434,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_067','bing-rss sourceforge.net index','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,433,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_068','ddg-lite sourceforge.net index','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,432,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_069','ddg-html sourceforge.net index','reserve','html','https://duckduckgo.com/html/?q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,431,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_070','bing-rss sourceforge.net folder','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,430,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_071','ddg-lite sourceforge.net folder','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,429,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_072','ddg-html sourceforge.net folder','reserve','html','https://duckduckgo.com/html/?q=site%3Asourceforge.net%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,428,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_073','bing-rss slideshare.net','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22',0,0,427,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_074','ddg-lite slideshare.net','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22',0,0,426,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_075','ddg-html slideshare.net','reserve','html','https://duckduckgo.com/html/?q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22',0,0,425,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_076','bing-rss slideshare.net archive','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,424,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_077','ddg-lite slideshare.net archive','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,423,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_078','ddg-html slideshare.net archive','reserve','html','https://duckduckgo.com/html/?q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,422,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_079','bing-rss slideshare.net collection','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,421,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_080','ddg-lite slideshare.net collection','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,420,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_081','ddg-html slideshare.net collection','reserve','html','https://duckduckgo.com/html/?q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,419,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_082','bing-rss slideshare.net public','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,418,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_083','ddg-lite slideshare.net public','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,417,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_084','ddg-html slideshare.net public','reserve','html','https://duckduckgo.com/html/?q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,416,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_085','bing-rss slideshare.net index','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,415,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_086','ddg-lite slideshare.net index','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,414,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_087','ddg-html slideshare.net index','reserve','html','https://duckduckgo.com/html/?q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,413,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_088','bing-rss slideshare.net folder','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,412,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_089','ddg-lite slideshare.net folder','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,411,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_090','ddg-html slideshare.net folder','reserve','html','https://duckduckgo.com/html/?q=site%3Aslideshare.net%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,410,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_091','bing-rss issuu.com','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22',0,0,409,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_092','ddg-lite issuu.com','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22',0,0,408,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_093','ddg-html issuu.com','reserve','html','https://duckduckgo.com/html/?q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22',0,0,407,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_094','bing-rss issuu.com archive','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,406,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_095','ddg-lite issuu.com archive','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,405,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_096','ddg-html issuu.com archive','reserve','html','https://duckduckgo.com/html/?q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,404,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_097','bing-rss issuu.com collection','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,403,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_098','ddg-lite issuu.com collection','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,402,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_099','ddg-html issuu.com collection','reserve','html','https://duckduckgo.com/html/?q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,401,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_100','bing-rss issuu.com public','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,400,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_101','ddg-lite issuu.com public','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,399,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_102','ddg-html issuu.com public','reserve','html','https://duckduckgo.com/html/?q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,398,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_103','bing-rss issuu.com index','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,397,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_104','ddg-lite issuu.com index','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,396,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_105','ddg-html issuu.com index','reserve','html','https://duckduckgo.com/html/?q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,395,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_106','bing-rss issuu.com folder','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,394,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_107','ddg-lite issuu.com folder','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,393,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_108','ddg-html issuu.com folder','reserve','html','https://duckduckgo.com/html/?q=site%3Aissuu.com%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,392,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_109','bing-rss beacons.ai','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22',0,0,391,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_110','ddg-lite beacons.ai','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22',0,0,390,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_111','ddg-html beacons.ai','reserve','html','https://duckduckgo.com/html/?q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22',0,0,389,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_112','bing-rss beacons.ai archive','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,388,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_113','ddg-lite beacons.ai archive','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,387,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_114','ddg-html beacons.ai archive','reserve','html','https://duckduckgo.com/html/?q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,386,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_115','bing-rss beacons.ai collection','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,385,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_116','ddg-lite beacons.ai collection','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,384,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_117','ddg-html beacons.ai collection','reserve','html','https://duckduckgo.com/html/?q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,383,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_118','bing-rss beacons.ai public','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,382,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_119','ddg-lite beacons.ai public','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,381,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_120','ddg-html beacons.ai public','reserve','html','https://duckduckgo.com/html/?q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,380,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_121','bing-rss beacons.ai index','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,379,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_122','ddg-lite beacons.ai index','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,378,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_123','ddg-html beacons.ai index','reserve','html','https://duckduckgo.com/html/?q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,377,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_124','bing-rss beacons.ai folder','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,376,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_125','ddg-lite beacons.ai folder','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,375,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_126','ddg-html beacons.ai folder','reserve','html','https://duckduckgo.com/html/?q=site%3Abeacons.ai%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,374,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_127','bing-rss bio.link','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22',0,0,373,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_128','ddg-lite bio.link','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22',0,0,372,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_129','ddg-html bio.link','reserve','html','https://duckduckgo.com/html/?q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22',0,0,371,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_130','bing-rss bio.link archive','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,370,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_131','ddg-lite bio.link archive','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,369,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_132','ddg-html bio.link archive','reserve','html','https://duckduckgo.com/html/?q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,368,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_133','bing-rss bio.link collection','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,367,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_134','ddg-lite bio.link collection','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,366,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_135','ddg-html bio.link collection','reserve','html','https://duckduckgo.com/html/?q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,365,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_136','bing-rss bio.link public','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,364,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_137','ddg-lite bio.link public','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,363,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_138','ddg-html bio.link public','reserve','html','https://duckduckgo.com/html/?q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,362,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_139','bing-rss bio.link index','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,361,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_140','ddg-lite bio.link index','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,360,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_141','ddg-html bio.link index','reserve','html','https://duckduckgo.com/html/?q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,359,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_142','bing-rss bio.link folder','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,358,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_143','ddg-lite bio.link folder','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,357,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_144','ddg-html bio.link folder','reserve','html','https://duckduckgo.com/html/?q=site%3Abio.link%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,356,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_145','bing-rss solo.to','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22',0,0,355,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_146','ddg-lite solo.to','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22',0,0,354,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_147','ddg-html solo.to','reserve','html','https://duckduckgo.com/html/?q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22',0,0,353,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_148','bing-rss solo.to archive','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,352,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_149','ddg-lite solo.to archive','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,351,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_150','ddg-html solo.to archive','reserve','html','https://duckduckgo.com/html/?q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,350,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_151','bing-rss solo.to collection','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,349,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_152','ddg-lite solo.to collection','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,348,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_153','ddg-html solo.to collection','reserve','html','https://duckduckgo.com/html/?q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,347,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_154','bing-rss solo.to public','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,346,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_155','ddg-lite solo.to public','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,345,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_156','ddg-html solo.to public','reserve','html','https://duckduckgo.com/html/?q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,344,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_157','bing-rss solo.to index','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,343,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_158','ddg-lite solo.to index','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,342,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_159','ddg-html solo.to index','reserve','html','https://duckduckgo.com/html/?q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,341,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_160','bing-rss solo.to folder','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,340,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_161','ddg-lite solo.to folder','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,339,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_162','ddg-html solo.to folder','reserve','html','https://duckduckgo.com/html/?q=site%3Asolo.to%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,338,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_163','bing-rss msha.ke','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22',0,0,337,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_164','ddg-lite msha.ke','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22',0,0,336,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_165','ddg-html msha.ke','reserve','html','https://duckduckgo.com/html/?q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22',0,0,335,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_166','bing-rss msha.ke archive','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,334,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_167','ddg-lite msha.ke archive','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,333,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_168','ddg-html msha.ke archive','reserve','html','https://duckduckgo.com/html/?q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,332,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_169','bing-rss msha.ke collection','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,331,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_170','ddg-lite msha.ke collection','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,330,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_171','ddg-html msha.ke collection','reserve','html','https://duckduckgo.com/html/?q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,329,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_172','bing-rss msha.ke public','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,328,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_173','ddg-lite msha.ke public','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,327,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_174','ddg-html msha.ke public','reserve','html','https://duckduckgo.com/html/?q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,326,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_175','bing-rss msha.ke index','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,325,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_176','ddg-lite msha.ke index','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,324,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_177','ddg-html msha.ke index','reserve','html','https://duckduckgo.com/html/?q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,323,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_178','bing-rss msha.ke folder','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,322,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_179','ddg-lite msha.ke folder','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,321,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_180','ddg-html msha.ke folder','reserve','html','https://duckduckgo.com/html/?q=site%3Amsha.ke%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,320,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_181','bing-rss taplink.cc','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22',0,0,319,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_182','ddg-lite taplink.cc','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22',0,0,318,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_183','ddg-html taplink.cc','reserve','html','https://duckduckgo.com/html/?q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22',0,0,317,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_184','bing-rss taplink.cc archive','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,316,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_185','ddg-lite taplink.cc archive','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,315,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_186','ddg-html taplink.cc archive','reserve','html','https://duckduckgo.com/html/?q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,314,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_187','bing-rss taplink.cc collection','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,313,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_188','ddg-lite taplink.cc collection','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,312,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_189','ddg-html taplink.cc collection','reserve','html','https://duckduckgo.com/html/?q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,311,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_190','bing-rss taplink.cc public','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,310,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_191','ddg-lite taplink.cc public','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,309,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_192','ddg-html taplink.cc public','reserve','html','https://duckduckgo.com/html/?q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,308,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_193','bing-rss taplink.cc index','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,307,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_194','ddg-lite taplink.cc index','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,306,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_195','ddg-html taplink.cc index','reserve','html','https://duckduckgo.com/html/?q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,305,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_196','bing-rss taplink.cc folder','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,304,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_197','ddg-lite taplink.cc folder','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,303,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_198','ddg-html taplink.cc folder','reserve','html','https://duckduckgo.com/html/?q=site%3Ataplink.cc%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,302,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_199','bing-rss allmylinks.com','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22',0,0,301,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_200','ddg-lite allmylinks.com','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22',0,0,300,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_201','ddg-html allmylinks.com','reserve','html','https://duckduckgo.com/html/?q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22',0,0,299,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_202','bing-rss allmylinks.com archive','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,298,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_203','ddg-lite allmylinks.com archive','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,297,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_204','ddg-html allmylinks.com archive','reserve','html','https://duckduckgo.com/html/?q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,296,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_205','bing-rss allmylinks.com collection','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,295,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_206','ddg-lite allmylinks.com collection','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,294,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_207','ddg-html allmylinks.com collection','reserve','html','https://duckduckgo.com/html/?q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20collection',0,0,293,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_208','bing-rss allmylinks.com public','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,292,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_209','ddg-lite allmylinks.com public','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,291,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_210','ddg-html allmylinks.com public','reserve','html','https://duckduckgo.com/html/?q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20public',0,0,290,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_211','bing-rss allmylinks.com index','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,289,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_212','ddg-lite allmylinks.com index','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,288,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_213','ddg-html allmylinks.com index','reserve','html','https://duckduckgo.com/html/?q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20index',0,0,287,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_214','bing-rss allmylinks.com folder','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,286,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_215','ddg-lite allmylinks.com folder','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,285,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_216','ddg-html allmylinks.com folder','reserve','html','https://duckduckgo.com/html/?q=site%3Aallmylinks.com%20{q}%20%22mega.nz%2Ffolder%22%20folder',0,0,284,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_217','bing-rss instabio.cc','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ainstabio.cc%20{q}%20%22mega.nz%2Ffolder%22',0,0,283,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_218','ddg-lite instabio.cc','reserve','html','https://lite.duckduckgo.com/lite/?q=site%3Ainstabio.cc%20{q}%20%22mega.nz%2Ffolder%22',0,0,282,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_219','ddg-html instabio.cc','reserve','html','https://duckduckgo.com/html/?q=site%3Ainstabio.cc%20{q}%20%22mega.nz%2Ffolder%22',0,0,281,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+('reserve_220','bing-rss instabio.cc archive','reserve','rss','https://www.bing.com/search?format=rss&q=site%3Ainstabio.cc%20{q}%20%22mega.nz%2Ffolder%22%20archive',0,0,280,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+ON CONFLICT(id) DO UPDATE SET
+ name=excluded.name, category=excluded.category, source_type=excluded.source_type,
+ template_url=excluded.template_url, default_enabled=excluded.default_enabled,
+ priority=excluded.priority, rank_score=excluded.rank_score, updated_at=excluded.updated_at;

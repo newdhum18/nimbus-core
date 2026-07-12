@@ -1,0 +1,468 @@
+
+> nimbus-core-v36@36.5.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: approved modules exist
+ok 1 - approved modules exist
+  ---
+  duration_ms: 8.163539
+  type: 'test'
+  ...
+# Subtest: source package does not contain dist
+ok 2 - source package does not contain dist
+  ---
+  duration_ms: 1.426242
+  type: 'test'
+  ...
+# Subtest: no old resource names in configs
+ok 3 - no old resource names in configs
+  ---
+  duration_ms: 2.435794
+  type: 'test'
+  ...
+# Subtest: worker remains small and modular
+ok 4 - worker remains small and modular
+  ---
+  duration_ms: 3.257595
+  type: 'test'
+  ...
+# Subtest: 300 items use fifteen batches of twenty
+ok 5 - 300 items use fifteen batches of twenty
+  ---
+  duration_ms: 0.720765
+  type: 'test'
+  ...
+# Subtest: oversized batch is rejected
+ok 6 - oversized batch is rejected
+  ---
+  duration_ms: 2.223156
+  type: 'test'
+  ...
+# Subtest: invalid handler is rejected
+ok 7 - invalid handler is rejected
+  ---
+  duration_ms: 0.538777
+  type: 'test'
+  ...
+# Subtest: partial failures are reported
+ok 8 - partial failures are reported
+  ---
+  duration_ms: 0.615364
+  type: 'test'
+  ...
+# Subtest: fixed system identity
+ok 9 - fixed system identity
+  ---
+  duration_ms: 0.601228
+  type: 'test'
+  ...
+# Subtest: worker configuration is clean
+ok 10 - worker configuration is clean
+  ---
+  duration_ms: 5.422558
+  type: 'test'
+  ...
+# Subtest: Pages has no backend bindings
+ok 11 - Pages has no backend bindings
+  ---
+  duration_ms: 1.199593
+  type: 'test'
+  ...
+# Subtest: allows production Pages origin
+ok 12 - allows production Pages origin
+  ---
+  duration_ms: 0.630071
+  type: 'test'
+  ...
+# Subtest: allows only project preview origins
+ok 13 - allows only project preview origins
+  ---
+  duration_ms: 0.134619
+  type: 'test'
+  ...
+# Subtest: rejects non-https and invalid origins
+ok 14 - rejects non-https and invalid origins
+  ---
+  duration_ms: 0.122331
+  type: 'test'
+  ...
+# Subtest: does not reflect an unapproved origin
+ok 15 - does not reflect an unapproved origin
+  ---
+  duration_ms: 96.97999
+  type: 'test'
+  ...
+# Subtest: migration checksum is the real SHA-256 of its SQL file
+ok 16 - migration checksum is the real SHA-256 of its SQL file
+  ---
+  duration_ms: 6.341512
+  type: 'test'
+  ...
+# Subtest: fresh database creates exactly the approved eleven tables
+ok 17 - fresh database creates exactly the approved eleven tables
+  ---
+  duration_ms: 5.384954
+  type: 'test'
+  ...
+# Subtest: schema is idempotent across three consecutive applications
+ok 18 - schema is idempotent across three consecutive applications
+  ---
+  duration_ms: 4.246766
+  type: 'test'
+  ...
+# Subtest: single-active-run partial unique index is enforced
+ok 19 - single-active-run partial unique index is enforced
+  ---
+  duration_ms: 73.866066
+  type: 'test'
+  ...
+# Subtest: foreign keys cascade run-owned records
+ok 20 - foreign keys cascade run-owned records
+  ---
+  duration_ms: 3.597822
+  type: 'test'
+  ...
+# Subtest: folder-only and completeness constraints reject invalid rows
+ok 21 - folder-only and completeness constraints reject invalid rows
+  ---
+  duration_ms: 3.128849
+  type: 'test'
+  ...
+# Subtest: pagination and operational indexes are present
+ok 22 - pagination and operational indexes are present
+  ---
+  duration_ms: 4.543379
+  type: 'test'
+  ...
+# Subtest: nullable source task identity is duplicate-safe
+ok 23 - nullable source task identity is duplicate-safe
+  ---
+  duration_ms: 6.780791
+  type: 'test'
+  ...
+# (node:31329) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: database source seed is deterministic at 300 total and 80 enabled
+ok 24 - database source seed is deterministic at 300 total and 80 enabled
+  ---
+  duration_ms: 82.941813
+  type: 'test'
+  ...
+# Subtest: upgrade path applies pending migrations after version one
+ok 25 - upgrade path applies pending migrations after version one
+  ---
+  duration_ms: 7.180652
+  type: 'test'
+  ...
+# Subtest: migration history rejects checksum drift
+ok 26 - migration history rejects checksum drift
+  ---
+  duration_ms: 2.810233
+  type: 'test'
+  ...
+# Subtest: accepts modern folder
+ok 27 - accepts modern folder
+  ---
+  duration_ms: 1.094397
+  type: 'test'
+  ...
+# Subtest: accepts legacy when enabled
+ok 28 - accepts legacy when enabled
+  ---
+  duration_ms: 0.307985
+  type: 'test'
+  ...
+# Subtest: rejects legacy when disabled
+ok 29 - rejects legacy when disabled
+  ---
+  duration_ms: 0.349546
+  type: 'test'
+  ...
+# Subtest: rejects file link
+ok 30 - rejects file link
+  ---
+  duration_ms: 0.120638
+  type: 'test'
+  ...
+# Subtest: rejects missing key
+ok 31 - rejects missing key
+  ---
+  duration_ms: 0.178735
+  type: 'test'
+  ...
+# Subtest: deduplicates
+ok 32 - deduplicates
+  ---
+  duration_ms: 0.579547
+  type: 'test'
+  ...
+# Subtest: extracts escaped slash URL
+ok 33 - extracts escaped slash URL
+  ---
+  duration_ms: 0.258572
+  type: 'test'
+  ...
+# Subtest: extracts HTML entity hash
+ok 34 - extracts HTML entity hash
+  ---
+  duration_ms: 0.197221
+  type: 'test'
+  ...
+# Subtest: extracts percent encoded URL
+ok 35 - extracts percent encoded URL
+  ---
+  duration_ms: 0.584604
+  type: 'test'
+  ...
+# Subtest: redirect unwrap is safe
+ok 36 - redirect unwrap is safe
+  ---
+  duration_ms: 0.538265
+  type: 'test'
+  ...
+# Subtest: queue contract is versioned, minimal and valid
+ok 37 - queue contract is versioned, minimal and valid
+  ---
+  duration_ms: 1.882938
+  type: 'test'
+  ...
+# Subtest: producer dispatches only selected tasks with v1 messages
+ok 38 - producer dispatches only selected tasks with v1 messages
+  ---
+  duration_ms: 3.396364
+  type: 'test'
+  ...
+# Subtest: producer rolls dispatching tasks back when queue send fails
+ok 39 - producer rolls dispatching tasks back when queue send fails
+  ---
+  duration_ms: 0.83947
+  type: 'test'
+  ...
+# Subtest: lease acquisition supports dispatch race and expired lease recovery
+ok 40 - lease acquisition supports dispatch race and expired lease recovery
+  ---
+  duration_ms: 0.363938
+  type: 'test'
+  ...
+# Subtest: expired lease recovery is scoped to a run
+ok 41 - expired lease recovery is scoped to a run
+  ---
+  duration_ms: 1.841021
+  type: 'test'
+  ...
+# Subtest: paused queued task returns to pending and message is acknowledged
+ok 42 - paused queued task returns to pending and message is acknowledged
+  ---
+  duration_ms: 2.02009
+  type: 'test'
+  ...
+# Subtest: consumer can acquire a task while producer state is still dispatching
+ok 43 - consumer can acquire a task while producer state is still dispatching
+  ---
+  duration_ms: 0.472659
+  type: 'test'
+  ...
+# Subtest: health route works without bindings
+ok 44 - health route works without bindings
+  ---
+  duration_ms: 88.338924
+  type: 'test'
+  ...
+# Subtest: bindings route reports false bindings
+ok 45 - bindings route reports false bindings
+  ---
+  duration_ms: 0.51428
+  type: 'test'
+  ...
+# Subtest: unknown route returns structured 404 with CORS
+ok 46 - unknown route returns structured 404 with CORS
+  ---
+  duration_ms: 0.815004
+  type: 'test'
+  ...
+# Subtest: known endpoint with wrong method returns 405
+ok 47 - known endpoint with wrong method returns 405
+  ---
+  duration_ms: 0.652284
+  type: 'test'
+  ...
+# Subtest: run state conflict exposes run_id in the standard error envelope
+ok 48 - run state conflict exposes run_id in the standard error envelope
+  ---
+  duration_ms: 0.942703
+  type: 'test'
+  ...
+# (node:31375) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: run state machine allows only approved transitions
+ok 49 - run state machine allows only approved transitions
+  ---
+  duration_ms: 1.049511
+  type: 'test'
+  ...
+# Subtest: lifecycle applies optimistic transitions and records events
+ok 50 - lifecycle applies optimistic transitions and records events
+  ---
+  duration_ms: 89.854484
+  type: 'test'
+  ...
+# Subtest: terminal run cannot be restarted
+ok 51 - terminal run cannot be restarted
+  ---
+  duration_ms: 6.768277
+  type: 'test'
+  ...
+# Subtest: recovery is explicit and idempotent once active
+ok 52 - recovery is explicit and idempotent once active
+  ---
+  duration_ms: 7.342891
+  type: 'test'
+  ...
+# Subtest: positiveInt accepts boundaries and defaults
+ok 53 - positiveInt accepts boundaries and defaults
+  ---
+  duration_ms: 0.64293
+  type: 'test'
+  ...
+# Subtest: positiveInt rejects invalid values
+ok 54 - positiveInt rejects invalid values
+  ---
+  duration_ms: 0.30435
+  type: 'test'
+  ...
+# Subtest: nonEmptyString normalizes keyword
+ok 55 - nonEmptyString normalizes keyword
+  ---
+  duration_ms: 0.220606
+  type: 'test'
+  ...
+# Subtest: CSV export escapes commas, quotes and newlines
+ok 56 - CSV export escapes commas, quotes and newlines
+  ---
+  duration_ms: 0.653486
+  type: 'test'
+  ...
+# Subtest: schema contains approved tables only
+ok 57 - schema contains approved tables only
+  ---
+  duration_ms: 5.479022
+  type: 'test'
+  ...
+# Subtest: links are unique per run rather than globally
+ok 58 - links are unique per run rather than globally
+  ---
+  duration_ms: 1.678676
+  type: 'test'
+  ...
+# Subtest: task recovery fields exist
+ok 59 - task recovery fields exist
+  ---
+  duration_ms: 2.874548
+  type: 'test'
+  ...
+# Subtest: keyword query includes folder pattern
+ok 60 - keyword query includes folder pattern
+  ---
+  duration_ms: 1.14353
+  type: 'test'
+  ...
+# Subtest: blank keyword is rejected
+ok 61 - blank keyword is rejected
+  ---
+  duration_ms: 0.406811
+  type: 'test'
+  ...
+# Subtest: autoscan rounds are stable
+ok 62 - autoscan rounds are stable
+  ---
+  duration_ms: 0.137593
+  type: 'test'
+  ...
+# Subtest: ranking penalizes failures
+ok 63 - ranking penalizes failures
+  ---
+  duration_ms: 0.174969
+  type: 'test'
+  ...
+# Subtest: URL guard blocks local/private addresses
+ok 64 - URL guard blocks local/private addresses
+  ---
+  duration_ms: 0.604614
+  type: 'test'
+  ...
+# Subtest: URL guard blocks credentials, private ranges and unsupported ports
+ok 65 - URL guard blocks credentials, private ranges and unsupported ports
+  ---
+  duration_ms: 0.274105
+  type: 'test'
+  ...
+# Subtest: source ranking is deterministic and bounded
+ok 66 - source ranking is deterministic and bounded
+  ---
+  duration_ms: 1.172352
+  type: 'test'
+  ...
+# Subtest: recommendations never auto-disable a source
+ok 67 - recommendations never auto-disable a source
+  ---
+  duration_ms: 0.291651
+  type: 'test'
+  ...
+# Subtest: source listing supports filters, pagination and safe sort
+ok 68 - source listing supports filters, pagination and safe sort
+  ---
+  duration_ms: 0.574679
+  type: 'test'
+  ...
+# Subtest: bulk source changes are deduplicated and batched
+ok 69 - bulk source changes are deduplicated and batched
+  ---
+  duration_ms: 1.438986
+  type: 'test'
+  ...
+# Subtest: rank refresh writes calculated scores in batches
+ok 70 - rank refresh writes calculated scores in batches
+  ---
+  duration_ms: 0.395094
+  type: 'test'
+  ...
+# Subtest: catalog has exactly 300 sources
+ok 71 - catalog has exactly 300 sources
+  ---
+  duration_ms: 3.82964
+  type: 'test'
+  ...
+# Subtest: catalog has exactly 80 enabled defaults
+ok 72 - catalog has exactly 80 enabled defaults
+  ---
+  duration_ms: 0.650471
+  type: 'test'
+  ...
+# Subtest: source IDs are unique
+ok 73 - source IDs are unique
+  ---
+  duration_ms: 2.029689
+  type: 'test'
+  ...
+# Subtest: source templates are unique
+ok 74 - source templates are unique
+  ---
+  duration_ms: 0.594218
+  type: 'test'
+  ...
+# Subtest: all templates use q placeholder
+ok 75 - all templates use q placeholder
+  ---
+  duration_ms: 0.488361
+  type: 'test'
+  ...
+1..75
+# tests 75
+# suites 0
+# pass 75
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 642.376648

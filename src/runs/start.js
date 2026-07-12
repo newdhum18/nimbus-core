@@ -4,6 +4,7 @@ import { autoscanQuery } from "../search/autoscan.js";
 import { chunkArray } from "../db/batch.js";
 import { dispatchPending } from "../queue/producer.js";
 import { AppError } from "../api/errors.js";
+import { transitionRun, failRun } from "./lifecycle.js";
 
 export async function startRun(env, { mode, keyword = "", round = 0 }) {
   const active = await env.DB.prepare(
@@ -60,23 +61,12 @@ export async function startRun(env, { mode, keyword = "", round = 0 }) {
       await env.DB.batch(statements);
     }
 
-    await env.DB.prepare(
-      "UPDATE runs SET status='running',updated_at=? WHERE id=? AND status='created'"
-    ).bind(nowIso(), runId).run();
+    await transitionRun(env.DB, runId, "running", { from: "created" });
 
     const dispatch = await dispatchPending(env, runId, 20);
     return { runId, totalTasks: sources.length, dispatch };
   } catch (error) {
-    await env.DB.prepare(`
-      UPDATE runs
-      SET status='failed',error_message=?,completed_at=?,updated_at=?
-      WHERE id=?
-    `).bind(
-      error instanceof Error ? error.message : String(error),
-      nowIso(),
-      nowIso(),
-      runId
-    ).run();
+    await failRun(env.DB, runId, error).catch(() => {});
     throw error;
   }
 }

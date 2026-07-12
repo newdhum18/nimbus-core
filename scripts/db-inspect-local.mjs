@@ -1,0 +1,11 @@
+import { DatabaseSync } from 'node:sqlite';
+import { MIGRATIONS } from '../src/db/migration-catalog.js';
+const dbArg=process.argv.find(x=>x.startsWith('--database=')); if(!dbArg) throw new Error('--database=<path> required');
+const db=new DatabaseSync(dbArg.slice(11));
+const expected=['dead_tasks','events','links','pages','run_tasks','runs','schema_migrations','settings','source_metrics','sources','visited_urls'];
+const tables=db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(r=>r.name);
+const indexes=db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(r=>r.name);
+const migrations=db.prepare("SELECT version,name,checksum FROM schema_migrations ORDER BY version").all();
+const sourceCounts=tables.includes('sources')?db.prepare('SELECT COUNT(*) total,SUM(enabled) enabled FROM sources').get():{total:0,enabled:0};
+const report={ok:expected.every(t=>tables.includes(t))&&migrations.length===MIGRATIONS.length,missing_tables:expected.filter(t=>!tables.includes(t)),tables,indexes,migrations,source_counts:sourceCounts};
+console.log(JSON.stringify(report,null,2)); if(!report.ok) process.exitCode=2; db.close();

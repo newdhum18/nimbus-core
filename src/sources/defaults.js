@@ -70,6 +70,8 @@ export async function seedSources(db, { preserveEnabled = true } = {}) {
 
   return {
     total: processed,
-    enabled: enabledCount
+    enabled: enabledCount,
+    expected_total: 300,
+    expected_enabled: preserveEnabled ? null : 80
   };
 }

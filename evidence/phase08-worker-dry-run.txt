@@ -1,0 +1,10 @@
+
+ ⛅️ wrangler 4.110.0
+────────────────────
+Total Upload: 66.52 KiB / gzip: 17.35 KiB
+Your Worker has access to the following bindings:
+Binding                                Resource         
+env.QUEUE (nimbus-core-v36-queue)      Queue            
+env.DB (nimbus-core-v36-db)            D1 Database      
+
+--dry-run: exiting now.

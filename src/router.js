@@ -7,13 +7,15 @@ import { health, bindings } from "./diagnostics/health.js";
 import { diagnostics } from "./diagnostics/report.js";
 import { sourceCatalog } from "./sources/catalog.js";
 import { seedSources } from "./sources/defaults.js";
-import { listSources, setSourceEnabled, setAllSources, restoreHighYieldDefaults } from "./sources/service.js";
+import { listSources, getSource, sourceSummary, setSourceEnabled, setSourcesEnabled, setAllSources, restoreHighYieldDefaults, refreshSourceRanks } from "./sources/service.js";
 import { startRun } from "./runs/start.js";
 import { pauseRun } from "./runs/pause.js";
 import { resumeRun } from "./runs/resume.js";
 import { cancelRun } from "./runs/cancel.js";
+import { recoverTasks } from "./runs/recovery.js";
 import { getRun, listRuns } from "./runs/read.js";
 import { dispatchPending } from "./queue/producer.js";
+import { recoverQueueRuntime } from "./queue/recovery.js";
 import { listResults, resultsToCsv } from "./results/service.js";
 import { repairDatabase } from "./db/repair.js";
 
@@ -22,7 +24,7 @@ async function requestBody(request) {
 }
 
 function runActionRoute(pathname) {
-  return /^\/api\/runs\/([^/]+)\/(pause|resume|cancel|dispatch)$/.exec(pathname);
+  return /^\/api\/runs\/([^/]+)\/(pause|resume|cancel|recover|dispatch|queue-recover)$/.exec(pathname);
 }
 
 function runDetailRoute(pathname) {
@@ -35,6 +37,10 @@ function runResultsRoute(pathname) {
 
 function sourceActionRoute(pathname) {
   return /^\/api\/sources\/([^/]+)\/(enable|disable)$/.exec(pathname);
+}
+
+function sourceDetailRoute(pathname) {
+  return /^\/api\/sources\/([^/]+)$/.exec(pathname);
 }
 
 function normalizeErrorPayload(details) {
@@ -105,10 +111,37 @@ export async function route(request, env) {
     if (url.pathname === "/api/sources" && request.method === "GET") {
       const db = requireDb(env);
       const enabledParam = url.searchParams.get("enabled");
-      const enabled = enabledParam === null ? null : enabledParam === "true" || enabledParam === "1";
-      const limit = positiveInt(url.searchParams.get("limit"), { name: "limit", min: 1, max: 300, fallback: 300 });
-      const sources = await listSources(db, { enabled, limit });
-      return ok({ total: sources.length, sources }, 200, cors);
+      let enabled = null;
+      if (enabledParam !== null) {
+        if (!["true", "false", "1", "0"].includes(enabledParam)) {
+          throw new AppError("INVALID_PARAMETER", "enabled must be true, false, 1 or 0", "validation", 400);
+        }
+        enabled = enabledParam === "true" || enabledParam === "1";
+      }
+      const limit = positiveInt(url.searchParams.get("limit"), { name: "limit", min: 1, max: 300, fallback: 100 });
+      const offset = Number(url.searchParams.get("offset") || 0);
+      return ok(await listSources(db, {
+        enabled,
+        limit,
+        offset,
+        category: url.searchParams.get("category"),
+        sourceType: url.searchParams.get("source_type"),
+        search: url.searchParams.get("search"),
+        sort: url.searchParams.get("sort") || "priority"
+      }), 200, cors);
+    }
+    if (url.pathname === "/api/sources/summary" && request.method === "GET") {
+      return ok(await sourceSummary(requireDb(env)), 200, cors);
+    }
+    if (url.pathname === "/api/sources/ranks/refresh" && request.method === "POST") {
+      return ok(await refreshSourceRanks(requireDb(env)), 200, cors);
+    }
+    if (url.pathname === "/api/sources/bulk" && request.method === "POST") {
+      const data = await requestBody(request);
+      if (typeof data.enabled !== "boolean") {
+        throw new AppError("INVALID_PARAMETER", "enabled must be a boolean", "validation", 400);
+      }
+      return ok(await setSourcesEnabled(requireDb(env), data.source_ids, data.enabled), 200, cors);
     }
     if (url.pathname === "/api/sources/reset" && request.method === "POST") {
       const db = requireDb(env);
@@ -127,6 +160,10 @@ export async function route(request, env) {
     if (sourceMatch && request.method === "POST") {
       const [, sourceId, action] = sourceMatch;
       return ok(await setSourceEnabled(requireDb(env), sourceId, action === "enable"), 200, cors);
+    }
+    const sourceDetail = sourceDetailRoute(url.pathname);
+    if (sourceDetail && request.method === "GET") {
+      return ok(await getSource(requireDb(env), sourceDetail[1]), 200, cors);
     }
 
     if (url.pathname === "/api/runs/start" && request.method === "POST") {
@@ -151,7 +188,9 @@ export async function route(request, env) {
       if (action === "pause") result = await pauseRun(db, runId);
       if (action === "resume") { requireQueue(env); result = await resumeRun(env, runId); }
       if (action === "cancel") result = await cancelRun(db, runId);
-      if (action === "dispatch") { requireQueue(env); result = await dispatchPending(env, runId, 20); }
+      if (action === "recover") result = await recoverTasks(db, runId);
+      if (action === "dispatch") { requireQueue(env); result = await dispatchPending(env, runId, SYSTEM.queueDispatchBatch); }
+      if (action === "queue-recover") { requireQueue(env); result = await recoverQueueRuntime(env, runId); }
       if (result === false) {
         throw new AppError("RUN_STATE_CONFLICT", `Cannot ${action} run in its current state`, "runs", 409, { run_id: runId });
       }
@@ -179,10 +218,11 @@ export async function route(request, env) {
     const knownPath = [
       "/", "/health", "/bindings", "/api/status", "/api/diagnostics",
       "/api/foundation/db-test", "/api/foundation/queue-test", "/api/repair",
-      "/api/sources/catalog", "/api/sources", "/api/sources/reset",
+      "/api/sources/catalog", "/api/sources", "/api/sources/summary", "/api/sources/reset",
       "/api/sources/high-yield-defaults", "/api/sources/enable-all", "/api/sources/disable-all",
+      "/api/sources/bulk", "/api/sources/ranks/refresh",
       "/api/runs/start", "/api/runs"
-    ].includes(url.pathname) || Boolean(runAction || detailMatch || resultsMatch || sourceMatch);
+    ].includes(url.pathname) || Boolean(runAction || detailMatch || resultsMatch || sourceMatch || sourceDetail);
 
     if (knownPath) return fail({ code: "METHOD_NOT_ALLOWED", message: "The HTTP method is not allowed for this endpoint", component: "router" }, 405, cors);
     return fail({ code: "NOT_FOUND", message: "The requested endpoint does not exist", component: "router" }, 404, cors);

@@ -1,6 +1,6 @@
 export const SYSTEM = Object.freeze({
   name: "Nimbus Core V36 Clean Foundation",
-  version: "36.1.0",
+  version: "36.6.0",
   worker: "nimbus-core-v36-worker",
   pages: "nimbus-core-v36-web",
   database: "nimbus-core-v36-db",
