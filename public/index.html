@@ -1,1 +1,161 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nimbus Core V36</title><link rel="stylesheet" href="./style.css"></head><body><main><header><p class="eyebrow">Nimbus Core</p><h1>V36 Clean Foundation</h1><p id="status">Connecting to Worker…</p></header><section class="grid"><article><h2>Foundation</h2><dl><dt>Pages</dt><dd>nimbus-core-v36-web</dd><dt>Worker</dt><dd>nimbus-core-v36-worker</dd><dt>D1</dt><dd>nimbus-core-v36-db</dd><dt>Queue</dt><dd>nimbus-core-v36-queue</dd></dl></article><article><h2>Phase</h2><p>Core Foundation Audited v1.0</p><p>Search and extraction UI will be added in later approved phases.</p></article></section></main><script type="module" src="./app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07111f">
+  <meta name="description" content="Nimbus Core V36 operational search dashboard">
+  <title>Nimbus Core V36</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">NIMBUS CORE V36</p>
+      <h1>Search Operations</h1>
+      <p id="connection" class="status pending">Connecting to Worker…</p>
+    </div>
+    <button id="refreshAll" class="icon-btn" type="button" aria-label="Refresh">↻</button>
+  </header>
+
+  <nav class="tabs" aria-label="Primary">
+    <button class="tab active" data-page="dashboard">Dashboard</button>
+    <button class="tab" data-page="autoscan">AutoScan</button>
+    <button class="tab" data-page="keyword">Keyword</button>
+    <button class="tab" data-page="extract">Extract</button>
+    <button class="tab" data-page="archive">Archive</button>
+    <button class="tab" data-page="results">Results</button>
+    <button class="tab" data-page="sources">Sources</button>
+    <button class="tab" data-page="tools">Tools</button>
+  </nav>
+
+  <main>
+    <section id="dashboard" class="page active">
+      <div class="section-title">
+        <div><p class="eyebrow">LIVE STATUS</p><h2>Dashboard</h2></div>
+        <button id="reloadDashboard" class="secondary" type="button">Refresh</button>
+      </div>
+      <div id="metrics" class="metrics"></div>
+      <article class="panel">
+        <div class="panel-head">
+          <div><h3>Current run</h3><p id="currentRunLabel" class="muted">No run selected.</p></div>
+          <span id="runState" class="pill neutral">idle</span>
+        </div>
+        <div class="progress"><span id="progressBar"></span></div>
+        <div class="run-actions">
+          <button id="pauseRun" class="secondary" type="button">Pause</button>
+          <button id="resumeRun" class="secondary" type="button">Resume</button>
+          <button id="cancelRun" class="danger" type="button">Cancel</button>
+          <button id="recoverRun" class="secondary" type="button">Recover</button>
+          <button id="dispatchRun" class="secondary" type="button">Dispatch</button>
+        </div>
+      </article>
+      <article class="panel">
+        <h3>Recent runs</h3>
+        <div id="recentRuns" class="list"><p class="muted">Loading…</p></div>
+      </article>
+    </section>
+
+    <section id="autoscan" class="page">
+      <div class="section-title">
+        <div><p class="eyebrow">LINK-FIRST</p><h2>AutoScan</h2></div>
+      </div>
+      <article class="panel hero-panel">
+        <p>Start a real background run using the 80 enabled high-priority sources.</p>
+        <label>Round
+          <input id="autoRound" type="number" inputmode="numeric" min="0" max="999" value="0">
+        </label>
+        <button id="startAuto" class="primary" type="button">Start AutoScan</button>
+        <pre id="autoLog" class="log">Ready.</pre>
+      </article>
+    </section>
+
+    <section id="keyword" class="page">
+      <div class="section-title">
+        <div><p class="eyebrow">TARGETED SEARCH</p><h2>Keyword Search</h2></div>
+      </div>
+      <article class="panel hero-panel">
+        <label>Keyword
+          <input id="keywordInput" type="search" maxlength="200" placeholder="Enter a file or topic name">
+        </label>
+        <button id="startKeyword" class="primary" type="button">Start Keyword Search</button>
+        <pre id="keywordLog" class="log">Ready.</pre>
+      </article>
+    </section>
+
+
+    <section id="extract" class="page">
+      <div class="section-title"><div><p class="eyebrow">LOCAL EXTRACTION</p><h2>Extract</h2></div></div>
+      <article class="panel hero-panel">
+        <label>Text or HTML
+          <textarea id="extractText" placeholder="Paste text or HTML containing public MEGA folder links"></textarea>
+        </label>
+        <button id="extractBtn" class="primary" type="button">Extract folder links</button>
+        <div id="extractList" class="list"></div>
+        <pre id="extractLog" class="log">Ready.</pre>
+      </article>
+    </section>
+
+    <section id="archive" class="page">
+      <div class="section-title">
+        <div><p class="eyebrow">COMPLETED RUNS</p><h2>Archive</h2></div>
+        <button id="reloadArchive" class="secondary" type="button">Refresh</button>
+      </div>
+      <article class="panel">
+        <p class="muted">Completed and terminal runs stored in D1. Open any run to inspect or export its results.</p>
+        <div id="archiveList" class="list"></div>
+      </article>
+    </section>
+
+    <section id="results" class="page">
+      <div class="section-title">
+        <div><p class="eyebrow">RUN OUTPUT</p><h2>Results</h2></div>
+        <button id="reloadResults" class="secondary" type="button">Reload</button>
+      </div>
+      <article class="panel">
+        <label>Selected run
+          <select id="resultRun"></select>
+        </label>
+        <div class="run-actions">
+          <button id="exportJson" class="secondary" type="button">Export JSON</button>
+          <button id="exportCsv" class="secondary" type="button">Export CSV</button>
+        </div>
+        <p id="resultSummary" class="muted">No run selected.</p>
+        <div id="resultList" class="list"></div>
+      </article>
+    </section>
+
+    <section id="sources" class="page">
+      <div class="section-title">
+        <div><p class="eyebrow">300 / 80 MODEL</p><h2>Sources</h2></div>
+        <button id="reloadSources" class="secondary" type="button">Reload</button>
+      </div>
+      <div id="sourceMetrics" class="metrics"></div>
+      <article class="panel">
+        <label>Search sources
+          <input id="sourceSearch" type="search" placeholder="Name, category, or type">
+        </label>
+        <div class="run-actions">
+          <button id="restoreDefaults" class="secondary" type="button">Restore 80 defaults</button>
+          <button id="refreshRanks" class="secondary" type="button">Refresh ranks</button>
+        </div>
+        <div id="sourceList" class="list"></div>
+      </article>
+    </section>
+
+    <section id="tools" class="page">
+      <div class="section-title"><div><p class="eyebrow">OPERATIONS</p><h2>Diagnostics</h2></div></div>
+      <article class="panel">
+        <div class="run-actions">
+          <button id="loadDiagnostics" class="secondary" type="button">Diagnostics</button>
+          <button id="loadBindings" class="secondary" type="button">Bindings</button>
+        </div>
+        <pre id="toolsLog" class="log">Ready.</pre>
+      </article>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

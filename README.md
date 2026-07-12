@@ -1,4 +1,11 @@
-# Nimbus Core V36
+# Nimbus Core V36 — Phase 10 UI Recovery v1.9.1
+
+Runtime version: `36.6.0`
+
+Status: operational iPhone UI integrated with the current V36 run, queue, results, source, and diagnostics APIs.
+
+This package supports real AutoScan and Keyword Search execution through the deployed V36 Worker. It replaces the Foundation placeholder page and adds rendered-output contract tests.
+
 
 Current package: **Phase 10 Search Adapter Core v1.8.0**.
 
@@ -27,3 +34,9 @@ npm run check:config
 ```
 
 Remote database or production deployment commands must not be run without explicit approval and backup evidence.
+
+## Security gate for operational deployment
+
+Before exposing the operational UI publicly, protect the Pages application and Worker with Cloudflare Access or an equivalent approved authentication layer. The interface can create real AutoScan and Keyword runs that consume Queue, D1, and outbound Worker resources.
+
+Preview testing also targets the configured production Worker API unless a separate API base is supplied. Use a controlled test window and do not treat CORS as authentication.
