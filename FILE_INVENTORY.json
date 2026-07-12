@@ -1,7 +1,8 @@
 {
-  "package": "Nimbus-Core-V36-Phase-10-Search-Adapter-Core-v1.8.0",
-  "version": "36.6.0",
+  "package": "Nimbus-Core-V36-Phase-10-Search-Adapter-Core-v1.8.1-CI-FIX",
+  "version": "36.6.1",
   "file_count": 156,
+  "manifest_note": "Self-referential manifest files intentionally use null SHA-256 values.",
   "files": [
     {
       "path": ".github/workflows/deploy-worker.yml",
@@ -10,8 +11,8 @@
     },
     {
       "path": ".github/workflows/validate-phase.yml",
-      "size_bytes": 1030,
-      "sha256": "0df05905658f35d5d421be96b6ccab581730e1a095aec02784c0c3e6ced21915"
+      "size_bytes": 1143,
+      "sha256": "90e20bbafe062a36c2cc1a8b856dbfb868ef70694ad6c364bf167f122deaf853"
     },
     {
       "path": ".gitignore",
@@ -20,8 +21,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "size_bytes": 2104,
-      "sha256": "8be1332de2f483b96286ba3e4c00f243da95be8ddd7e285cf7b0d964e272af7c"
+      "size_bytes": 2584,
+      "sha256": "e0c9b0b005ed63023b0e41f95199d6c5565917d5a8297ecc0eec8feb24b6f432"
     },
     {
       "path": "CLOUDFLARE_CLEAN_SETUP.md",
@@ -59,14 +60,24 @@
       "sha256": "7b64a07a5c93ccf8511366ceca6f6e4e8b3cc1753a8693c5530acb6f50786e9a"
     },
     {
+      "path": "FILE_INVENTORY.json",
+      "size_bytes": 25426,
+      "sha256": null
+    },
+    {
+      "path": "FILE_INVENTORY.md",
+      "size_bytes": 6172,
+      "sha256": null
+    },
+    {
       "path": "KNOWN_ISSUES.md",
-      "size_bytes": 536,
-      "sha256": "badf98b91db184689321a459015c903b9bfea1491824ad0dea18032c9a97d397"
+      "size_bytes": 618,
+      "sha256": "d66d007efbb31309a0f1971131c31f038e289c07bf4907b3da9f41e49b37ee90"
     },
     {
       "path": "PHASE_STATUS.md",
-      "size_bytes": 399,
-      "sha256": "671e297672e37c89dee49705306f6acabc43082105881b5536d2c4fa33f69f21"
+      "size_bytes": 406,
+      "sha256": "f3707dc20010b2334b0b588d3b35e783dec1a51c380ebd866878606d8096ffd1"
     },
     {
       "path": "PHASE_TEST_REPORT.md",
@@ -75,8 +86,13 @@
     },
     {
       "path": "README.md",
-      "size_bytes": 921,
-      "sha256": "ce26b533ff66326564464aa21680cda817b3f565016a1914659f3a5dbd6aa29c"
+      "size_bytes": 1008,
+      "sha256": "4476c63d2aaddb573b61e8b5fa6fd7e23ce4a120c616ed48e5f4d993acd742de"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 14344,
+      "sha256": null
     },
     {
       "path": "TEST_REPORT.md",
@@ -305,8 +321,8 @@
     },
     {
       "path": "package-lock.json",
-      "size_bytes": 54360,
-      "sha256": "49b93afe7588469f4dd570ff99af583e37e4b1dabc8cd5845583df4be98f23ee"
+      "size_bytes": 48397,
+      "sha256": "df0357c9c456e4e66c7625763cc1d58a09027032da09c4d21bde231bfc78612b"
     },
     {
       "path": "package.json",

@@ -47,3 +47,11 @@
 - Added deterministic HTML/RSS adapters and target normalization.
 - Added branch-only GitHub Actions validation with no deployment.
 - Kept production deployment restricted to `main`.
+
+## 36.6.1 — Phase 10 CI Registry Remediation
+- Replaced environment-specific internal npm registry URLs in `package-lock.json` with public `registry.npmjs.org` URLs.
+- Synchronized the lockfile package version with `package.json` at `36.6.0`.
+- Pinned npm `10.9.2` in the branch validation workflow.
+- Forced `npm ci` to use the public npm registry.
+- Removed stale Phase 09 text from the Phase 10 README.
+- No production deployment or remote database operation was performed.
