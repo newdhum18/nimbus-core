@@ -1,13 +1,12 @@
 # File Inventory
 
-- Package files: **156**
-- Self-referential manifest hashes are intentionally omitted.
+Files: 157
 
 | Path | Bytes | SHA-256 |
 |---|---:|---|
 | `.github/workflows/deploy-worker.yml` | 1220 | `e41e596d60748ab98d03e7a378af569e01e14fa2d9ffc1dbb54c51e37d193858` |
 | `.github/workflows/validate-phase.yml` | 1143 | `90e20bbafe062a36c2cc1a8b856dbfb868ef70694ad6c364bf167f122deaf853` |
-| `.gitignore` | 99 | `50f355e5667ac61e3261780c1daeb04397adab8c74b92865f70f201b6396325f` |
+| `.gitignore` | 124 | `c4751413ad96f7380a0247534af5fad2061ea53fb6fc9f9fb78c77f20bac23dc` |
 | `CHANGELOG.md` | 2584 | `e0c9b0b005ed63023b0e41f95199d6c5565917d5a8297ecc0eec8feb24b6f432` |
 | `CLOUDFLARE_CLEAN_SETUP.md` | 357 | `fa3ec0d5a1acba85d934e7e8e7186e1f1db5f5ec0d6fe756c1f646adc9c226c4` |
 | `DEPLOYMENT.md` | 696 | `6b5fbc6d6d82e612186b8956dda882a20cac32699ae84e8d2345054924e4aa6b` |
@@ -16,14 +15,12 @@
 | `ENGINEERING_REVIEW.md` | 2719 | `86401c2c4f72885282bc957c3fa90fc4fb99e7386ff9425b5c91dbdb2756fa53` |
 | `FEATURE_MATRIX_V28_V36.md` | 3553 | `ac324a286c8819a589d8fdfbd1a830cf647e9e268562e1c803b2da22d2599264` |
 | `FEATURE_MATRIX_V30_V35.md` | 1662 | `7b64a07a5c93ccf8511366ceca6f6e4e8b3cc1753a8693c5530acb6f50786e9a` |
-| `FILE_INVENTORY.json` | 25426 | `self-reference omitted` |
-| `FILE_INVENTORY.md` | 6172 | `self-reference omitted` |
 | `KNOWN_ISSUES.md` | 618 | `d66d007efbb31309a0f1971131c31f038e289c07bf4907b3da9f41e49b37ee90` |
 | `PHASE_STATUS.md` | 406 | `f3707dc20010b2334b0b588d3b35e783dec1a51c380ebd866878606d8096ffd1` |
 | `PHASE_TEST_REPORT.md` | 571 | `94ec2377df99afcfc57980143930a86c1f7f656bc8d808a6291eeeb2bacc0ae3` |
-| `README.md` | 1008 | `4476c63d2aaddb573b61e8b5fa6fd7e23ce4a120c616ed48e5f4d993acd742de` |
-| `SHA256SUMS.txt` | 14344 | `self-reference omitted` |
+| `README.md` | 1857 | `2895a241eda7830724fa5d8c5ad80c55680e06ecb20afaf4a2fca53f473039dd` |
 | `TEST_REPORT.md` | 939 | `c5f4812bd593608fa1cdce9c4bac8931fb77da1bbc443a0a1557bbbca1287326` |
+| `UI_RECOVERY_AUDIT.json` | 2257 | `152b725ee0cd03be9dd7eec11b87c1e4772e3bd54112aa6e06bedca9e61459fd` |
 | `docs/API_SPEC.md` | 681 | `1f117822cbb2e6a303b1a3f2c27f9133647c87aa7d517bbcf01091972503f208` |
 | `docs/ARCHITECTURE.md` | 626 | `e3358457318827074ad4c8c545b2338e17bc42e0e41e156e854597d515a7b35b` |
 | `docs/ARCHITECTURE_FINAL.md` | 2186 | `596e7777fde97c2afd3aacf03c3446801dc814efdb93ad2617aef9d4ede3161d` |
@@ -42,6 +39,8 @@
 | `docs/phase09/PHASE_09_SOURCE_MANAGER.md` | 2174 | `428a415c4488a9dbaf5ca8cde93d70bc762451cf1577d5e3417a08ccae7171c0` |
 | `docs/phase10/GITHUB_BRANCH_UPLOAD_GUIDE.md` | 1553 | `bbd492f35077959f1d4f3df5911357b088a8b45323df18ef8d396b62dac36945` |
 | `docs/phase10/PHASE_10_SEARCH_ADAPTER_CORE.md` | 928 | `8ab5dfda644f5a609b7e2e45585da8b7fe7f80de181cf23aaa9b425ed63bef4b` |
+| `docs/phase10-ui-recovery/COMPARISON_V34_V35.md` | 653 | `7fc5c1df72da074a2cd22f2d4d5359066e8741f4406588c024b8336476201687` |
+| `docs/phase10-ui-recovery/README.md` | 1261 | `ba0d22cdfa3c5728227fd6c9d48fb03c54a4f85331eb0a9bec6a9a763cf096e7` |
 | `evidence/phase06-sha256-verification.txt` | 2644 | `014d2973757f7084f69a5d89ef53d9b05ea9c9510190951708eafbbdf956206a` |
 | `evidence/phase06-test-output.txt` | 8470 | `bfcd497fe62f8cb1736a643b95287bc909f062b26fb36c69834054ee3583b3fc` |
 | `evidence/phase06.1-final-validation.txt` | 12867 | `efea98e6af6ceb93c39f9b0dc6e918a12e1d37e9d3717631df596516a36951ae` |
@@ -69,11 +68,11 @@
 | `evidence/phase09-worker-dry-run.txt` | 375 | `3ac4b76eeb502153dd1f55fa0ff76342c0b03562727f2bceda30483cf56ca762` |
 | `evidence/test-output.txt` | 12191 | `656ec874cfac3bdc07a0bbbc64baa487012f08b128d4fd540a1aebd8e5658022` |
 | `package-lock.json` | 48397 | `df0357c9c456e4e66c7625763cc1d58a09027032da09c4d21bde231bfc78612b` |
-| `package.json` | 1796 | `267fe6056f0386b2bc2d33b621b8a66014fadde0f6d97b0e43210de49d0f62e1` |
+| `package.json` | 1817 | `9597965fdaaf84ad626b6bf1920a9a022f832537964f3bf5a6cb85aee6a0d8e8` |
 | `public/_headers` | 155 | `17c3b142c0879287e6ee2170c9323a32094953821992dfa1487516892d874f56` |
-| `public/app.js` | 430 | `f598cde76edf21935613988e32bb587a50a30f825c3c526d5183c27963585591` |
-| `public/index.html` | 795 | `dbccbcd9c2f618fb44d60b1f8c00b58c4e3cb0a9ba574961f2c15655064cb69f` |
-| `public/style.css` | 773 | `f5a27f7ae392cad8089675da8a4e20e0f20eda379a1a0459bf39635f3fa4e554` |
+| `public/app.js` | 14167 | `7fa9a1f363383345d0a1c434f3dac1baa5be43598729bc732145215629c58791` |
+| `public/index.html` | 6813 | `a87dcb3097b14cbf9793eec1f2b69a3266b014c3120e7795b56474263dfeaa70` |
+| `public/style.css` | 5101 | `65950512e28b8f0403fd1789cc7e9d392421ccf50a17cd54b34a740c1e30b461` |
 | `scripts/build-web.mjs` | 236 | `edf4768920075d89a1388bf204397bf61e4e52e134c9af9e0e9ca4a2dc5e409f` |
 | `scripts/check-config.mjs` | 1379 | `f6ba24e18d8599f18f44a5ced9472e6acfac0341c863b3381ce3e7d583dc1e9f` |
 | `scripts/check-release.mjs` | 433 | `2a86380d7e6d3b59298f577293f37afd47dfcc81264d9f590ae876bc128c6eb0` |
@@ -87,7 +86,7 @@
 | `src/api/errors.js` | 492 | `5597686590c04a8fbf88d6423787dc1f2edc0aa4f27a89e839021173ce9fafc3` |
 | `src/api/responses.js` | 934 | `21b9742895dad5c7911f8c5f7c3eb47311ce4ba0f38311bd8bc172aff16e64f7` |
 | `src/api/validation.js` | 1195 | `c90a3ef4571fd18b0fe23e702d0485b3616eaca7ab1c7b8cc0109bf87c47f077` |
-| `src/config.js` | 800 | `0e2b830e118661a022ec94e316d2a2a2cead62fa4d3c01cd0d6b2b59f235ca9f` |
+| `src/config.js` | 783 | `287dd65912db8ecd45ccfc318c15d331a1316ed098812c944a622ce21ef5339f` |
 | `src/db/batch.js` | 1022 | `5c45b6421795e1714af0673bc282fce838c074b85e971a070cf5df2fa98f6efb` |
 | `src/db/migration-catalog.js` | 743 | `a996eac0d3ce14a99371d49ae25aaa73dc4735a3323d2bb53ecc69e9f1593730` |
 | `src/db/migrations/0001_initial.sql` | 6767 | `ff9ecdf2d4aac215977721b3357bab5ab81dfa9257702d3518a13e02c9da3953` |
@@ -117,7 +116,7 @@
 | `src/queue/recovery.js` | 662 | `cdc74cc45c6347fd5a7d02da5058940e8202a3c8ba6f178e8e014e3405923410` |
 | `src/queue/retry.js` | 1577 | `85dde2a9c6f95794af317c607f57b7a1e0d79fabae9e6ff29b591a18ecfda1e3` |
 | `src/results/service.js` | 1480 | `32873dd96850a093bb3efcb9f2ae8ab3608bb8dd65253560dc7f583e19d2f484` |
-| `src/router.js` | 10970 | `1cd19f9e19a3035484d4a5b44c4c6b42b88fc48be1590d8b086daf2db4b93811` |
+| `src/router.js` | 11400 | `a2b3e4b90417579efe7230b4299e7a2dc554699224367122feb4dd673850a521` |
 | `src/runs/cancel.js` | 898 | `50a55722e224be5a3f072538c3fd4c08991eacc908f594253c9a5c6ff0ee8cb2` |
 | `src/runs/lifecycle.js` | 2654 | `9fb3427efacace7460c823d9734f9fd09f0e154b2d7697c4512e8e0ff672b53c` |
 | `src/runs/pause.js` | 160 | `2f7b770411f88703a9a0c350afa7de0609b2853bf52368b78eea3c75ee950117` |
@@ -151,7 +150,7 @@
 | `tests/extract.test.mjs` | 1783 | `3c04d20c4f0fc0a30e037ac8ab488aafae6c610b026e12a6d5227297fc06daf0` |
 | `tests/queue-runtime.test.mjs` | 3978 | `578302e140af1b5f2dd4b04c30235c7bca38dfc02159832645f0b059f39f9d5e` |
 | `tests/queue.test.mjs` | 1979 | `4754698cb20b1df3517d8b1d3051c91b27fa97fa243c85867848412d71920346` |
-| `tests/router.test.mjs` | 2210 | `9e7af6462dd58070ae1af33bef3378eaa0f255563d7a05d742118d52e681dda5` |
+| `tests/router.test.mjs` | 2795 | `8d8ad61689f010798400309473b44a035d7905b9a0746e23d3248c449e4452cd` |
 | `tests/run-lifecycle.test.mjs` | 3323 | `02625138e08d772e690499d728163de79dcabb49f70a364db5ee7e414af469c7` |
 | `tests/runtime-services.test.mjs` | 1291 | `b0cfe6f7c914bb93b47dfd568b38b326550b1f48d715b697370b0ee3e4012700` |
 | `tests/schema.test.mjs` | 1006 | `bf010b695ad7e64dfe86eccf320698a1b091b5bdd79cead986b5d26f6d0fa8c9` |
@@ -159,5 +158,6 @@
 | `tests/search.test.mjs` | 1624 | `8104ef08cfc73eaf9958dcebbec417fbeef435003cec8229e216f8bde7a85a80` |
 | `tests/source-manager.test.mjs` | 4076 | `b73c46cdb0812f714a1007b278f3c4905fc2aedb410f3bedbcbaf9e416082b80` |
 | `tests/sources.test.mjs` | 823 | `71381c70b056629dd5dd7afbe08c192b5658102bb65b636e3f75aef1b8276a65` |
+| `tests/ui-recovery.test.mjs` | 1822 | `e6ab678c8fc00be2cafaf0c9e6c7ba939a3637a9164758a1d58102cdf0d948df` |
 | `wrangler.pages.jsonc` | 169 | `2f52b594c04aa681f4103df6873d40e1e59a7ee224f3377baddf3e2483ca48d0` |
 | `wrangler.worker.jsonc` | 800 | `2f82971f05a89df466400a8274158700a63ba1af10a0d4cccb8cc47e0df40744` |

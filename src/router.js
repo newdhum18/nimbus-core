@@ -18,6 +18,7 @@ import { dispatchPending } from "./queue/producer.js";
 import { recoverQueueRuntime } from "./queue/recovery.js";
 import { listResults, resultsToCsv } from "./results/service.js";
 import { repairDatabase } from "./db/repair.js";
+import { extractMegaFolders } from "./extract/mega.js";
 
 async function requestBody(request) {
   return request.json().catch(() => ({}));
@@ -97,6 +98,14 @@ export async function route(request, env) {
       requireQueue(env);
       await env.QUEUE.send({ type: "foundation_test", sentAt: new Date().toISOString() });
       return ok({ component: "queue-producer", message: `Test message sent to ${SYSTEM.queue}.` }, 202, cors);
+    }
+
+
+    if (url.pathname === "/api/extract" && request.method === "POST") {
+      const data = await requestBody(request);
+      const text = nonEmptyString(data.text, { name: "text", max: 1_000_000 });
+      const links = extractMegaFolders(text, { allowLegacy: data.allowLegacy !== false });
+      return ok({ total: links.length, links }, 200, cors);
     }
 
     if (url.pathname === "/api/repair" && request.method === "POST") {
@@ -217,7 +226,7 @@ export async function route(request, env) {
 
     const knownPath = [
       "/", "/health", "/bindings", "/api/status", "/api/diagnostics",
-      "/api/foundation/db-test", "/api/foundation/queue-test", "/api/repair",
+      "/api/foundation/db-test", "/api/foundation/queue-test", "/api/extract", "/api/repair",
       "/api/sources/catalog", "/api/sources", "/api/sources/summary", "/api/sources/reset",
       "/api/sources/high-yield-defaults", "/api/sources/enable-all", "/api/sources/disable-all",
       "/api/sources/bulk", "/api/sources/ranks/refresh",
