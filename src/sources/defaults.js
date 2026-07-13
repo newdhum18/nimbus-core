@@ -105,7 +105,7 @@ export async function seedSources(db, { preserveEnabled = true } = {}) {
     enabled: enabledCount,
     removed_obsolete: obsoleteIds.length,
     transaction_statements: statements.length,
-    expected_total: 300,
-    expected_enabled: preserveEnabled ? null : 80
+    expected_total: catalog.length,
+    expected_enabled: preserveEnabled ? null : catalog.filter((source) => source.defaultEnabled).length
   };
 }

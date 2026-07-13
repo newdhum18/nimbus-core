@@ -103,3 +103,14 @@
 - Preserved enabled state when requested and retained original `created_at` values.
 - Added regression coverage for SQL-variable limits, transactional failures, template collisions, 300/80 restore totals, and obsolete-source removal.
 - Confirmed `/api/sources/reset` returns HTTP 200 in the local Worker runtime validation.
+
+## 36.9.0 — Phase 13 Autonomous Source Intelligence
+- Replaced synthetic 300-source catalog with 29 distinct public discovery surfaces.
+- Added novelty-aware source learning (proven/observe/explore/cooldown/quarantine/disabled).
+- Added 70/20/10 adaptive source selection per round.
+- Added global duplicate detection and novel-link scoring.
+- Added automatic source promotion, demotion, cooldown and quarantine.
+- Added one-minute Queue watchdog and continuous dispatch pumping after success or retry.
+- Added automatic catalog reconciliation before a new run.
+- Added D1 migration 0004 for source intelligence metrics.
+- Kept Bing as disabled reserve and excluded GitHub/YouTube sources.
