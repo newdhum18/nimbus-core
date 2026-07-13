@@ -85,9 +85,9 @@ async function fetchWithValidatedRedirects(initialUrl, options) {
   throw new Error("too_many_redirects");
 }
 
-export async function fetchAndExtract(
+export async function fetchPage(
   value,
-  { timeoutMs = 8000, allowLegacy = true, maxBytes = SYSTEM.maxResponseBytes } = {}
+  { timeoutMs = 8000, maxBytes = SYSTEM.maxResponseBytes } = {}
 ) {
   const url = assertPublicHttpUrl(value);
   const controller = new AbortController();
@@ -105,27 +105,11 @@ export async function fetchAndExtract(
 
     const contentType = response.headers.get("content-type") || "";
     if (!/text\/(html|plain)|application\/(json|rss\+xml|xml)/i.test(contentType)) {
-      return {
-        ok: false,
-        status: response.status,
-        contentType,
-        finalUrl,
-        links: [],
-        latency: Date.now() - started,
-        error: "unsupported_content_type"
-      };
+      return { ok:false,status:response.status,contentType,finalUrl,text:"",latency:Date.now()-started,error:"unsupported_content_type" };
     }
 
     const text = await readTextLimited(response, maxBytes);
-    return {
-      ok: response.ok,
-      status: response.status,
-      contentType,
-      finalUrl,
-      links: extractMegaFolders(text, { allowLegacy }),
-      latency: Date.now() - started,
-      error: response.ok ? null : `http_${response.status}`
-    };
+    return { ok:response.ok,status:response.status,contentType,finalUrl,text,latency:Date.now()-started,error:response.ok?null:`http_${response.status}` };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
@@ -133,11 +117,17 @@ export async function fetchAndExtract(
       status: 0,
       contentType: "",
       finalUrl: url.toString(),
-      links: [],
+      text: "",
       latency: Date.now() - started,
       error: message.includes("abort") ? "timeout" : message
     };
   } finally {
     clearTimeout(timer);
   }
+}
+
+
+export async function fetchAndExtract(value, options = {}) {
+  const page = await fetchPage(value, options);
+  return { ...page, links: extractMegaFolders(page.text || "", { allowLegacy: options.allowLegacy !== false }) };
 }

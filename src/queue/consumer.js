@@ -1,11 +1,14 @@
 import { acquireLease } from "./lease.js";
 import { failOrDead } from "./retry.js";
-import { fetchAndExtract } from "../search/crawler.js";
+import { fetchAndExtract, fetchPage } from "../search/crawler.js";
+import { adapterForSource } from "../search/adapters/index.js";
+import { extractMegaFolders } from "../extract/mega.js";
 import { uid, nowIso } from "../db/queries.js";
 import { syncRunProgress } from "../runs/progress.js";
 import { recordSourceResult } from "../sources/metrics.js";
 import { SYSTEM } from "../config.js";
 import { validateTaskMessage } from "./contract.js";
+import { extractHttpTargets, contentVariants } from "../search/target-decoder.js";
 
 async function event(db, {
   runId = null,
@@ -88,9 +91,10 @@ async function persistLinks(env, task, pageId, links) {
 export async function processTask(env, messageBody) {
   const taskId = messageBody.task_id;
   const task = await env.DB.prepare(`
-    SELECT t.*,r.status run_status
+    SELECT t.*,r.status run_status,s.source_type,s.name source_name
     FROM run_tasks t
     JOIN runs r ON r.id=t.run_id
+    JOIN sources s ON s.id=t.source_id
     WHERE t.id=?
   `).bind(taskId).first();
 
@@ -134,10 +138,73 @@ export async function processTask(env, messageBody) {
     return { action: "ack", reason: "lease_not_acquired" };
   }
 
-  const current = await env.DB.prepare("SELECT * FROM run_tasks WHERE id=?").bind(taskId).first();
+  const current = await env.DB.prepare(`
+    SELECT t.*,s.source_type,s.name source_name
+    FROM run_tasks t JOIN sources s ON s.id=t.source_id
+    WHERE t.id=?
+  `).bind(taskId).first();
 
   try {
-    const result = await fetchAndExtract(current.url);
+    let result;
+    if (["html", "rss", "custom", "json"].includes(String(current.source_type))) {
+      const searchPage = await fetchPage(current.url);
+      const collected = new Map(extractMegaFolders(searchPage.text || "").map(link => [link.normalizedUrl, link]));
+      const visited = new Set([searchPage.finalUrl || current.url]);
+      const queue = [];
+      let seedTargets = [];
+
+      if (searchPage.ok) {
+        try {
+          if (["html", "rss"].includes(String(current.source_type))) {
+            const adapter = adapterForSource({ source_type: current.source_type });
+            seedTargets = adapter.parse({
+              input: { source_id: current.source_id, mode: "autoscan", round: 0, query: "", template_url: current.url },
+              body: searchPage.text || ""
+            }).targets;
+          } else {
+            seedTargets = extractHttpTargets(searchPage.text || "", searchPage.finalUrl || current.url);
+          }
+        } catch {
+          seedTargets = extractHttpTargets(searchPage.text || "", searchPage.finalUrl || current.url);
+        }
+      }
+
+      for (const target of seedTargets.slice(0, SYSTEM.maxChildLinks)) {
+        for (const variant of contentVariants(target)) queue.push({ url: variant, depth: 1 });
+      }
+
+      let childOk = 0;
+      let childLatency = 0;
+      let pagesVisited = 0;
+      while (queue.length && pagesVisited < SYSTEM.maxPagesPerTask) {
+        const item = queue.shift();
+        if (!item || item.depth > SYSTEM.maxCrawlDepth || visited.has(item.url)) continue;
+        visited.add(item.url);
+        pagesVisited += 1;
+        const child = await fetchAndExtract(item.url, { timeoutMs: 7000 });
+        childLatency += child.latency || 0;
+        if (child.ok) childOk += 1;
+        for (const link of child.links || []) collected.set(link.normalizedUrl, link);
+
+        if (child.ok && item.depth < SYSTEM.maxCrawlDepth) {
+          const nested = extractHttpTargets(child.text || "", child.finalUrl || item.url)
+            .filter(url => !visited.has(url))
+            .slice(0, Math.max(2, Math.floor(SYSTEM.maxChildLinks / 2)));
+          for (const target of nested) {
+            for (const variant of contentVariants(target)) queue.push({ url: variant, depth: item.depth + 1 });
+          }
+        }
+      }
+      result = {
+        ...searchPage,
+        ok: searchPage.ok || childOk > 0,
+        links: [...collected.values()],
+        latency: (searchPage.latency || 0) + childLatency,
+        targetsVisited: pagesVisited
+      };
+    } else {
+      result = await fetchAndExtract(current.url);
+    }
     const blocked = [401, 403, 429].includes(result.status);
     const timeout = result.error?.includes("timeout") || false;
 

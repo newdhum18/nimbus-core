@@ -26,6 +26,8 @@ export async function seedSources(db, { preserveEnabled = true } = {}) {
   let processed = 0;
   let enabledCount = 0;
   const catalog = sourceCatalog();
+  const catalogIds = catalog.map((source) => source.id);
+  await db.prepare(`DELETE FROM sources WHERE id NOT IN (${catalogIds.map(() => "?").join(",")})`).bind(...catalogIds).run();
   for (const batch of chunkArray(catalog, 20)) {
     const now = nowIso();
     const statements = batch.map((source) => {
