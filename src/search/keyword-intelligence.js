@@ -81,16 +81,23 @@ export function extractLearnableTerms(text) {
 }
 
 export async function learnSearchTerms(db, text, weight=1) {
-  const terms=extractLearnableTerms(text);
+  // Keep learning lightweight so extraction throughput is never reduced.
+  // Rank candidates by occurrence order, cap the write set, and commit in one D1 batch.
+  const terms=extractLearnableTerms(text).slice(0,12);
+  if (!terms.length) return 0;
   const now=new Date().toISOString();
-  for (const term of terms) {
+  const score=Math.max(1,Number(weight)||1);
+  const statements=terms.map((term)=>{
     const category=inferCategory(term);
-    await db.prepare(`
+    return db.prepare(`
       INSERT INTO search_terms(category,term,score,hits,enabled,created_at,last_seen_at)
       VALUES(?,?,?,1,1,?,?)
       ON CONFLICT(category,term) DO UPDATE SET
-        score=MIN(1000,search_terms.score+excluded.score),hits=search_terms.hits+1,last_seen_at=excluded.last_seen_at
-    `).bind(category,term,Math.max(1,Number(weight)||1),now,now).run().catch(()=>{});
-  }
+        score=MIN(1000,search_terms.score+excluded.score),
+        hits=search_terms.hits+1,
+        last_seen_at=excluded.last_seen_at
+    `).bind(category,term,score,now,now);
+  });
+  await db.batch(statements);
   return terms.length;
 }

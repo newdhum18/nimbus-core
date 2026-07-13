@@ -25,3 +25,16 @@ test("manual keyword expansion produces the requested number without early repet
     assert.ok(queries.every(q=>q.trim()&&!q.includes("undefined")));
   }
 });
+
+
+test("manual search preserves the exact legacy keyword as the first query",async()=>{
+  const db={prepare(){return{bind(){return{all:async()=>({results:[]})}}}}};
+  const queries=await buildAdaptiveQueries(db,{keyword:"Photoshop",rounds:25,seed:"legacy-first"});
+  assert.equal(queries[0],"Photoshop");
+});
+
+test("adaptive queries never use artificial numbered discovery fallbacks",async()=>{
+  const db={prepare(){return{bind(){return{all:async()=>({results:[]})}}}}};
+  const queries=await buildAdaptiveQueries(db,{category:"tools",rounds:100,seed:"meaningful"});
+  assert.ok(queries.every(q=>!/\bdiscovery\s+\d{3}\b/i.test(q)));
+});
