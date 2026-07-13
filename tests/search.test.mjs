@@ -38,3 +38,21 @@ test("URL guard blocks credentials, private ranges and unsupported ports", () =>
   assert.throws(() => assertPublicHttpUrl("https://example.local/test"));
   assert.throws(() => assertPublicHttpUrl("https://example.com:8443/test"));
 });
+
+
+test("multi-round task URLs remain unique", async () => {
+  const { withRoundIdentity } = await import("../src/runs/start.js");
+  const base = "https://example.com/search?q=test";
+  const urls = Array.from({ length: 100 }, (_, index) => withRoundIdentity(base, index));
+  assert.equal(new Set(urls).size, 100);
+  assert.match(urls[0], /#nimbus_round=1$/);
+  assert.match(urls[99], /#nimbus_round=100$/);
+});
+
+
+test("round plan scales task count exactly", async () => {
+  const { totalTasksForRounds } = await import("../src/runs/start.js");
+  assert.equal(totalTasksForRounds(80, 1), 80);
+  assert.equal(totalTasksForRounds(80, 25), 2000);
+  assert.equal(totalTasksForRounds(80, 100), 8000);
+});

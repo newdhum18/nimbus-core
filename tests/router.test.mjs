@@ -61,3 +61,18 @@ test("run state conflict exposes run_id in the standard error envelope", async (
   assert.equal(body.error.code, "RUN_STATE_CONFLICT");
   assert.equal(body.error.run_id, "run_123");
 });
+
+
+test("extract endpoint returns normalized complete folder links", async () => {
+  const request = new Request("https://worker.example/api/extract", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "x https://mega.nz/folder/ABCDEFGH#abcdefghijklmnopqrstuvwxyzABCD1234 y" })
+  });
+  const response = await route(request, {});
+  const payload = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(payload.ok, true);
+  assert.equal(payload.total, 1);
+  assert.equal(payload.links[0].type, "folder");
+});

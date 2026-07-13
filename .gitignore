@@ -9,3 +9,5 @@ dist/
 *.log
 .DS_Store
 coverage/
+.validation.runtime.json
+.validation.cloudflare.json

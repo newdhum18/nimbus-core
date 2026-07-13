@@ -1,9 +1,9 @@
 {
   "name": "nimbus-core-v36",
-  "version": "36.6.0",
+  "version": "36.8.4",
   "private": true,
   "type": "module",
-  "description": "Nimbus Core V36 Phase 10 search adapter core",
+  "description": "Nimbus Core V36 Phase 12.5 D1 transactional source reset hotfix v1.2.1",
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "test": "node --test tests/*.test.mjs",
