@@ -1,14 +1,14 @@
-# File Inventory
+# Nimbus Core V36 File Inventory
 
-- Version: 36.9.2
-- Files: 171
+- Version: 36.9.4
+- Files: 177
 
 | Path | Size (bytes) | SHA-256 |
 |---|---:|---|
 | `.github/workflows/deploy-worker.yml` | 1836 | `9abf78b7c03906d63db00a2106e1a20eead7cd888708755a8134dbcd9014f227` |
 | `.github/workflows/validate-phase.yml` | 1143 | `90e20bbafe062a36c2cc1a8b856dbfb868ef70694ad6c364bf167f122deaf853` |
 | `.gitignore` | 152 | `d7e7a93a60b88492c71f0c837d42bf716535fddf68780c4c94cd00c5305ead48` |
-| `CHANGELOG.md` | 7644 | `cf84827dcda8c4e36cfcb3e740b3c7a276314c77c80f13c0bdd3a26a6354ce5f` |
+| `CHANGELOG.md` | 9134 | `f1cd5cee34ec00ec7814fb5fbc636f0ec28c97223c6a1d0be8295296d6000fd8` |
 | `CLOUDFLARE_CLEAN_SETUP.md` | 357 | `fa3ec0d5a1acba85d934e7e8e7186e1f1db5f5ec0d6fe756c1f646adc9c226c4` |
 | `DEPLOYMENT.md` | 696 | `6b5fbc6d6d82e612186b8956dda882a20cac32699ae84e8d2345054924e4aa6b` |
 | `ENGINEERING_AUDIT_PRE_GITHUB.md` | 1177 | `81e907fee3a4e860eda57362a383361f233f7639adbe45bcafa0ecee5b7478b4` |
@@ -24,7 +24,10 @@
 | `PHASE_12_SEARCH_REMEDIATION_REPORT.md` | 1117 | `14e0aad8de746040fe54f96c80e01a3ffebde1495c00b26646b7eb16460a4a04` |
 | `PHASE_13_1_DYNAMIC_VALIDATION_REPORT.md` | 1241 | `43437a4b1fa445d57bb644b39eba510a9775cdc68cc6d250cb3bebf354212674` |
 | `PHASE_13_2_DYNAMIC_UI_REPORT.md` | 649 | `ad30a4e25eb097d221248d46dfc07bb96808a1e66c9d567d3d86d7afb25f5d13` |
-| `PHASE_STATUS.md` | 564 | `75c896763c127e58a6b43b129a68b937acb255100e90a7d79df1028a8790f85f` |
+| `PHASE_13_3_COMPLETION_REPORT.md` | 805 | `9b40448878662cfbf1e5a4f3ea4c213c0018d0f6246683a0077da5c0e2df4330` |
+| `PHASE_13_3_KEYWORD_INTELLIGENCE_REPORT.md` | 365 | `b83cc6baf5f3136d9f2251102b1a0c719db7bff9e61fe264b3f57379ca6d0178` |
+| `PHASE_13_4_QUERY_LEARNING_FIX_REPORT.md` | 1478 | `ae0acd2a776f88308c1d208d47e9d1275d780423eb3a37e41e6e52e925db554b` |
+| `PHASE_STATUS.md` | 794 | `7e04d6451ec35e8e0f955720475f47cd7532edde01932138d34047cca7716073` |
 | `PHASE_TEST_REPORT.md` | 571 | `94ec2377df99afcfc57980143930a86c1f7f656bc8d808a6291eeeb2bacc0ae3` |
 | `README.md` | 1857 | `2895a241eda7830724fa5d8c5ad80c55680e06ecb20afaf4a2fca53f473039dd` |
 | `TEST_REPORT.md` | 939 | `c5f4812bd593608fa1cdce9c4bac8931fb77da1bbc443a0a1557bbbca1287326` |
@@ -75,12 +78,12 @@
 | `evidence/phase09-test-output.txt` | 11815 | `fd13626c2c33859c7c0557fec12c47d621c648e54d0ac3a56bed8aecb348f533` |
 | `evidence/phase09-worker-dry-run.txt` | 375 | `3ac4b76eeb502153dd1f55fa0ff76342c0b03562727f2bceda30483cf56ca762` |
 | `evidence/test-output.txt` | 12191 | `656ec874cfac3bdc07a0bbbc64baa487012f08b128d4fd540a1aebd8e5658022` |
-| `package-lock.json` | 48397 | `d37c5972cf0d0259a656c2cb84b0a4836de5d419bf8d6d29cb12a7094dc6f7b3` |
-| `package.json` | 1844 | `89a4a452d3dddad292f0000230887f3beddd88c7c538ff430303f78f6dfff4cc` |
+| `package-lock.json` | 48397 | `2c52dbcf70f7ad57f4390c069148e646cf99909dc9a6f612e7021ff0f9f1af64` |
+| `package.json` | 1832 | `868dc4895e0ee7aeae1ad5bb399d4871be14a2faaeb80ff6cb25a5e3147d43fd` |
 | `public/_headers` | 155 | `17c3b142c0879287e6ee2170c9323a32094953821992dfa1487516892d874f56` |
-| `public/app.js` | 22886 | `62df1b0ddfcfe25fb77d36004bf1383c19c5b526baf5dc6e1aff726b6602f5e4` |
-| `public/index.html` | 12286 | `090bcc04c54577c9e02994f75ba2b3f01092636da15f1aa60444b0180a8b80e0` |
-| `public/style.css` | 13335 | `c46ffad2cdfe7225532ab2437631d6a60e6929a54f37890b9d83d80872b885e6` |
+| `public/app.js` | 23949 | `b821f460ef80ac5c62de0ec26c0f7fb9955fa8036127e84b95826bebcde52f91` |
+| `public/index.html` | 13161 | `7b59fde49b77c55342306414d668671ad785193d16c2734463fddaf4a3e09c7f` |
+| `public/style.css` | 14036 | `c17a6c0e6ef21a65adc2ff5fada02a35ded5d1b1fabf905403c39dce7a8ad331` |
 | `scripts/build-web.mjs` | 236 | `edf4768920075d89a1388bf204397bf61e4e52e134c9af9e0e9ca4a2dc5e409f` |
 | `scripts/check-config.mjs` | 1395 | `4615f1e4e39a78452fb40397b098b3a8806653f8b81b1ddccb3ffee8c92b82d9` |
 | `scripts/check-release.mjs` | 433 | `2a86380d7e6d3b59298f577293f37afd47dfcc81264d9f590ae876bc128c6eb0` |
@@ -94,13 +97,14 @@
 | `src/api/errors.js` | 492 | `5597686590c04a8fbf88d6423787dc1f2edc0aa4f27a89e839021173ce9fafc3` |
 | `src/api/responses.js` | 934 | `21b9742895dad5c7911f8c5f7c3eb47311ce4ba0f38311bd8bc172aff16e64f7` |
 | `src/api/validation.js` | 1195 | `c90a3ef4571fd18b0fe23e702d0485b3616eaca7ab1c7b8cc0109bf87c47f077` |
-| `src/config.js` | 782 | `863dd478fc7639aa23d20e3291848eeb410ac941e43861319d9e296d8c3e3281` |
+| `src/config.js` | 782 | `c59560926ab0e961a08baa07175fdd18cdb248b39b70acc2583617bf5e4d4a31` |
 | `src/db/batch.js` | 1022 | `5c45b6421795e1714af0673bc282fce838c074b85e971a070cf5df2fa98f6efb` |
-| `src/db/migration-catalog.js` | 961 | `f65e7d215c378dfa52e808994b3d50644f61428c02f0c7c7ac527c50e75a97df` |
+| `src/db/migration-catalog.js` | 1179 | `797120840ece9ea773311eefa1a9712217758897b060b42e916acd4908b91ddd` |
 | `src/db/migrations/0001_initial.sql` | 6767 | `ff9ecdf2d4aac215977721b3357bab5ab81dfa9257702d3518a13e02c9da3953` |
 | `src/db/migrations/0002_task_identity.sql` | 174 | `8e26cad2244058d8b979941e815b86f98a9882ecadeeccd1d0d0bb1354c0d316` |
 | `src/db/migrations/0003_source_seed.sql` | 71873 | `c9bdfb94788ea22577cf6dfb61c315199c9d6b6321c17d93dac8e48bf2ff70d4` |
 | `src/db/migrations/0004_source_intelligence.sql` | 725 | `e77100a405e8998a9347331dc7b6a7839dbfb17feb07f26e914221dbf8af4f83` |
+| `src/db/migrations/0005_keyword_intelligence.sql` | 513 | `545d92d4c4ae66dd0867e304d8fd7779df7fe09b614ec88c8506eb6770778e2e` |
 | `src/db/migrations.js` | 1676 | `6d8068187122ab263b5edc24d3ef93df325125322bf0dc7adff7a2176a257e4c` |
 | `src/db/queries.js` | 469 | `80a91b61969393b8ce702ff10a05760e64dc2be90a07aaeeafada9f593443b1c` |
 | `src/db/repair.js` | 1348 | `6f99decfef91371a51c45dc89df52ff8c4ab6790131eb573da1c62c8751b0bc9` |
@@ -112,13 +116,13 @@
 | `src/db/repositories/settings.js` | 554 | `e583380dc7c0f355dd42400558720345f9c75c164233e1a9dfda9e6176d0dd60` |
 | `src/db/repositories/sources.js` | 2061 | `a69b06ada61252ea5e21756be14953ff455ca2fb3fd572e806f0b3c8f2b12d90` |
 | `src/db/repositories/tasks.js` | 2114 | `322a0a1f2e4a4d3fa547e615a3b2282eaa50af5d1924bdddfdce4635640b6583` |
-| `src/db/schema.sql` | 78814 | `4a24815f22b0ee382f1ce865b5154f125086673a9d0597b45cc8ce7d6495c65a` |
+| `src/db/schema.sql` | 79275 | `5f4f1455b61e78b0c6f8c3f2aaea1aed06c42ba3ecd7083d8a840b62077889a3` |
 | `src/diagnostics/health.js` | 270 | `577387227c14643aa59a0e23080b40413eceeb0690b277434e329c0300e9a400` |
 | `src/diagnostics/report.js` | 1082 | `9db3663ac69f654bcc6feec733e05e82cc101a04965bff44730225e9196fddfb` |
-| `src/extract/mega.js` | 2997 | `35e34719e6163e16fda865de12b76dcc6dc23a78f0c12210fc47c3de026c53e2` |
+| `src/extract/mega.js` | 3280 | `c7d5ef38455940f465027e64a642fcad92438e361edb2847f539d823ebf75b30` |
 | `src/extract/normalize.js` | 1009 | `d66b357483c4544f022d5ea348995b10728da9da790fa86f2681856ab2e7354b` |
 | `src/extract/redirects.js` | 336 | `40e56191e10a58af83d54c44193710e2122446ce0671c266a828ee8c39295355` |
-| `src/queue/consumer.js` | 11228 | `7efd708c161b1d15d6316813c61be1ceebf1643c56320d7e947da00e2ea6b515` |
+| `src/queue/consumer.js` | 11873 | `b904c29d2d8773ac34511ad093bfb63d8e7b14eaf41ebb9082fa79fdd86fca7e` |
 | `src/queue/contract.js` | 1703 | `5e820d3cb911590312491e82cd02b127c6f719c62dcae5346f5e69c6852b5398` |
 | `src/queue/lease.js` | 1325 | `92e2c160dc093dba832a294f9945f58acd6d4611eecebf3171f95a6eed1d38a0` |
 | `src/queue/producer.js` | 2121 | `35a3831e833283dcc22e0b8f5a3fc24ddeaa53e7a6b0aeb3603bf354f3b34ae8` |
@@ -126,7 +130,7 @@
 | `src/queue/retry.js` | 1577 | `85dde2a9c6f95794af317c607f57b7a1e0d79fabae9e6ff29b591a18ecfda1e3` |
 | `src/queue/watchdog.js` | 695 | `0e1c760948248acf3910cb2baa15556d110a5bc3937d9239940acb3dcda3e86b` |
 | `src/results/service.js` | 1480 | `32873dd96850a093bb3efcb9f2ae8ab3608bb8dd65253560dc7f583e19d2f484` |
-| `src/router.js` | 11400 | `a2b3e4b90417579efe7230b4299e7a2dc554699224367122feb4dd673850a521` |
+| `src/router.js` | 12348 | `1f75ea9c27ec50cf6558cd64f74c4638774bf91082b5118be0b7b16e922cdca2` |
 | `src/runs/cancel.js` | 898 | `50a55722e224be5a3f072538c3fd4c08991eacc908f594253c9a5c6ff0ee8cb2` |
 | `src/runs/lifecycle.js` | 2654 | `9fb3427efacace7460c823d9734f9fd09f0e154b2d7697c4512e8e0ff672b53c` |
 | `src/runs/pause.js` | 160 | `2f7b770411f88703a9a0c350afa7de0609b2853bf52368b78eea3c75ee950117` |
@@ -134,7 +138,7 @@
 | `src/runs/read.js` | 852 | `06aef2d416c8f30a7e9b7bb7f66ced8f1e10033d6d1fde9039caa741f0ea399b` |
 | `src/runs/recovery.js` | 1464 | `a4e624a62af603994f1947afe46f6f933ca648b9f838fc6db2b25f0b232a2218` |
 | `src/runs/resume.js` | 1269 | `72b59e5f3fe2482b98cfe767c3076e621f4515b8b934bee5d5da8890108fcd47` |
-| `src/runs/start.js` | 4830 | `e48cfb93da825ad17440541341707d35c53aaa57a1a38cfadd7b19fe1a922370` |
+| `src/runs/start.js` | 5182 | `b72e75e74716c2fb71842ff56645120ece63160d1058a33a8005f361568c54a3` |
 | `src/runs/state-machine.js` | 1652 | `b9f2852a10475de7962e9ae3dd2655107985ddeabc81099c3e7c2051c7fd1175` |
 | `src/search/adapters/html.js` | 799 | `c7fa7497ff529de57df28167808d9d9cb783e99188ea8d737b22525eeeed3631` |
 | `src/search/adapters/index.js` | 535 | `7cb109651b5bb9ca8c12d2e8e6734cc50e1f9bf3d407fa3d4144de3a2ab02b89` |
@@ -142,26 +146,28 @@
 | `src/search/adapters/template.js` | 1192 | `77e3aee354d82e538d369116d53ca1e440a1761f7ee33e742ee472eaa00d4f8e` |
 | `src/search/autoscan.js` | 404 | `18db8b6118d70ee0ed2067f20099e61c4aa544d102e400b730f36bc91e7275c0` |
 | `src/search/contracts/adapter.js` | 1486 | `179783b0509e7c833f68c4e1f0d5492551ca7202657f799f073cde5cf0d9e1c8` |
-| `src/search/crawler.js` | 4339 | `79a0ea06ad02097cefdb7d007acf7266e4be4a681c4d0a99a04ebe4eb2e97ef3` |
-| `src/search/crawler.js.tmp` | 0 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
-| `src/search/keyword.js` | 271 | `ab092893a9427008700cce4f040693add9840fbd1f1c2fe494d514cd9fda6e7c` |
+| `src/search/crawler.js` | 5880 | `da66d6af09d7921cf5553f9c34d3e3d6e3fbe2ac184a9f6861d9ed6a4e4e620f` |
+| `src/search/keyword-intelligence.js` | 5149 | `4aed9b5eaec6d13d9d0266314295bc6dc7ee23bdc5f20366b27d1cc10ff674e9` |
+| `src/search/keyword.js` | 2977 | `732863f916bcd5b32f0fc545bb4fc72fa164a8836ec694856f864217cca822a2` |
 | `src/search/normalization.js` | 880 | `711e8628ffac4dfe72e86b9f0e560c3ecafafd52a322e08ebcb367eadee26f7c` |
 | `src/search/ranking.js` | 309 | `4b0eebdfa4c401db81a0afa0492daf8b77fba07df316acc9d6cf1c453886efc2` |
 | `src/search/target-decoder.js` | 3671 | `88b10d0984f22b019be4d1e72bd7bbe4a1a8012c0ecb3876e8bfcb8a4017a1c4` |
 | `src/sources/catalog.js` | 6018 | `ac839ca8b6d47c7447ba7eda6c7b2ff2705b3fdcd0c78ac0a839aca921526dfa` |
 | `src/sources/defaults.js` | 3992 | `9b160e39bcd264d9472e8bc88918abb5879394a11e0060faed426fc6b5c5394c` |
-| `src/sources/intelligence.js` | 2582 | `ee3fd9583ed39e3682d2ab4cbe10af517fb375d72a2f97b92d66256d878dcc90` |
-| `src/sources/metrics.js` | 3459 | `dbfb5c04683c1e938cb15c39eec2b151b4c457453fcdfc7ba55469ff4b120953` |
+| `src/sources/intelligence.js` | 2900 | `a8eae0b8e25a37583468420552eba9fe06c755a9f9aaadfdad346ec853d6d83d` |
+| `src/sources/metrics.js` | 3615 | `e235c266ec9fe5009fcf7086260185f4b563360e16b4f1a5bb5ae3feb68c75f5` |
 | `src/sources/ranking.js` | 2024 | `f0ca02cfb2d39f58c697dff8acedfefb0f5fff087f6ebf75f7a0e034b385a036` |
 | `src/sources/service.js` | 9317 | `b2fad298590daae14b9b603dadc194b45e1e0753ff2e8e2a058a110cbbce679f` |
 | `src/worker.js` | 356 | `1c1ea4db6626fc664eeae093a87e8996aea57c92c06a16294a02b8d625918126` |
 | `tests/architecture.test.mjs` | 1201 | `0ff04793a3440f01adc52eb2e1c91bd6624791ac5f79624913ace9eb2bb13f41` |
 | `tests/batch.test.mjs` | 933 | `d9bb7741f9317a1172408b9f3f78971504180458a9cd44ba2039b24c1c572ac5` |
-| `tests/config.test.mjs` | 1350 | `2def191f2d015b07ea5d4fc8264ec455f88e1ef1ff121bb5b1bda2f7eb9a17bf` |
+| `tests/config.test.mjs` | 1350 | `e81fb84717d747eb49f0184ae05c5ccfcf9517b77f91643fec8469e2c3677f7b` |
 | `tests/cors.test.mjs` | 953 | `6c56016939e1990702e5c9f3a892383f4331fa5f4d525e6beece8894c4808184` |
-| `tests/database-core.test.mjs` | 6934 | `cedf9811b4839aa5e6bf6e935c1ca7cca29068da02bc3345cdeef00d9ec457b8` |
+| `tests/database-core.test.mjs` | 6934 | `23fa1dd3c3fd0564fac1fa010fafd1992fd1c80aefc641addae90a523424da02` |
+| `tests/discovery-context.test.mjs` | 1473 | `983376700570cc3ce688fcc0377cb32def6d010445d38833b53f2b4cf26db4a8` |
 | `tests/dynamic-source-ui.test.mjs` | 1206 | `3caa818cb78c50e9f99424e7008473cea4d966b83cd03b6e2dd98370017f09ca` |
 | `tests/extract.test.mjs` | 2785 | `6ad7415f43bc0fb5eaec647deed2b3fcba66b1991caf2bfa4af94ca7c31bd0fd` |
+| `tests/keyword-intelligence.test.mjs` | 2042 | `42b4cde9b22461c6170d36311750cab8cba298776a3528829061569fd8bd1c81` |
 | `tests/queue-runtime.test.mjs` | 3978 | `578302e140af1b5f2dd4b04c30235c7bca38dfc02159832645f0b059f39f9d5e` |
 | `tests/queue.test.mjs` | 1979 | `4754698cb20b1df3517d8b1d3051c91b27fa97fa243c85867848412d71920346` |
 | `tests/router.test.mjs` | 2795 | `8d8ad61689f010798400309473b44a035d7905b9a0746e23d3248c449e4452cd` |

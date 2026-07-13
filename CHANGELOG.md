@@ -1,3 +1,14 @@
+## 36.9.3 — Phase 13.3 Adaptive Keyword Intelligence & Deep Extraction
+
+- Added categorized keyword suggestions for games, series, movies, tools, sports, courses, books, music, datasets, and adult 18+ discovery.
+- Added learned query generation per round using successful page titles and source evidence.
+- Added strict blocking of terms involving minors.
+- Added dynamic suggestion API and mobile UI controls.
+- Added protected seed behavior for Meawfy, OfverseDrops, Rentry and Reddit adapters.
+- Strengthened iterative HTML/JSON/JavaScript/Markdown/encoded-text extraction.
+- Added migration 0005 for adaptive search vocabulary.
+- Added regression tests for category generation, safety and unique adaptive rounds.
+
 # Changelog
 
 ## 36.9.2 — Phase 13.2 Dynamic Source UI Hotfix
@@ -132,3 +143,14 @@
 - Added automatic catalog reconciliation before a new run.
 - Added D1 migration 0004 for source intelligence metrics.
 - Kept Bing as disabled reserve and excluded GitHub/YouTube sources.
+
+## 36.9.4 — Phase 13.4 Adaptive Query Reliability & Discovery Context Learning
+
+- Rebuilt adaptive query generation to return exactly the requested 1–100 queries.
+- Eliminated early repetition in manual keyword expansion.
+- Added deterministic category-query expansion with unique modifiers and qualifiers.
+- Added a defensive fallback preventing empty or `undefined` search queries.
+- Added discovery-context extraction from page titles, metadata and text surrounding MEGA folder links.
+- Changed keyword learning to use actual discovery context and only reward novel folder discoveries.
+- Removed the unused `src/search/crawler.js.tmp` release artifact.
+- Added regression coverage for 100 category rounds, 1/10/25/100 manual rounds and contextual term learning.

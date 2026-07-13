@@ -1,6 +1,8 @@
 import { nowIso } from "../db/queries.js";
 import { calculateSourceRank } from "./ranking.js";
 
+const PROTECTED=/^(meawfy_api|meawfy_search|ofversedrops_search|ddg_rentry|reddit_search_json|reddit_comments_json)$/;
+
 export async function recordSourceResult(db, sourceId, {
   success, timeout=false, blocked=false, linksFound=0, validLinks=0,
   novelLinks=0, duplicateLinks=0, latency=0
@@ -51,7 +53,7 @@ export async function recordSourceResult(db, sourceId, {
   if(row){
     const rank=calculateSourceRank({...row,valid_links:Number(row.novel_links||0)},Number(row.priority||50));
     const state=String(row.intelligence_state||'explore');
-    const enabled=!['quarantined','disabled'].includes(state);
+    const enabled=PROTECTED.test(String(sourceId)) || !['quarantined','disabled'].includes(state);
     await db.prepare(`UPDATE sources SET rank_score=?,enabled=?,updated_at=? WHERE id=?`).bind(rank,enabled?1:0,now,sourceId).run();
   }
 }
