@@ -35,7 +35,7 @@ function transactionalDb({ existing = [], failBatch = false } = {}) {
   return db;
 }
 
-test("source reset avoids giant NOT IN clauses and writes 300 catalog rows transactionally", async () => {
+test("source reset avoids giant NOT IN clauses and writes autonomous catalog rows transactionally", async () => {
   const db = transactionalDb({
     existing: [{
       id: "obsolete_source", name: "Old", category: "old", source_type: "html",
@@ -45,12 +45,12 @@ test("source reset avoids giant NOT IN clauses and writes 300 catalog rows trans
     }]
   });
   const result = await seedSources(db, { preserveEnabled: false });
-  assert.equal(result.total, 300);
-  assert.equal(result.enabled, 80);
+  assert.equal(result.total, 29);
+  assert.equal(result.enabled, 26);
   assert.equal(result.removed_obsolete, 1);
-  assert.equal(db.batchStatements.length, 302);
+  assert.equal(db.batchStatements.length, 31);
   assert.equal(db.calls.some((call) => /NOT IN\s*\(/i.test(call.sql)), false);
-  assert.equal(db.calls.filter((call) => call.sql.includes("INSERT INTO sources")).length, 300);
+  assert.equal(db.calls.filter((call) => call.sql.includes("INSERT INTO sources")).length, 29);
   assert.equal(db.calls.filter((call) => call.sql.includes("UPDATE sources SET template_url")).length, 1);
   assert.ok(db.calls.every((call) => call.params.length <= 11));
 });
@@ -58,17 +58,17 @@ test("source reset avoids giant NOT IN clauses and writes 300 catalog rows trans
 test("source reset preserves existing enabled state without multi-variable SQL", async () => {
   const db = transactionalDb({
     existing: [{
-      id: "direct_meawfy_api", name: "Existing", category: "api", source_type: "json",
+      id: "meawfy_api", name: "Existing", category: "api", source_type: "json",
       template_url: "https://example.invalid/?q={q}", enabled: 0, default_enabled: 1,
       priority: 999, rank_score: 90, created_at: "2026-01-01T00:00:00.000Z",
       updated_at: "2026-01-01T00:00:00.000Z"
     }]
   });
   const result = await seedSources(db, { preserveEnabled: true });
-  const meawfy = db.calls.find((call) => call.sql.includes("INSERT INTO sources") && call.params[0] === "direct_meawfy_api");
+  const meawfy = db.calls.find((call) => call.sql.includes("INSERT INTO sources") && call.params[0] === "meawfy_api");
   assert.ok(meawfy);
   assert.equal(meawfy.params[5], 0);
-  assert.equal(result.total, 300);
+  assert.equal(result.total, 29);
 });
 
 test("source reset propagates batch failure so D1 can roll back the transaction", async () => {

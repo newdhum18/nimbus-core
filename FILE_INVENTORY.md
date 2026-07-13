@@ -1,169 +1,178 @@
-# File Inventory — Nimbus Core V36.8.4
+# File Inventory
 
-Total files: 165
+- Version: 36.9.2
+- Files: 171
 
-- `.github/workflows/deploy-worker.yml` — 1836 bytes
-- `.github/workflows/validate-phase.yml` — 1143 bytes
-- `.gitignore` — 152 bytes
-- `CHANGELOG.md` — 5921 bytes
-- `CLOUDFLARE_CLEAN_SETUP.md` — 357 bytes
-- `DEPLOYMENT.md` — 696 bytes
-- `ENGINEERING_AUDIT_PRE_GITHUB.md` — 1177 bytes
-- `ENGINEERING_AUDIT_REPORT.md` — 1591 bytes
-- `ENGINEERING_REVIEW.md` — 2719 bytes
-- `FEATURE_MATRIX_V28_V36.md` — 3553 bytes
-- `FEATURE_MATRIX_V30_V35.md` — 1662 bytes
-- `KNOWN_ISSUES.md` — 618 bytes
-- `PHASE_11_COMPLETION_REPORT.md` — 1297 bytes
-- `PHASE_12_5_D1_RESET_HOTFIX_REPORT.md` — 1257 bytes
-- `PHASE_12_5_SEARCH_AUDIT_REPORT.md` — 1464 bytes
-- `PHASE_12_COMPLETION_REPORT.md` — 2170 bytes
-- `PHASE_12_SEARCH_REMEDIATION_REPORT.md` — 1117 bytes
-- `PHASE_STATUS.md` — 554 bytes
-- `PHASE_TEST_REPORT.md` — 571 bytes
-- `README.md` — 1857 bytes
-- `TEST_REPORT.md` — 939 bytes
-- `UI_RECOVERY_AUDIT.json` — 2257 bytes
-- `docs/API_SPEC.md` — 681 bytes
-- `docs/ARCHITECTURE.md` — 626 bytes
-- `docs/ARCHITECTURE_FINAL.md` — 2186 bytes
-- `docs/DATABASE_SPEC.md` — 923 bytes
-- `docs/DECISION_LOG.md` — 417 bytes
-- `docs/MASTER_PLAN.md` — 286 bytes
-- `docs/QUEUE_SPEC.md` — 473 bytes
-- `docs/TEST_PLAN.md` — 536 bytes
-- `docs/phase06/PHASE05_PHASE06_CROSS_AUDIT.md` — 2242 bytes
-- `docs/phase06/PHASE_06_1_DATABASE_REMEDIATION.md` — 2173 bytes
-- `docs/phase06/PHASE_06_DATABASE_CORE.md` — 1880 bytes
-- `docs/phase06/REMOTE_D1_MIGRATION_AND_ROLLBACK.md` — 1884 bytes
-- `docs/phase07/PHASE_07_RUNTIME_LIFECYCLE.md` — 2270 bytes
-- `docs/phase08/PHASE_07_REVIEW.md` — 1353 bytes
-- `docs/phase08/PHASE_08_QUEUE_RUNTIME.md` — 2510 bytes
-- `docs/phase09/PHASE_09_SOURCE_MANAGER.md` — 2174 bytes
-- `docs/phase10/GITHUB_BRANCH_UPLOAD_GUIDE.md` — 1553 bytes
-- `docs/phase10/PHASE_10_SEARCH_ADAPTER_CORE.md` — 928 bytes
-- `docs/phase10-ui-recovery/COMPARISON_V34_V35.md` — 653 bytes
-- `docs/phase10-ui-recovery/README.md` — 1261 bytes
-- `evidence/phase06-sha256-verification.txt` — 2644 bytes
-- `evidence/phase06-test-output.txt` — 8470 bytes
-- `evidence/phase06.1-final-validation.txt` — 12867 bytes
-- `evidence/phase07-build-web.txt` — 92 bytes
-- `evidence/phase07-sha256-verification.txt` — 3359 bytes
-- `evidence/phase07-source-validation.txt` — 10368 bytes
-- `evidence/phase07-test-output.txt` — 10082 bytes
-- `evidence/phase07-validation.txt` — 24622 bytes
-- `evidence/phase08-build-web.txt` — 92 bytes
-- `evidence/phase08-cloudflare-validation.txt` — 7048 bytes
-- `evidence/phase08-final-test-output.txt` — 10982 bytes
-- `evidence/phase08-review.txt` — 170 bytes
-- `evidence/phase08-runtime-validation.txt` — 5943 bytes
-- `evidence/phase08-sha256-verification.txt` — 3857 bytes
-- `evidence/phase08-source-validation.txt` — 11259 bytes
-- `evidence/phase08-test-output.txt` — 10976 bytes
-- `evidence/phase08-worker-dry-run.txt` — 375 bytes
-- `evidence/phase09-build-web.txt` — 92 bytes
-- `evidence/phase09-cloudflare-validation.txt` — 7048 bytes
-- `evidence/phase09-npm-ci.txt` — 140 bytes
-- `evidence/phase09-runtime-validation.txt` — 3345 bytes
-- `evidence/phase09-sha256-verification.txt` — 4346 bytes
-- `evidence/phase09-source-validation.txt` — 12104 bytes
-- `evidence/phase09-test-output.txt` — 11815 bytes
-- `evidence/phase09-worker-dry-run.txt` — 375 bytes
-- `evidence/test-output.txt` — 12191 bytes
-- `package-lock.json` — 48397 bytes
-- `package.json` — 1822 bytes
-- `public/_headers` — 155 bytes
-- `public/app.js` — 22737 bytes
-- `public/index.html` — 12247 bytes
-- `public/style.css` — 13335 bytes
-- `scripts/build-web.mjs` — 236 bytes
-- `scripts/check-config.mjs` — 1379 bytes
-- `scripts/check-release.mjs` — 433 bytes
-- `scripts/clean.mjs` — 244 bytes
-- `scripts/db-inspect-local.mjs` — 1248 bytes
-- `scripts/db-migrate-local.mjs` — 1680 bytes
-- `scripts/db-repair-local.mjs` — 758 bytes
-- `scripts/validate-cloudflare.mjs` — 1398 bytes
-- `scripts/validate-runtime.mjs` — 7162 bytes
-- `src/api/cors.js` — 807 bytes
-- `src/api/errors.js` — 492 bytes
-- `src/api/responses.js` — 934 bytes
-- `src/api/validation.js` — 1195 bytes
-- `src/config.js` — 783 bytes
-- `src/db/batch.js` — 1022 bytes
-- `src/db/migration-catalog.js` — 743 bytes
-- `src/db/migrations/0001_initial.sql` — 6767 bytes
-- `src/db/migrations/0002_task_identity.sql` — 174 bytes
-- `src/db/migrations/0003_source_seed.sql` — 71873 bytes
-- `src/db/migrations.js` — 1676 bytes
-- `src/db/queries.js` — 469 bytes
-- `src/db/repair.js` — 1348 bytes
-- `src/db/repositories/base.js` — 848 bytes
-- `src/db/repositories/events.js` — 1184 bytes
-- `src/db/repositories/index.js` — 236 bytes
-- `src/db/repositories/results.js` — 2629 bytes
-- `src/db/repositories/runs.js` — 2416 bytes
-- `src/db/repositories/settings.js` — 554 bytes
-- `src/db/repositories/sources.js` — 2061 bytes
-- `src/db/repositories/tasks.js` — 2114 bytes
-- `src/db/schema.sql` — 78814 bytes
-- `src/diagnostics/health.js` — 270 bytes
-- `src/diagnostics/report.js` — 1082 bytes
-- `src/extract/mega.js` — 2997 bytes
-- `src/extract/normalize.js` — 1009 bytes
-- `src/extract/redirects.js` — 336 bytes
-- `src/queue/consumer.js` — 10870 bytes
-- `src/queue/contract.js` — 1703 bytes
-- `src/queue/lease.js` — 1325 bytes
-- `src/queue/producer.js` — 2121 bytes
-- `src/queue/recovery.js` — 662 bytes
-- `src/queue/retry.js` — 1577 bytes
-- `src/results/service.js` — 1480 bytes
-- `src/router.js` — 11400 bytes
-- `src/runs/cancel.js` — 898 bytes
-- `src/runs/lifecycle.js` — 2654 bytes
-- `src/runs/pause.js` — 160 bytes
-- `src/runs/progress.js` — 1365 bytes
-- `src/runs/read.js` — 852 bytes
-- `src/runs/recovery.js` — 1464 bytes
-- `src/runs/resume.js` — 1269 bytes
-- `src/runs/start.js` — 3970 bytes
-- `src/runs/state-machine.js` — 1652 bytes
-- `src/search/adapters/html.js` — 799 bytes
-- `src/search/adapters/index.js` — 535 bytes
-- `src/search/adapters/rss.js` — 925 bytes
-- `src/search/adapters/template.js` — 1192 bytes
-- `src/search/autoscan.js` — 404 bytes
-- `src/search/contracts/adapter.js` — 1486 bytes
-- `src/search/crawler.js` — 4339 bytes
-- `src/search/crawler.js.tmp` — 0 bytes
-- `src/search/keyword.js` — 271 bytes
-- `src/search/normalization.js` — 880 bytes
-- `src/search/ranking.js` — 309 bytes
-- `src/search/target-decoder.js` — 3671 bytes
-- `src/sources/catalog.js` — 5611 bytes
-- `src/sources/defaults.js` — 3927 bytes
-- `src/sources/metrics.js` — 1811 bytes
-- `src/sources/ranking.js` — 2024 bytes
-- `src/sources/service.js` — 9317 bytes
-- `src/worker.js` — 235 bytes
-- `tests/architecture.test.mjs` — 1201 bytes
-- `tests/batch.test.mjs` — 933 bytes
-- `tests/config.test.mjs` — 1334 bytes
-- `tests/cors.test.mjs` — 953 bytes
-- `tests/database-core.test.mjs` — 6924 bytes
-- `tests/extract.test.mjs` — 2785 bytes
-- `tests/queue-runtime.test.mjs` — 3978 bytes
-- `tests/queue.test.mjs` — 1979 bytes
-- `tests/router.test.mjs` — 2795 bytes
-- `tests/run-lifecycle.test.mjs` — 3323 bytes
-- `tests/runtime-services.test.mjs` — 1291 bytes
-- `tests/schema.test.mjs` — 1006 bytes
-- `tests/search-adapters.test.mjs` — 4036 bytes
-- `tests/search.test.mjs` — 2322 bytes
-- `tests/source-manager.test.mjs` — 4076 bytes
-- `tests/source-reset.test.mjs` — 4342 bytes
-- `tests/sources.test.mjs` — 1835 bytes
-- `tests/ui-recovery.test.mjs` — 3174 bytes
-- `wrangler.pages.jsonc` — 169 bytes
-- `wrangler.worker.jsonc` — 800 bytes
+| Path | Size (bytes) | SHA-256 |
+|---|---:|---|
+| `.github/workflows/deploy-worker.yml` | 1836 | `9abf78b7c03906d63db00a2106e1a20eead7cd888708755a8134dbcd9014f227` |
+| `.github/workflows/validate-phase.yml` | 1143 | `90e20bbafe062a36c2cc1a8b856dbfb868ef70694ad6c364bf167f122deaf853` |
+| `.gitignore` | 152 | `d7e7a93a60b88492c71f0c837d42bf716535fddf68780c4c94cd00c5305ead48` |
+| `CHANGELOG.md` | 7644 | `cf84827dcda8c4e36cfcb3e740b3c7a276314c77c80f13c0bdd3a26a6354ce5f` |
+| `CLOUDFLARE_CLEAN_SETUP.md` | 357 | `fa3ec0d5a1acba85d934e7e8e7186e1f1db5f5ec0d6fe756c1f646adc9c226c4` |
+| `DEPLOYMENT.md` | 696 | `6b5fbc6d6d82e612186b8956dda882a20cac32699ae84e8d2345054924e4aa6b` |
+| `ENGINEERING_AUDIT_PRE_GITHUB.md` | 1177 | `81e907fee3a4e860eda57362a383361f233f7639adbe45bcafa0ecee5b7478b4` |
+| `ENGINEERING_AUDIT_REPORT.md` | 1591 | `9cf8589960c3434bc1d3684ef43b1eb733e6b12bdba617a9e6b8a4da042c2d3f` |
+| `ENGINEERING_REVIEW.md` | 2719 | `86401c2c4f72885282bc957c3fa90fc4fb99e7386ff9425b5c91dbdb2756fa53` |
+| `FEATURE_MATRIX_V28_V36.md` | 3553 | `ac324a286c8819a589d8fdfbd1a830cf647e9e268562e1c803b2da22d2599264` |
+| `FEATURE_MATRIX_V30_V35.md` | 1662 | `7b64a07a5c93ccf8511366ceca6f6e4e8b3cc1753a8693c5530acb6f50786e9a` |
+| `KNOWN_ISSUES.md` | 618 | `d66d007efbb31309a0f1971131c31f038e289c07bf4907b3da9f41e49b37ee90` |
+| `PHASE_11_COMPLETION_REPORT.md` | 1297 | `c7b71045671208056da1afd2aed7973aa6209d3ae07f7ef998dfe79b36063b8d` |
+| `PHASE_12_5_D1_RESET_HOTFIX_REPORT.md` | 1257 | `ac21fc41a44b5328d3f298ed57f89a91fd8235693d9e4354c7ec1fd2b331acf2` |
+| `PHASE_12_5_SEARCH_AUDIT_REPORT.md` | 1464 | `97df55d3f027741815128e7d538d7bb19e564cfcb40d8d4eb0f199ba76003ccf` |
+| `PHASE_12_COMPLETION_REPORT.md` | 2170 | `7d5816c2cb5c3bf5b8718c82bedd237b213a1273ee8971284a8df12ef037a89f` |
+| `PHASE_12_SEARCH_REMEDIATION_REPORT.md` | 1117 | `14e0aad8de746040fe54f96c80e01a3ffebde1495c00b26646b7eb16460a4a04` |
+| `PHASE_13_1_DYNAMIC_VALIDATION_REPORT.md` | 1241 | `43437a4b1fa445d57bb644b39eba510a9775cdc68cc6d250cb3bebf354212674` |
+| `PHASE_13_2_DYNAMIC_UI_REPORT.md` | 649 | `ad30a4e25eb097d221248d46dfc07bb96808a1e66c9d567d3d86d7afb25f5d13` |
+| `PHASE_STATUS.md` | 564 | `75c896763c127e58a6b43b129a68b937acb255100e90a7d79df1028a8790f85f` |
+| `PHASE_TEST_REPORT.md` | 571 | `94ec2377df99afcfc57980143930a86c1f7f656bc8d808a6291eeeb2bacc0ae3` |
+| `README.md` | 1857 | `2895a241eda7830724fa5d8c5ad80c55680e06ecb20afaf4a2fca53f473039dd` |
+| `TEST_REPORT.md` | 939 | `c5f4812bd593608fa1cdce9c4bac8931fb77da1bbc443a0a1557bbbca1287326` |
+| `UI_RECOVERY_AUDIT.json` | 2257 | `152b725ee0cd03be9dd7eec11b87c1e4772e3bd54112aa6e06bedca9e61459fd` |
+| `docs/API_SPEC.md` | 681 | `1f117822cbb2e6a303b1a3f2c27f9133647c87aa7d517bbcf01091972503f208` |
+| `docs/ARCHITECTURE.md` | 626 | `e3358457318827074ad4c8c545b2338e17bc42e0e41e156e854597d515a7b35b` |
+| `docs/ARCHITECTURE_FINAL.md` | 2186 | `596e7777fde97c2afd3aacf03c3446801dc814efdb93ad2617aef9d4ede3161d` |
+| `docs/DATABASE_SPEC.md` | 923 | `0015771b76eb133d11f21da3efba27978fcfe436a87a636d60a76921e22604b7` |
+| `docs/DECISION_LOG.md` | 417 | `48eb866a42f96c16a8debfedb00f0601c7866a9372a2b770b6229225524c50c5` |
+| `docs/MASTER_PLAN.md` | 286 | `44778c2e5d26641f40284c311b59ca39da248d4cecd3b52ba55f9e96444d0b31` |
+| `docs/QUEUE_SPEC.md` | 473 | `74c420d0c5846d5a3f1ef696accfbef58f01e8b51ef69c4f3f1aadc1508fecfa` |
+| `docs/TEST_PLAN.md` | 536 | `516c816fe399b3fd482745b8346ccce3017abca61ebb37639197d8a1c8852c72` |
+| `docs/phase06/PHASE05_PHASE06_CROSS_AUDIT.md` | 2242 | `fd28d448fe31d113f4260c2c5946b7a409d932ef425f469da3606e1bc967063d` |
+| `docs/phase06/PHASE_06_1_DATABASE_REMEDIATION.md` | 2173 | `471fe8764c99878533b19e0c5aa84c6d1a4fbfc68db16ba2411d775a7029a038` |
+| `docs/phase06/PHASE_06_DATABASE_CORE.md` | 1880 | `ea8a91032e8ca1788c008179996b693ca98d750759588529fda7f10a1fc4b06e` |
+| `docs/phase06/REMOTE_D1_MIGRATION_AND_ROLLBACK.md` | 1884 | `f0049b5947d092a54ff00bf1a362d05038fde4e98052c9fe2212ba81293700e5` |
+| `docs/phase07/PHASE_07_RUNTIME_LIFECYCLE.md` | 2270 | `8ed6fa5a771197db8dff256d8c7e412ea88ab6075f5dda63bbc8b842843e0d90` |
+| `docs/phase08/PHASE_07_REVIEW.md` | 1353 | `5078a98f45fca62622b8bc22a51c86442c207f747daea39bdafc3c61f6863ad4` |
+| `docs/phase08/PHASE_08_QUEUE_RUNTIME.md` | 2510 | `775c131fb15b7eb395aa5974eb1d989b2c53b9dc1346e9bf577b33d66eaded63` |
+| `docs/phase09/PHASE_09_SOURCE_MANAGER.md` | 2174 | `428a415c4488a9dbaf5ca8cde93d70bc762451cf1577d5e3417a08ccae7171c0` |
+| `docs/phase10/GITHUB_BRANCH_UPLOAD_GUIDE.md` | 1553 | `bbd492f35077959f1d4f3df5911357b088a8b45323df18ef8d396b62dac36945` |
+| `docs/phase10/PHASE_10_SEARCH_ADAPTER_CORE.md` | 928 | `8ab5dfda644f5a609b7e2e45585da8b7fe7f80de181cf23aaa9b425ed63bef4b` |
+| `docs/phase10-ui-recovery/COMPARISON_V34_V35.md` | 653 | `7fc5c1df72da074a2cd22f2d4d5359066e8741f4406588c024b8336476201687` |
+| `docs/phase10-ui-recovery/README.md` | 1261 | `ba0d22cdfa3c5728227fd6c9d48fb03c54a4f85331eb0a9bec6a9a763cf096e7` |
+| `evidence/phase06-sha256-verification.txt` | 2644 | `014d2973757f7084f69a5d89ef53d9b05ea9c9510190951708eafbbdf956206a` |
+| `evidence/phase06-test-output.txt` | 8470 | `bfcd497fe62f8cb1736a643b95287bc909f062b26fb36c69834054ee3583b3fc` |
+| `evidence/phase06.1-final-validation.txt` | 12867 | `efea98e6af6ceb93c39f9b0dc6e918a12e1d37e9d3717631df596516a36951ae` |
+| `evidence/phase07-build-web.txt` | 92 | `996fd92ae59ad22abeebf9bfb0c4ffbde6b616d643cb0121a27916df16955bc1` |
+| `evidence/phase07-sha256-verification.txt` | 3359 | `a801426d23de1ee67a79d0c8df55175b0994414b01769d7388829604201e3e25` |
+| `evidence/phase07-source-validation.txt` | 10368 | `8f579dfee6608f273a6a5c7222d039ee59380166615b81e39f73180e3242e7ed` |
+| `evidence/phase07-test-output.txt` | 10082 | `32776b8b9ca52057fc310464751ebf030f1d02fb18c6ad4565c0a019ef613574` |
+| `evidence/phase07-validation.txt` | 24622 | `cac17e13ba8f9946af574d8925c649faf32497f2fff639e48116ea4811e40668` |
+| `evidence/phase08-build-web.txt` | 92 | `d76f1512bc0da44656296474b98c64492ed2f6ce5882ad451ba89fd626f59abf` |
+| `evidence/phase08-cloudflare-validation.txt` | 7048 | `ad0f41ac0ed38131ffb7586d3464d7c0ba1792cd67ccf728789c5d50bb87d1f6` |
+| `evidence/phase08-final-test-output.txt` | 10982 | `61a5d1815dac67d709f8e28efc5db68eeff565e5f3e90cb019216afb1bf17923` |
+| `evidence/phase08-review.txt` | 170 | `6530cc4fb273a1b2ad1d39579b1d62daebcc3ca794cae8607c7e91b62b1a9774` |
+| `evidence/phase08-runtime-validation.txt` | 5943 | `c37e34832e77aa0cb05378e1da6545ab2151b2f199310b1ac98e8f9505f3fd69` |
+| `evidence/phase08-sha256-verification.txt` | 3857 | `de83c7a31fb407973177f654eb979c001f3a23690064fe1730e18d5fb794f91d` |
+| `evidence/phase08-source-validation.txt` | 11259 | `f84f74e1e382dfb83104391f0d093111b7cc49e508683d91381bc8b166674304` |
+| `evidence/phase08-test-output.txt` | 10976 | `5445bdeee5093883145b4b12d4d44557d78223474d541597e5ffd2d28a5b55d0` |
+| `evidence/phase08-worker-dry-run.txt` | 375 | `980ace36f1ee572387fa2cbcfa287974d56cb99f4d8b76cbc883ca17121e1d06` |
+| `evidence/phase09-build-web.txt` | 92 | `b8c2b438554ca55d75ff78dd3a097cc8a0b96f98727218027372a593afbdf1c8` |
+| `evidence/phase09-cloudflare-validation.txt` | 7048 | `b0f87a5f6b21101bf9ae9a831e99b5b5fd2c7cb7de0a104573ca7522689bf125` |
+| `evidence/phase09-npm-ci.txt` | 140 | `48aa8629aa016c1dfd3b4cda16c3f17cc2d0dad3715e4a7325453effcb441b93` |
+| `evidence/phase09-runtime-validation.txt` | 3345 | `1021834710b7d11e77455b8b04dd3ef61c60d72d03ae9328bd5bfed974235394` |
+| `evidence/phase09-sha256-verification.txt` | 4346 | `ced61ebc8e38b30c596d008f124e65f8731f162da7a9b971ed79bee850e48423` |
+| `evidence/phase09-source-validation.txt` | 12104 | `5f5240d20597fd215dec9eba47693b963107957ee08dc1d9725b69f5cce5d39c` |
+| `evidence/phase09-test-output.txt` | 11815 | `fd13626c2c33859c7c0557fec12c47d621c648e54d0ac3a56bed8aecb348f533` |
+| `evidence/phase09-worker-dry-run.txt` | 375 | `3ac4b76eeb502153dd1f55fa0ff76342c0b03562727f2bceda30483cf56ca762` |
+| `evidence/test-output.txt` | 12191 | `656ec874cfac3bdc07a0bbbc64baa487012f08b128d4fd540a1aebd8e5658022` |
+| `package-lock.json` | 48397 | `d37c5972cf0d0259a656c2cb84b0a4836de5d419bf8d6d29cb12a7094dc6f7b3` |
+| `package.json` | 1844 | `89a4a452d3dddad292f0000230887f3beddd88c7c538ff430303f78f6dfff4cc` |
+| `public/_headers` | 155 | `17c3b142c0879287e6ee2170c9323a32094953821992dfa1487516892d874f56` |
+| `public/app.js` | 22886 | `62df1b0ddfcfe25fb77d36004bf1383c19c5b526baf5dc6e1aff726b6602f5e4` |
+| `public/index.html` | 12286 | `090bcc04c54577c9e02994f75ba2b3f01092636da15f1aa60444b0180a8b80e0` |
+| `public/style.css` | 13335 | `c46ffad2cdfe7225532ab2437631d6a60e6929a54f37890b9d83d80872b885e6` |
+| `scripts/build-web.mjs` | 236 | `edf4768920075d89a1388bf204397bf61e4e52e134c9af9e0e9ca4a2dc5e409f` |
+| `scripts/check-config.mjs` | 1395 | `4615f1e4e39a78452fb40397b098b3a8806653f8b81b1ddccb3ffee8c92b82d9` |
+| `scripts/check-release.mjs` | 433 | `2a86380d7e6d3b59298f577293f37afd47dfcc81264d9f590ae876bc128c6eb0` |
+| `scripts/clean.mjs` | 244 | `9b482eea9c622f660b5499ccaea592753893f3421ea9f7bbcf49411edd2f1b46` |
+| `scripts/db-inspect-local.mjs` | 1248 | `11528423fa017c18a56520f2a4634af165bf8ab89af8d1ec904149398bcb319a` |
+| `scripts/db-migrate-local.mjs` | 1680 | `d060159155c6c68c44af09c96b87becf510898b7789e6cb20494eaef56492682` |
+| `scripts/db-repair-local.mjs` | 758 | `90ef5d5c1bb04a85a97f5970eef1058069128545a7acd4e2f4426ae4a59c2979` |
+| `scripts/validate-cloudflare.mjs` | 1398 | `4f3d85e72b95be5b08b79e44664ac80190f3b9873d0156da1777690d3b19e1d7` |
+| `scripts/validate-runtime.mjs` | 7760 | `3a50ff8a545696509e87ba75cfdf5b96a7d1e910a10995e1a1b7c34c5815d823` |
+| `src/api/cors.js` | 807 | `0fe8a3c25c1d62cfd36ae630040012f1a04fcf0cd8f8b250b671ff8078df25d2` |
+| `src/api/errors.js` | 492 | `5597686590c04a8fbf88d6423787dc1f2edc0aa4f27a89e839021173ce9fafc3` |
+| `src/api/responses.js` | 934 | `21b9742895dad5c7911f8c5f7c3eb47311ce4ba0f38311bd8bc172aff16e64f7` |
+| `src/api/validation.js` | 1195 | `c90a3ef4571fd18b0fe23e702d0485b3616eaca7ab1c7b8cc0109bf87c47f077` |
+| `src/config.js` | 782 | `863dd478fc7639aa23d20e3291848eeb410ac941e43861319d9e296d8c3e3281` |
+| `src/db/batch.js` | 1022 | `5c45b6421795e1714af0673bc282fce838c074b85e971a070cf5df2fa98f6efb` |
+| `src/db/migration-catalog.js` | 961 | `f65e7d215c378dfa52e808994b3d50644f61428c02f0c7c7ac527c50e75a97df` |
+| `src/db/migrations/0001_initial.sql` | 6767 | `ff9ecdf2d4aac215977721b3357bab5ab81dfa9257702d3518a13e02c9da3953` |
+| `src/db/migrations/0002_task_identity.sql` | 174 | `8e26cad2244058d8b979941e815b86f98a9882ecadeeccd1d0d0bb1354c0d316` |
+| `src/db/migrations/0003_source_seed.sql` | 71873 | `c9bdfb94788ea22577cf6dfb61c315199c9d6b6321c17d93dac8e48bf2ff70d4` |
+| `src/db/migrations/0004_source_intelligence.sql` | 725 | `e77100a405e8998a9347331dc7b6a7839dbfb17feb07f26e914221dbf8af4f83` |
+| `src/db/migrations.js` | 1676 | `6d8068187122ab263b5edc24d3ef93df325125322bf0dc7adff7a2176a257e4c` |
+| `src/db/queries.js` | 469 | `80a91b61969393b8ce702ff10a05760e64dc2be90a07aaeeafada9f593443b1c` |
+| `src/db/repair.js` | 1348 | `6f99decfef91371a51c45dc89df52ff8c4ab6790131eb573da1c62c8751b0bc9` |
+| `src/db/repositories/base.js` | 848 | `56eaf0a4910b321d76c72b276751f95d35dbc14bf6604bde70025b2126205a48` |
+| `src/db/repositories/events.js` | 1184 | `d68bdbcb656aef4ed56c44b3860d7939294a3ddad728ea7d637b2e041be4aeb8` |
+| `src/db/repositories/index.js` | 236 | `0149caca829a4264916d6a9cfb5eb4bc58a75591a70a40da0dcfd92e9e627540` |
+| `src/db/repositories/results.js` | 2629 | `40e85f9f1c32bb70673a4f72ab50824a333d97bbe7109c68cdb60d15a5ada078` |
+| `src/db/repositories/runs.js` | 2416 | `497c13a26bfed586e09bdf612cee5a5e00e1dddc04821244bd61f0492c5e4ac9` |
+| `src/db/repositories/settings.js` | 554 | `e583380dc7c0f355dd42400558720345f9c75c164233e1a9dfda9e6176d0dd60` |
+| `src/db/repositories/sources.js` | 2061 | `a69b06ada61252ea5e21756be14953ff455ca2fb3fd572e806f0b3c8f2b12d90` |
+| `src/db/repositories/tasks.js` | 2114 | `322a0a1f2e4a4d3fa547e615a3b2282eaa50af5d1924bdddfdce4635640b6583` |
+| `src/db/schema.sql` | 78814 | `4a24815f22b0ee382f1ce865b5154f125086673a9d0597b45cc8ce7d6495c65a` |
+| `src/diagnostics/health.js` | 270 | `577387227c14643aa59a0e23080b40413eceeb0690b277434e329c0300e9a400` |
+| `src/diagnostics/report.js` | 1082 | `9db3663ac69f654bcc6feec733e05e82cc101a04965bff44730225e9196fddfb` |
+| `src/extract/mega.js` | 2997 | `35e34719e6163e16fda865de12b76dcc6dc23a78f0c12210fc47c3de026c53e2` |
+| `src/extract/normalize.js` | 1009 | `d66b357483c4544f022d5ea348995b10728da9da790fa86f2681856ab2e7354b` |
+| `src/extract/redirects.js` | 336 | `40e56191e10a58af83d54c44193710e2122446ce0671c266a828ee8c39295355` |
+| `src/queue/consumer.js` | 11228 | `7efd708c161b1d15d6316813c61be1ceebf1643c56320d7e947da00e2ea6b515` |
+| `src/queue/contract.js` | 1703 | `5e820d3cb911590312491e82cd02b127c6f719c62dcae5346f5e69c6852b5398` |
+| `src/queue/lease.js` | 1325 | `92e2c160dc093dba832a294f9945f58acd6d4611eecebf3171f95a6eed1d38a0` |
+| `src/queue/producer.js` | 2121 | `35a3831e833283dcc22e0b8f5a3fc24ddeaa53e7a6b0aeb3603bf354f3b34ae8` |
+| `src/queue/recovery.js` | 662 | `cdc74cc45c6347fd5a7d02da5058940e8202a3c8ba6f178e8e014e3405923410` |
+| `src/queue/retry.js` | 1577 | `85dde2a9c6f95794af317c607f57b7a1e0d79fabae9e6ff29b591a18ecfda1e3` |
+| `src/queue/watchdog.js` | 695 | `0e1c760948248acf3910cb2baa15556d110a5bc3937d9239940acb3dcda3e86b` |
+| `src/results/service.js` | 1480 | `32873dd96850a093bb3efcb9f2ae8ab3608bb8dd65253560dc7f583e19d2f484` |
+| `src/router.js` | 11400 | `a2b3e4b90417579efe7230b4299e7a2dc554699224367122feb4dd673850a521` |
+| `src/runs/cancel.js` | 898 | `50a55722e224be5a3f072538c3fd4c08991eacc908f594253c9a5c6ff0ee8cb2` |
+| `src/runs/lifecycle.js` | 2654 | `9fb3427efacace7460c823d9734f9fd09f0e154b2d7697c4512e8e0ff672b53c` |
+| `src/runs/pause.js` | 160 | `2f7b770411f88703a9a0c350afa7de0609b2853bf52368b78eea3c75ee950117` |
+| `src/runs/progress.js` | 1365 | `203e59cbc16f0903855bc1b8c263d5b39fd12f4ecfd8dd70909c053c058595ea` |
+| `src/runs/read.js` | 852 | `06aef2d416c8f30a7e9b7bb7f66ced8f1e10033d6d1fde9039caa741f0ea399b` |
+| `src/runs/recovery.js` | 1464 | `a4e624a62af603994f1947afe46f6f933ca648b9f838fc6db2b25f0b232a2218` |
+| `src/runs/resume.js` | 1269 | `72b59e5f3fe2482b98cfe767c3076e621f4515b8b934bee5d5da8890108fcd47` |
+| `src/runs/start.js` | 4830 | `e48cfb93da825ad17440541341707d35c53aaa57a1a38cfadd7b19fe1a922370` |
+| `src/runs/state-machine.js` | 1652 | `b9f2852a10475de7962e9ae3dd2655107985ddeabc81099c3e7c2051c7fd1175` |
+| `src/search/adapters/html.js` | 799 | `c7fa7497ff529de57df28167808d9d9cb783e99188ea8d737b22525eeeed3631` |
+| `src/search/adapters/index.js` | 535 | `7cb109651b5bb9ca8c12d2e8e6734cc50e1f9bf3d407fa3d4144de3a2ab02b89` |
+| `src/search/adapters/rss.js` | 925 | `a1d37a0d4f888d49027602267ced3835e829ccb5fa8d4e6349cf5bc4d7ada028` |
+| `src/search/adapters/template.js` | 1192 | `77e3aee354d82e538d369116d53ca1e440a1761f7ee33e742ee472eaa00d4f8e` |
+| `src/search/autoscan.js` | 404 | `18db8b6118d70ee0ed2067f20099e61c4aa544d102e400b730f36bc91e7275c0` |
+| `src/search/contracts/adapter.js` | 1486 | `179783b0509e7c833f68c4e1f0d5492551ca7202657f799f073cde5cf0d9e1c8` |
+| `src/search/crawler.js` | 4339 | `79a0ea06ad02097cefdb7d007acf7266e4be4a681c4d0a99a04ebe4eb2e97ef3` |
+| `src/search/crawler.js.tmp` | 0 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `src/search/keyword.js` | 271 | `ab092893a9427008700cce4f040693add9840fbd1f1c2fe494d514cd9fda6e7c` |
+| `src/search/normalization.js` | 880 | `711e8628ffac4dfe72e86b9f0e560c3ecafafd52a322e08ebcb367eadee26f7c` |
+| `src/search/ranking.js` | 309 | `4b0eebdfa4c401db81a0afa0492daf8b77fba07df316acc9d6cf1c453886efc2` |
+| `src/search/target-decoder.js` | 3671 | `88b10d0984f22b019be4d1e72bd7bbe4a1a8012c0ecb3876e8bfcb8a4017a1c4` |
+| `src/sources/catalog.js` | 6018 | `ac839ca8b6d47c7447ba7eda6c7b2ff2705b3fdcd0c78ac0a839aca921526dfa` |
+| `src/sources/defaults.js` | 3992 | `9b160e39bcd264d9472e8bc88918abb5879394a11e0060faed426fc6b5c5394c` |
+| `src/sources/intelligence.js` | 2582 | `ee3fd9583ed39e3682d2ab4cbe10af517fb375d72a2f97b92d66256d878dcc90` |
+| `src/sources/metrics.js` | 3459 | `dbfb5c04683c1e938cb15c39eec2b151b4c457453fcdfc7ba55469ff4b120953` |
+| `src/sources/ranking.js` | 2024 | `f0ca02cfb2d39f58c697dff8acedfefb0f5fff087f6ebf75f7a0e034b385a036` |
+| `src/sources/service.js` | 9317 | `b2fad298590daae14b9b603dadc194b45e1e0753ff2e8e2a058a110cbbce679f` |
+| `src/worker.js` | 356 | `1c1ea4db6626fc664eeae093a87e8996aea57c92c06a16294a02b8d625918126` |
+| `tests/architecture.test.mjs` | 1201 | `0ff04793a3440f01adc52eb2e1c91bd6624791ac5f79624913ace9eb2bb13f41` |
+| `tests/batch.test.mjs` | 933 | `d9bb7741f9317a1172408b9f3f78971504180458a9cd44ba2039b24c1c572ac5` |
+| `tests/config.test.mjs` | 1350 | `2def191f2d015b07ea5d4fc8264ec455f88e1ef1ff121bb5b1bda2f7eb9a17bf` |
+| `tests/cors.test.mjs` | 953 | `6c56016939e1990702e5c9f3a892383f4331fa5f4d525e6beece8894c4808184` |
+| `tests/database-core.test.mjs` | 6934 | `cedf9811b4839aa5e6bf6e935c1ca7cca29068da02bc3345cdeef00d9ec457b8` |
+| `tests/dynamic-source-ui.test.mjs` | 1206 | `3caa818cb78c50e9f99424e7008473cea4d966b83cd03b6e2dd98370017f09ca` |
+| `tests/extract.test.mjs` | 2785 | `6ad7415f43bc0fb5eaec647deed2b3fcba66b1991caf2bfa4af94ca7c31bd0fd` |
+| `tests/queue-runtime.test.mjs` | 3978 | `578302e140af1b5f2dd4b04c30235c7bca38dfc02159832645f0b059f39f9d5e` |
+| `tests/queue.test.mjs` | 1979 | `4754698cb20b1df3517d8b1d3051c91b27fa97fa243c85867848412d71920346` |
+| `tests/router.test.mjs` | 2795 | `8d8ad61689f010798400309473b44a035d7905b9a0746e23d3248c449e4452cd` |
+| `tests/run-lifecycle.test.mjs` | 3323 | `02625138e08d772e690499d728163de79dcabb49f70a364db5ee7e414af469c7` |
+| `tests/runtime-services.test.mjs` | 1291 | `b0cfe6f7c914bb93b47dfd568b38b326550b1f48d715b697370b0ee3e4012700` |
+| `tests/schema.test.mjs` | 1006 | `bf010b695ad7e64dfe86eccf320698a1b091b5bdd79cead986b5d26f6d0fa8c9` |
+| `tests/search-adapters.test.mjs` | 4036 | `a5c92c37db48546f479d0e146ff7ced4a7efa30d0d30213c0fc58fef56334351` |
+| `tests/search.test.mjs` | 2375 | `297d736495111e3d9e4d6c38431e17b163263b415ee4c6ae1367be9b555145ff` |
+| `tests/source-manager.test.mjs` | 4842 | `8112fc830c39d51642b7ab877e80018f7ac321e8021aa120014a60e4c0b71206` |
+| `tests/source-reset.test.mjs` | 4331 | `2ea77e76961d3e2530323c2ac42de0062ff714afcef8d90742c221113d22d5fc` |
+| `tests/sources.test.mjs` | 1151 | `38a7a26e0e521db35dbe2af545283fc0bbf174b28695902512d7228110da41f0` |
+| `tests/ui-recovery.test.mjs` | 3174 | `de6f058afd1e8ffa20de38a3cfba4cc251c4b7c38d9122ec6f6c531273e8fd3b` |
+| `wrangler.pages.jsonc` | 169 | `2f52b594c04aa681f4103df6873d40e1e59a7ee224f3377baddf3e2483ca48d0` |
+| `wrangler.worker.jsonc` | 845 | `fef4c7647dc6ace03d263901498fd4083bb5da2755c38e8abd06b2cfe47f22f8` |

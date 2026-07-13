@@ -16,6 +16,12 @@ export const MIGRATIONS = Object.freeze([
     "name": "deterministic_source_seed",
     "file": "src/db/migrations/0003_source_seed.sql",
     "checksum": "c9bdfb94788ea22577cf6dfb61c315199c9d6b6321c17d93dac8e48bf2ff70d4"
+  },
+  {
+    "version": 4,
+    "name": "autonomous_source_intelligence",
+    "file": "src/db/migrations/0004_source_intelligence.sql",
+    "checksum": "e77100a405e8998a9347331dc7b6a7839dbfb17feb07f26e914221dbf8af4f83"
   }
 ].map(Object.freeze));
 export const EXPECTED_SCHEMA_VERSION = MIGRATIONS.at(-1)?.version ?? 0;

@@ -64,28 +64,25 @@ async function getOrCreatePage(env, task, result) {
 
 async function persistLinks(env, task, pageId, links) {
   let inserted = 0;
+  let novel = 0;
+  let duplicates = 0;
   for (const link of links) {
+    const seen = await env.DB.prepare(
+      "SELECT 1 AS found FROM links WHERE normalized_url=? AND run_id<>? LIMIT 1"
+    ).bind(link.normalizedUrl, task.run_id).first();
+    if (seen) duplicates += 1; else novel += 1;
     const result = await env.DB.prepare(`
       INSERT OR IGNORE INTO links(
         id,run_id,page_id,source_id,url,normalized_url,link_type,has_key,
         validation_status,is_complete,discovered_at
       ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
     `).bind(
-      uid("link"),
-      task.run_id,
-      pageId,
-      task.source_id,
-      link.normalizedUrl,
-      link.normalizedUrl,
-      link.type,
-      1,
-      "valid",
-      1,
-      nowIso()
+      uid("link"),task.run_id,pageId,task.source_id,link.normalizedUrl,
+      link.normalizedUrl,link.type,1,"valid",1,nowIso()
     ).run();
     if ((result.meta?.changes || 0) > 0) inserted += 1;
   }
-  return inserted;
+  return { inserted, novel, duplicates };
 }
 
 export async function processTask(env, messageBody) {
@@ -213,7 +210,7 @@ export async function processTask(env, messageBody) {
     }
 
     const pageId = await getOrCreatePage(env, current, result);
-    const insertedLinks = await persistLinks(env, current, pageId, result.links);
+    const linkStats = await persistLinks(env, current, pageId, result.links);
 
     await env.DB.prepare(`
       INSERT INTO visited_urls(
@@ -237,6 +234,8 @@ export async function processTask(env, messageBody) {
       blocked,
       linksFound: result.links.length,
       validLinks: result.links.length,
+      novelLinks: linkStats.novel,
+      duplicateLinks: linkStats.duplicates,
       latency: result.latency
     });
 
@@ -251,7 +250,7 @@ export async function processTask(env, messageBody) {
       taskId,
       type: "task_completed",
       message: "Task completed",
-      details: { links_found: result.links.length, links_written: insertedLinks }
+      details: { links_found: result.links.length, links_written: linkStats.inserted, novel_links: linkStats.novel, duplicate_links: linkStats.duplicates }
     });
 
     const progress = await syncRunProgress(env.DB, current.run_id);
@@ -298,12 +297,12 @@ export async function consumeBatch(batch, env) {
         message.retry({ delaySeconds: result.delaySeconds || SYSTEM.queueRetryDelaySeconds });
       } else {
         message.ack();
-        if (result.runId) {
-          const { dispatchPending } = await import("./producer.js");
-          await dispatchPending(env, result.runId, SYSTEM.queueDispatchBatch).catch((error) => {
-            console.error("queue_followup_dispatch_failed", error);
-          });
-        }
+      }
+      if (result.runId) {
+        const { dispatchPending } = await import("./producer.js");
+        await dispatchPending(env, result.runId, SYSTEM.queueDispatchBatch).catch((error) => {
+          console.error("queue_followup_dispatch_failed", error);
+        });
       }
     } catch (error) {
       console.error("queue_consumer_unhandled", error);
