@@ -50,9 +50,10 @@ test("multi-round task URLs remain unique", async () => {
 });
 
 
-test("round plan scales task count exactly", async () => {
+test("round task math is catalog-size agnostic", async () => {
   const { totalTasksForRounds } = await import("../src/runs/start.js");
-  assert.equal(totalTasksForRounds(80, 1), 80);
-  assert.equal(totalTasksForRounds(80, 25), 2000);
-  assert.equal(totalTasksForRounds(80, 100), 8000);
+  assert.equal(totalTasksForRounds(29, 1), 29);
+  assert.equal(totalTasksForRounds(29, 10), 290);
+  assert.equal(totalTasksForRounds(29, 25), 725);
+  assert.equal(totalTasksForRounds(29, 100), 2900);
 });

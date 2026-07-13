@@ -18,7 +18,7 @@ assert.equal(worker.queues?.consumers?.[0]?.max_retries, 5);
 assert.equal(worker.queues?.consumers?.[0]?.retry_delay, 30);
 assert.equal(worker.queues?.consumers?.[0]?.max_concurrency, 1);
 assert.equal("limits" in worker, false);
-assert.equal("triggers" in worker, false);
+assert.deepEqual(worker.triggers?.crons, ["*/1 * * * *"]);
 
 assert.equal(pages.name, "nimbus-core-v36-web");
 assert.equal(pages.pages_build_output_dir, "./dist");

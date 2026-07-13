@@ -1,3 +1,21 @@
+# Changelog
+
+## 36.9.2 — Phase 13.2 Dynamic Source UI Hotfix
+
+- Removed remaining fixed 300/80 labels from the Sources interface.
+- Source model heading now reflects live total and enabled counts.
+- Select All, Unselect All, and Restore Defaults confirmations are catalog-agnostic.
+- Updated UI fallback version and release metadata.
+
+## 36.9.1 — Phase 13.1 Dynamic Source Validation Hotfix
+
+- Fixed GitHub Actions runtime validation that still required the retired 300-source / 80-enabled model.
+- Runtime validation now reads `/api/sources/catalog` and validates the reset and diagnostics against the live autonomous catalog.
+- Added catalog consistency tests for total, enabled count, unique IDs, unique templates, and excluded GitHub/YouTube sources.
+- Updated round-count regression tests to be catalog-size agnostic.
+- Preserved the legacy 300/80 migration test only as an upgrade-path invariant before autonomous reset.
+- Synchronized package, runtime, tests, phase status, inventory, and checksums at version 36.9.1.
+
 ## 36.8.1 — Phase 12 multi-round task identity hotfix
 
 - Fixed D1 `idx_tasks_identity` unique-constraint failures when starting AutoScan with multiple rounds.
@@ -103,3 +121,14 @@
 - Preserved enabled state when requested and retained original `created_at` values.
 - Added regression coverage for SQL-variable limits, transactional failures, template collisions, 300/80 restore totals, and obsolete-source removal.
 - Confirmed `/api/sources/reset` returns HTTP 200 in the local Worker runtime validation.
+
+## 36.9.0 — Phase 13 Autonomous Source Intelligence
+- Replaced synthetic 300-source catalog with 29 distinct public discovery surfaces.
+- Added novelty-aware source learning (proven/observe/explore/cooldown/quarantine/disabled).
+- Added 70/20/10 adaptive source selection per round.
+- Added global duplicate detection and novel-link scoring.
+- Added automatic source promotion, demotion, cooldown and quarantine.
+- Added one-minute Queue watchdog and continuous dispatch pumping after success or retry.
+- Added automatic catalog reconciliation before a new run.
+- Added D1 migration 0004 for source intelligence metrics.
+- Kept Bing as disabled reserve and excluded GitHub/YouTube sources.

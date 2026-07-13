@@ -29,7 +29,7 @@ test("migration checksum is the real SHA-256 of its SQL file", async () => {
   const bytes = await readFile(schemaPath);
   const checksum = createHash("sha256").update(bytes).digest("hex");
   assert.equal(checksum, MIGRATIONS[0].checksum);
-  assert.equal(EXPECTED_SCHEMA_VERSION, 3);
+  assert.equal(EXPECTED_SCHEMA_VERSION, 4);
 });
 
 test("fresh database creates exactly the approved eleven tables", async () => {
@@ -105,7 +105,7 @@ test("nullable source task identity is duplicate-safe", async () => {
   db.close();
 });
 
-test("database source seed is deterministic at 300 total and 80 enabled", async () => {
+test("legacy migration seed remains deterministic before autonomous catalog reset", async () => {
   const db=freshDb();
   for (const m of MIGRATIONS) { db.exec(await readFile(m.file,"utf8")); db.prepare(`INSERT OR IGNORE INTO schema_migrations(version,name,checksum,applied_at) VALUES(?,?,?,?)`).run(m.version,m.name,m.checksum,new Date().toISOString()); }
   const counts=db.prepare(`SELECT COUNT(*) total,SUM(enabled) enabled,SUM(default_enabled) default_enabled FROM sources`).get();

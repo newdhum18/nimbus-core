@@ -282,11 +282,31 @@ try {
     );
   }
 
+  const catalog = await fetchJson(`${base}/api/sources/catalog`);
+  if (
+    !catalog.ok ||
+    !Number.isInteger(catalog.total) ||
+    catalog.total < 1 ||
+    !Number.isInteger(catalog.enabled) ||
+    catalog.enabled < 1 ||
+    catalog.enabled > catalog.total
+  ) {
+    throw new Error(
+      `Source catalog validation failed: ${JSON.stringify(catalog)}`
+    );
+  }
+
   const reset = await fetchJson(`${base}/api/sources/reset`, {
     method: "POST"
   });
 
-  if (!reset.ok || reset.total !== 300 || reset.enabled !== 80) {
+  if (
+    !reset.ok ||
+    reset.total !== catalog.total ||
+    reset.enabled < 1 ||
+    reset.enabled > reset.total ||
+    reset.expected_total !== catalog.total
+  ) {
     throw new Error(
       `Source seed validation failed: ${JSON.stringify(reset)}`
     );
@@ -296,8 +316,10 @@ try {
 
   if (
     !diagnostics.ok ||
-    diagnostics.sources?.total !== 300 ||
-    diagnostics.sources?.enabled !== 80
+    diagnostics.sources?.total !== reset.total ||
+    diagnostics.sources?.enabled !== reset.enabled ||
+    diagnostics.sources?.enabled < 1 ||
+    diagnostics.sources?.enabled > diagnostics.sources?.total
   ) {
     throw new Error(
       `Diagnostics validation failed: ${JSON.stringify(diagnostics)}`

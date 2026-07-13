@@ -119,12 +119,12 @@
       </section>
 
       <section id="sources" class="page">
-        <div class="section-title"><div><p class="eyebrow">300 / 80 MODEL</p><h2>Sources</h2></div><button id="reloadSources" class="secondary compact" type="button">Reload</button></div>
+        <div class="section-title"><div><p id="sourceModelLabel" class="eyebrow">AUTONOMOUS SOURCE MODEL</p><h2>Sources</h2></div><button id="reloadSources" class="secondary compact" type="button">Reload</button></div>
         <div id="sourceMetrics" class="metrics"></div>
         <article class="panel">
           <label>Search sources<input id="sourceSearch" type="search" placeholder="Name, category, or type" autocomplete="off"></label>
           <div class="source-filters"><select id="sourceStatus"><option value="all">All</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select><select id="sourceSort"><option value="priority">Priority</option><option value="rank">Rank</option><option value="yield">Yield</option><option value="name">Name</option><option value="failures">Failures</option><option value="speed">Speed</option><option value="health">Health</option></select></div>
-          <div class="source-actions"><button id="enableAllSources" class="secondary" type="button">Select all</button><button id="disableAllSources" class="secondary" type="button">Unselect all</button><button id="restoreDefaults" class="secondary" type="button">Restore 80 defaults</button><button id="refreshRanks" class="secondary" type="button">Refresh ranks</button></div>
+          <div class="source-actions"><button id="enableAllSources" class="secondary" type="button">Select all</button><button id="disableAllSources" class="secondary" type="button">Unselect all</button><button id="restoreDefaults" class="secondary" type="button">Restore autonomous defaults</button><button id="refreshRanks" class="secondary" type="button">Refresh ranks</button></div>
           <div id="sourceList" class="list source-list"></div>
           <button id="loadMoreSources" class="secondary wide hidden" type="button">Load more</button>
         </article>

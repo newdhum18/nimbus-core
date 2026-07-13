@@ -8,7 +8,7 @@ test("fixed system identity", () => {
   assert.equal(SYSTEM.pages, "nimbus-core-v36-web");
   assert.equal(SYSTEM.database, "nimbus-core-v36-db");
   assert.equal(SYSTEM.queue, "nimbus-core-v36-queue");
-  assert.equal(SYSTEM.version, "36.6.0");
+  assert.equal(SYSTEM.version, "36.9.1");
 });
 
 test("worker configuration is clean", async () => {
@@ -17,7 +17,7 @@ test("worker configuration is clean", async () => {
   assert.equal(config.main, "src/worker.js");
   assert.equal(config.compatibility_date, "2026-07-11");
   assert.equal(config.limits, undefined);
-  assert.equal(config.triggers, undefined);
+  assert.deepEqual(config.triggers.crons, ["*/1 * * * *"]);
   assert.equal(config.d1_databases[0].binding, "DB");
   assert.equal(config.queues.producers[0].binding, "QUEUE");
   assert.equal(config.queues.consumers[0].max_concurrency, 1);

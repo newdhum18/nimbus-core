@@ -1,111 +1,58 @@
-const CORE_DOMAINS = Object.freeze([
-  "rentry.co","pastebin.com","paste.ee","justpaste.it","controlc.com",
-  "dpaste.org","pastes.io","paste.rs","pastelink.net","telegra.ph",
-  "reddit.com","old.reddit.com","archive.org","meawfy.com","ofversedrops.com",
-  "linktr.ee","blogspot.com","wordpress.com","tumblr.com"
+/**
+ * Phase 13 autonomous source catalog.
+ * Each entry represents a distinct public discovery surface or protocol,
+ * not a synthetic repetition used only to inflate a source count.
+ */
+const S = (id,name,category,sourceType,templateUrl,priority,rankScore=0) => ({
+  id,name,category,sourceType,templateUrl,
+  enabled:true,defaultEnabled:true,priority,rankScore
+});
+
+const CATALOG = Object.freeze([
+  S("meawfy_api","Meawfy public index API","mega-index","json","https://meawfy.com/internal/api/results.json?q={q}",1500,100),
+  S("meawfy_search","Meawfy public search","mega-index","html","https://meawfy.com/?s={q}",1490,90),
+  S("ofversedrops_search","OfverseDrops public search","mega-index","html","https://ofversedrops.com/?s={q}",1480,85),
+
+  S("reddit_search_json","Reddit public search JSON","comments","json","https://www.reddit.com/search.json?q=%22mega.nz%2Ffolder%22%20{q}&sort=new&limit=100&raw_json=1",1450,80),
+  S("reddit_comments_json","Reddit comments search JSON","comments","json","https://www.reddit.com/search.json?q=%22mega.nz%2Ffolder%22%20{q}&type=comment&sort=new&limit=100&raw_json=1",1440,80),
+  S("old_reddit_search","Old Reddit public search","comments","html","https://old.reddit.com/search?q=%22mega.nz%2Ffolder%22%20{q}&sort=new",1430,70),
+
+  S("wayback_cdx_rentry","Wayback CDX — Rentry","archive","json","https://web.archive.org/cdx/search/cdx?url=rentry.co/*&output=json&filter=statuscode:200&filter=mimetype:text/html&fl=original,timestamp&collapse=urlkey&limit=100&from=2024",1400,65),
+  S("wayback_cdx_pastebin","Wayback CDX — Pastebin","archive","json","https://web.archive.org/cdx/search/cdx?url=pastebin.com/*&output=json&filter=statuscode:200&fl=original,timestamp&collapse=urlkey&limit=100&from=2024",1390,60),
+  S("wayback_cdx_telegra","Wayback CDX — Telegra.ph","archive","json","https://web.archive.org/cdx/search/cdx?url=telegra.ph/*&output=json&filter=statuscode:200&fl=original,timestamp&collapse=urlkey&limit=100&from=2024",1380,55),
+
+  S("ddg_rentry","DuckDuckGo Lite — Rentry","paste","html","https://lite.duckduckgo.com/lite/?q=site%3Arentry.co%20{q}%20%22mega.nz%2Ffolder%22",1320,50),
+  S("ddg_pastebin","DuckDuckGo Lite — Pastebin","paste","html","https://lite.duckduckgo.com/lite/?q=site%3Apastebin.com%20{q}%20%22mega.nz%2Ffolder%22",1310,48),
+  S("ddg_pasteee","DuckDuckGo Lite — Paste.ee","paste","html","https://lite.duckduckgo.com/lite/?q=site%3Apaste.ee%20{q}%20%22mega.nz%2Ffolder%22",1300,46),
+  S("ddg_justpaste","DuckDuckGo Lite — JustPaste","paste","html","https://lite.duckduckgo.com/lite/?q=site%3Ajustpaste.it%20{q}%20%22mega.nz%2Ffolder%22",1290,44),
+  S("ddg_controlc","DuckDuckGo Lite — ControlC","paste","html","https://lite.duckduckgo.com/lite/?q=site%3Acontrolc.com%20{q}%20%22mega.nz%2Ffolder%22",1280,42),
+  S("ddg_telegra","DuckDuckGo Lite — Telegra.ph","paste","html","https://lite.duckduckgo.com/lite/?q=site%3Atelegra.ph%20{q}%20%22mega.nz%2Ffolder%22",1270,40),
+  S("ddg_pastelink","DuckDuckGo Lite — Pastelink","paste","html","https://lite.duckduckgo.com/lite/?q=site%3Apastelink.net%20{q}%20%22mega.nz%2Ffolder%22",1260,38),
+  S("ddg_pastesio","DuckDuckGo Lite — Pastes.io","paste","html","https://lite.duckduckgo.com/lite/?q=site%3Apastes.io%20{q}%20%22mega.nz%2Ffolder%22",1250,36),
+  S("ddg_dpaste","DuckDuckGo Lite — dpaste","paste","html","https://lite.duckduckgo.com/lite/?q=site%3Adpaste.org%20{q}%20%22mega.nz%2Ffolder%22",1240,34),
+
+  S("ddg_archive","DuckDuckGo Lite — Internet Archive","archive","html","https://lite.duckduckgo.com/lite/?q=site%3Aarchive.org%20{q}%20%22mega.nz%2Ffolder%22",1200,30),
+  S("ddg_reddit","DuckDuckGo Lite — Reddit","comments","html","https://lite.duckduckgo.com/lite/?q=site%3Areddit.com%20{q}%20%22mega.nz%2Ffolder%22",1190,28),
+  S("ddg_meawfy","DuckDuckGo Lite — Meawfy","mega-index","html","https://lite.duckduckgo.com/lite/?q=site%3Ameawfy.com%20{q}%20%22mega.nz%2Ffolder%22",1180,26),
+  S("ddg_ofversedrops","DuckDuckGo Lite — OfverseDrops","mega-index","html","https://lite.duckduckgo.com/lite/?q=site%3Aofversedrops.com%20{q}%20%22mega.nz%2Ffolder%22",1170,24),
+
+  S("ddg_html_rentry","DuckDuckGo HTML — Rentry","paste","html","https://duckduckgo.com/html/?q=site%3Arentry.co%20{q}%20%22mega.nz%2Ffolder%22",1100,20),
+  S("ddg_html_pastebin","DuckDuckGo HTML — Pastebin","paste","html","https://duckduckgo.com/html/?q=site%3Apastebin.com%20{q}%20%22mega.nz%2Ffolder%22",1090,18),
+  S("ddg_html_reddit","DuckDuckGo HTML — Reddit","comments","html","https://duckduckgo.com/html/?q=site%3Areddit.com%20{q}%20%22mega.nz%2Ffolder%22",1080,16),
+  S("ddg_html_archive","DuckDuckGo HTML — Internet Archive","archive","html","https://duckduckgo.com/html/?q=site%3Aarchive.org%20{q}%20%22mega.nz%2Ffolder%22",1070,14),
+
+  // Bing remains a disabled-by-learning reserve only after proven yield.
+  {...S("bing_rss_rentry","Bing RSS reserve — Rentry","reserve","rss","https://www.bing.com/search?format=rss&q=site%3Arentry.co%20{q}%20%22mega.nz%2Ffolder%22",300,-30),enabled:false,defaultEnabled:false},
+  {...S("bing_rss_reddit","Bing RSS reserve — Reddit","reserve","rss","https://www.bing.com/search?format=rss&q=site%3Areddit.com%20{q}%20%22mega.nz%2Ffolder%22",290,-35),enabled:false,defaultEnabled:false},
+  {...S("bing_rss_archive","Bing RSS reserve — Archive","reserve","rss","https://www.bing.com/search?format=rss&q=site%3Aarchive.org%20{q}%20%22mega.nz%2Ffolder%22",280,-40),enabled:false,defaultEnabled:false}
 ]);
-
-const RESERVE_DOMAINS = Object.freeze([
-  "hastebin.com","0bin.net","privatebin.net","pastecode.io","paste2.org",
-  "ghostbin.com","textbin.net","codepad.org","ideone.com","scribd.com",
-  "issuu.com","slideshare.net","medium.com","substack.com","notion.site",
-  "notion.so","docs.google.com","sites.google.com","wixsite.com","weebly.com",
-  "gitbook.io","readthedocs.io","readme.io","calameo.com","beacons.ai",
-  "bio.link","solo.to","msha.ke","taplink.cc","allmylinks.com","instabio.cc",
-  "heylink.me","lnk.bio","flow.page","about.me","carrd.co","campsite.bio",
-  "linkin.bio","bio.fm","hypage.com","koji.to","snipfeed.co","milkshake.app",
-  "shor.by","tap.bio"
-]);
-
-const DDG_ENGINES = Object.freeze([
-  { id:"ddg-lite", sourceType:"html", priorityBase:1100, rankScore:40, template:"https://lite.duckduckgo.com/lite/?q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22{facet}" },
-  { id:"ddg-html", sourceType:"html", priorityBase:1000, rankScore:30, template:"https://duckduckgo.com/html/?q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22{facet}" }
-]);
-
-const BING_ENGINES = Object.freeze([
-  { id:"bing-rss", sourceType:"rss", priorityBase:250, rankScore:-10, template:"https://www.bing.com/search?format=rss&q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22{facet}" },
-  { id:"bing-web", sourceType:"html", priorityBase:100, rankScore:-20, template:"https://www.bing.com/search?q=site%3A{domain}%20{q}%20%22mega.nz%2Ffolder%22{facet}&count=20" }
-]);
-
-const DIRECT_SOURCES = Object.freeze([
-  {id:"direct_meawfy_api",name:"Meawfy public results API",category:"mega-index",sourceType:"custom",templateUrl:"https://meawfy.com/internal/api/results.json?q={q}",defaultEnabled:true,priority:1300,rankScore:60},
-  {id:"direct_meawfy_search",name:"Meawfy public search",category:"mega-index",sourceType:"custom",templateUrl:"https://meawfy.com/?s={q}",defaultEnabled:true,priority:1290,rankScore:50},
-  {id:"direct_ofversedrops",name:"OfverseDrops public search",category:"mega-index",sourceType:"custom",templateUrl:"https://ofversedrops.com/?s={q}",defaultEnabled:true,priority:1280,rankScore:45},
-  {id:"direct_reddit_comments",name:"Reddit comments search",category:"community",sourceType:"html",templateUrl:"https://www.reddit.com/search/?q=%22mega.nz%2Ffolder%22%20{q}&type=comment",defaultEnabled:true,priority:1270,rankScore:40}
-]);
-
-const DEFAULT_FACETS = Object.freeze(["%20comments","%20archive"]);
-const RESERVE_FACETS = Object.freeze(["","%20archive","%20collection","%20public","%20folder","%20index"]);
-
-function category(domain){
-  if(/paste|rentry|controlc|dpaste|telegra/.test(domain))return"paste";
-  if(/reddit/.test(domain))return"community";
-  if(/archive/.test(domain))return"archive";
-  if(/meawfy|ofversedrops/.test(domain))return"mega-index";
-  return"web";
-}
-
-function makeSource({id,domain,engine,facet="",enabled,priorityOffset=0,categoryName=category(domain)}){
-  return {
-    id,
-    name:`${engine.id} ${domain}${facet.replaceAll("%20"," ")}`,
-    category:categoryName,
-    sourceType:engine.sourceType,
-    templateUrl:engine.template.replace("{domain}",domain).replace("{facet}",facet),
-    enabled,
-    defaultEnabled:enabled,
-    priority:engine.priorityBase-priorityOffset,
-    rankScore:engine.rankScore
-  };
-}
 
 export function sourceCatalog(){
-  const rows=DIRECT_SOURCES.map(x=>({...x,enabled:true}));
-
-  // 4 direct + 19 domains × 2 DDG engines = 42.
-  let offset=0;
-  for(const domain of CORE_DOMAINS){
-    for(const engine of DDG_ENGINES){
-      offset+=1;
-      rows.push(makeSource({id:`default_${String(rows.length+1).padStart(3,"0")}`,domain,engine,enabled:true,priorityOffset:offset}));
-    }
-  }
-
-  // Add 38 more high-value DDG variants to reach exactly 80 defaults.
-  let extra=0;
-  outerDefaults:for(const domain of CORE_DOMAINS){
-    for(const facet of DEFAULT_FACETS){
-      for(const engine of DDG_ENGINES){
-        if(rows.length===80)break outerDefaults;
-        extra+=1;
-        rows.push(makeSource({id:`default_${String(rows.length+1).padStart(3,"0")}`,domain,engine,facet,enabled:true,priorityOffset:100+extra}));
-      }
-    }
-  }
-
-  // Reserve sources: DDG variants first, Bing always at the very bottom.
-  let reserve=0;
-  outerReserve:for(const domain of RESERVE_DOMAINS){
-    for(const facet of RESERVE_FACETS){
-      for(const engine of DDG_ENGINES){
-        if(rows.length===260)break outerReserve;
-        reserve+=1;
-        rows.push(makeSource({id:`reserve_${String(reserve).padStart(3,"0")}`,domain,engine,facet,enabled:false,priorityOffset:reserve,categoryName:"reserve"}));
-      }
-    }
-  }
-
-  let bing=0;
-  outerBing:for(const domain of [...CORE_DOMAINS,...RESERVE_DOMAINS]){
-    for(const engine of BING_ENGINES){
-      if(rows.length===300)break outerBing;
-      bing+=1;
-      rows.push(makeSource({id:`bing_${String(bing).padStart(3,"0")}`,domain,engine,enabled:false,priorityOffset:bing,categoryName:"reserve"}));
-    }
-  }
-
-  if(rows.length!==300)throw new Error(`Source catalog invariant failed: expected 300, received ${rows.length}`);
-  if(rows.filter(r=>r.defaultEnabled).length!==80)throw new Error("Source catalog invariant failed: expected 80 defaults");
-  if(rows.some(r=>/github|youtube/i.test(`${r.name} ${r.templateUrl}`)))throw new Error("Source catalog contains disallowed domains");
+  const rows=CATALOG.map((row)=>({...row}));
+  const ids=new Set(rows.map((r)=>r.id));
+  const templates=new Set(rows.map((r)=>r.templateUrl));
+  if(ids.size!==rows.length)throw new Error("Duplicate source IDs in autonomous catalog");
+  if(templates.size!==rows.length)throw new Error("Duplicate source templates in autonomous catalog");
+  if(rows.some(r=>/github|youtube/i.test(`${r.name} ${r.templateUrl}`)))throw new Error("Disallowed source in autonomous catalog");
   return rows;
 }

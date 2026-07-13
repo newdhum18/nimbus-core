@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { calculateSourceRank, sourceRecommendation } from "../src/sources/ranking.js";
 import { listSources, setSourcesEnabled, refreshSourceRanks } from "../src/sources/service.js";
+import { sourceCatalog } from "../src/sources/catalog.js";
+import { SYSTEM } from "../src/config.js";
 
 function statementDb() {
   const calls = [];
@@ -85,4 +87,17 @@ test("rank refresh writes calculated scores in batches", async () => {
   const update = db.calls.find((call) => call.sql.includes("UPDATE sources SET rank_score"));
   assert.ok(update);
   assert.equal(typeof update.params[0], "number");
+});
+
+
+test("autonomous source catalog matches dynamic system metadata", () => {
+  const catalog = sourceCatalog();
+  const enabled = catalog.filter((source) => source.enabled).length;
+  assert.equal(catalog.length, SYSTEM.sourceTotal);
+  assert.equal(enabled, SYSTEM.sourceEnabledDefault);
+  assert.ok(catalog.length > 0);
+  assert.ok(enabled > 0 && enabled <= catalog.length);
+  assert.equal(new Set(catalog.map((source) => source.id)).size, catalog.length);
+  assert.equal(new Set(catalog.map((source) => source.templateUrl)).size, catalog.length);
+  assert.equal(catalog.some((source) => /github|youtube/i.test(`${source.name} ${source.templateUrl}`)), false);
 });
