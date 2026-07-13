@@ -1,3 +1,4 @@
+const PROTECTED=/^(meawfy_api|meawfy_search|ofversedrops_search|ddg_rentry|reddit_search_json|reddit_comments_json)$/;
 function n(value){const x=Number(value);return Number.isFinite(x)?x:0;}
 function stableHash(text){let h=2166136261;for(const c of String(text)){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
 
@@ -12,6 +13,12 @@ export function intelligenceScore(row){
 }
 
 export function sourceState(row, now=Date.now()){
+  if(PROTECTED.test(String(row.id||""))) {
+    const requests=n(row.requests), novel=n(row.novel_links);
+    if(requests<3)return "explore";
+    if(novel>0)return "proven";
+    return "observe";
+  }
   if(row.cooldown_until && Date.parse(row.cooldown_until)>now)return "cooldown";
   const requests=n(row.requests), novel=n(row.novel_links), failures=n(row.consecutive_failures), zero=n(row.zero_yield_runs);
   if(requests>=8 && failures>=5)return "quarantined";

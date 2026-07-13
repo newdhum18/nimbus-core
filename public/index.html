@@ -84,8 +84,14 @@
 
         <div id="keywordPanel" class="subpage"><article class="panel search-card">
           <div class="search-card-head"><div><p class="panel-kicker">TARGETED DISCOVERY</p><h3>Keyword Search</h3></div><span class="mini-feature">⌕</span></div>
-          <div class="profile-chips"><span>Folder only</span><span>80 sources</span><span>Adaptive ranking</span></div>
-          <label>Keyword<input id="keywordInput" type="search" maxlength="200" placeholder="Enter a file or topic name" autocomplete="off"></label>
+          <div class="profile-chips"><span>Folder only</span><span>Adaptive sources</span><span>Learned keywords</span></div>
+          <div class="keyword-controls">
+            <label>Category<select id="keywordCategory"><option value="games">Games</option><option value="series">Series</option><option value="movies">Movies</option><option value="tools" selected>Tools</option><option value="sports">Sports</option><option value="courses">Courses</option><option value="books">Books</option><option value="music">Music</option><option value="datasets">Datasets</option><option value="adult">Adult (18+)</option></select></label>
+            <button id="suggestKeyword" class="secondary" type="button">Generate suggestions</button>
+          </div>
+          <div id="keywordSuggestions" class="suggestion-chips" aria-live="polite"></div>
+          <label>Keyword<input id="keywordInput" type="search" maxlength="200" placeholder="Enter a keyword or use a suggestion" autocomplete="off"></label>
+          <label class="auto-keyword-toggle"><input id="autoKeyword" type="checkbox"> Generate a different learned query for every round</label>
           <label>Rounds<input id="keywordRound" type="number" inputmode="numeric" min="1" max="100" value="1"></label>
           <button id="startKeyword" class="primary wide" type="button">Start Keyword Search</button>
           <div id="keywordStatus" class="operation-status neutral">Ready.</div>

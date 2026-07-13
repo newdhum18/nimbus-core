@@ -1,6 +1,6 @@
 import { acquireLease } from "./lease.js";
 import { failOrDead } from "./retry.js";
-import { fetchAndExtract, fetchPage } from "../search/crawler.js";
+import { extractDiscoveryContexts, fetchAndExtract, fetchPage } from "../search/crawler.js";
 import { adapterForSource } from "../search/adapters/index.js";
 import { extractMegaFolders } from "../extract/mega.js";
 import { uid, nowIso } from "../db/queries.js";
@@ -9,6 +9,7 @@ import { recordSourceResult } from "../sources/metrics.js";
 import { SYSTEM } from "../config.js";
 import { validateTaskMessage } from "./contract.js";
 import { extractHttpTargets, contentVariants } from "../search/target-decoder.js";
+import { learnSearchTerms } from "../search/keyword-intelligence.js";
 
 async function event(db, {
   runId = null,
@@ -146,6 +147,7 @@ export async function processTask(env, messageBody) {
     if (["html", "rss", "custom", "json"].includes(String(current.source_type))) {
       const searchPage = await fetchPage(current.url);
       const collected = new Map(extractMegaFolders(searchPage.text || "").map(link => [link.normalizedUrl, link]));
+      const learningContexts = extractDiscoveryContexts(searchPage.text || "");
       const visited = new Set([searchPage.finalUrl || current.url]);
       const queue = [];
       let seedTargets = [];
@@ -182,6 +184,7 @@ export async function processTask(env, messageBody) {
         childLatency += child.latency || 0;
         if (child.ok) childOk += 1;
         for (const link of child.links || []) collected.set(link.normalizedUrl, link);
+        for (const context of child.discoveryContexts || []) learningContexts.push(context);
 
         if (child.ok && item.depth < SYSTEM.maxCrawlDepth) {
           const nested = extractHttpTargets(child.text || "", child.finalUrl || item.url)
@@ -197,7 +200,8 @@ export async function processTask(env, messageBody) {
         ok: searchPage.ok || childOk > 0,
         links: [...collected.values()],
         latency: (searchPage.latency || 0) + childLatency,
-        targetsVisited: pagesVisited
+        targetsVisited: pagesVisited,
+        discoveryContexts: [...new Set(learningContexts)].slice(0, 30)
       };
     } else {
       result = await fetchAndExtract(current.url);
@@ -211,6 +215,12 @@ export async function processTask(env, messageBody) {
 
     const pageId = await getOrCreatePage(env, current, result);
     const linkStats = await persistLinks(env, current, pageId, result.links);
+    if ((result.links||[]).length && linkStats.novel > 0) {
+      const discoveryText = [result.title || "", ...(result.discoveryContexts || [])].join(" ");
+      if (discoveryText.trim()) {
+        await learnSearchTerms(env.DB, discoveryText, Math.max(1, linkStats.novel)).catch(()=>{});
+      }
+    }
 
     await env.DB.prepare(`
       INSERT INTO visited_urls(

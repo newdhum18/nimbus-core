@@ -127,7 +127,48 @@ export async function fetchPage(
 }
 
 
+
+function cleanContextText(value) {
+  return String(value || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function extractDiscoveryContexts(input, { maxContexts = 12, radius = 220 } = {}) {
+  const raw = String(input || "");
+  if (!raw) return [];
+  const contexts = [];
+  const seen = new Set();
+  const add = (value) => {
+    const clean = cleanContextText(value).slice(0, 500);
+    const key = clean.toLowerCase();
+    if (clean.length < 4 || seen.has(key)) return;
+    seen.add(key);
+    contexts.push(clean);
+  };
+
+  const title = raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+  const description = raw.match(/<meta[^>]+(?:name|property)=["'](?:description|og:title|og:description)["'][^>]+content=["']([^"']+)["']/i)?.[1];
+  add(title);
+  add(description);
+
+  const marker = /mega\s*\.\s*(?:nz|io)|mega(?:%2e|\u002e)(?:nz|io)/gi;
+  let match;
+  while ((match = marker.exec(raw)) && contexts.length < maxContexts) {
+    const start = Math.max(0, match.index - radius);
+    const end = Math.min(raw.length, match.index + match[0].length + radius);
+    add(raw.slice(start, end));
+  }
+  return contexts.slice(0, maxContexts);
+}
+
 export async function fetchAndExtract(value, options = {}) {
   const page = await fetchPage(value, options);
-  return { ...page, links: extractMegaFolders(page.text || "", { allowLegacy: options.allowLegacy !== false }) };
+  const title=(page.text||"").match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim()||"";
+  return { ...page, title, discoveryContexts: extractDiscoveryContexts(page.text || ""), links: extractMegaFolders(page.text || "", { allowLegacy: options.allowLegacy !== false }) };
 }

@@ -1,5 +1,5 @@
 import { uid, nowIso } from "../db/queries.js";
-import { buildQuery } from "../search/keyword.js";
+import { buildAdaptiveQueries } from "../search/keyword.js";
 import { autoscanQuery } from "../search/autoscan.js";
 import { chunkArray } from "../db/batch.js";
 import { dispatchPending } from "../queue/producer.js";
@@ -26,7 +26,7 @@ function normalizeRounds(value) {
   return rounds;
 }
 
-export async function startRun(env, { mode, keyword = "", round = 1 }) {
+export async function startRun(env, { mode, keyword = "", category = "tools", round = 1, auto_generate = false }) {
   const active = await env.DB.prepare(
     "SELECT id,status FROM runs WHERE status IN ('running','paused','recovering') LIMIT 1"
   ).first();
@@ -83,8 +83,11 @@ export async function startRun(env, { mode, keyword = "", round = 1 }) {
 
   try {
     const taskSpecs = [];
+    const adaptiveQueries = mode === "keyword"
+      ? await buildAdaptiveQueries(env.DB,{keyword:auto_generate?"":keyword,category,rounds,seed:`${runId}:${category}`})
+      : [];
     for (let roundIndex = 0; roundIndex < rounds; roundIndex += 1) {
-      const query = mode === "keyword" ? buildQuery(keyword) : autoscanQuery(roundIndex);
+      const query = mode === "keyword" ? adaptiveQueries[roundIndex] : autoscanQuery(roundIndex);
       for (const source of roundSelections[roundIndex]) {
         taskSpecs.push({ source, query, roundIndex });
       }
@@ -116,7 +119,7 @@ export async function startRun(env, { mode, keyword = "", round = 1 }) {
 
     await transitionRun(env.DB, runId, "running", { from: "created" });
     const dispatch = await dispatchPending(env, runId, 20);
-    return { runId, totalTasks, rounds, sources: sources.length, strategy: "autonomous-70-20-10-v1", dispatch };
+    return { runId, totalTasks, rounds, sources: sources.length, category: mode === "keyword" ? category : null, generated_queries: mode === "keyword" ? adaptiveQueries : [], strategy: "autonomous-70-20-10-v2", dispatch };
   } catch (error) {
     await failRun(env.DB, runId, error).catch(() => {});
     throw error;

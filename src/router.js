@@ -19,6 +19,7 @@ import { recoverQueueRuntime } from "./queue/recovery.js";
 import { listResults, resultsToCsv } from "./results/service.js";
 import { repairDatabase } from "./db/repair.js";
 import { extractMegaFolders } from "./extract/mega.js";
+import { KEYWORD_CATEGORIES, keywordSuggestions, normalizeCategory } from "./search/keyword-intelligence.js";
 
 async function requestBody(request) {
   return request.json().catch(() => ({}));
@@ -101,6 +102,17 @@ export async function route(request, env) {
     }
 
 
+
+    if (url.pathname === "/api/search/categories" && request.method === "GET") {
+      return ok({ categories: Object.keys(KEYWORD_CATEGORIES) }, 200, cors);
+    }
+    if (url.pathname === "/api/search/suggestions" && request.method === "GET") {
+      const category = normalizeCategory(url.searchParams.get("category") || "tools");
+      const limit = positiveInt(url.searchParams.get("limit"), { name: "limit", min: 1, max: 30, fallback: 12 });
+      const seed = url.searchParams.get("seed") || Date.now();
+      return ok(await keywordSuggestions(requireDb(env), { category, limit, seed }), 200, cors);
+    }
+
     if (url.pathname === "/api/extract" && request.method === "POST") {
       const data = await requestBody(request);
       const text = nonEmptyString(data.text, { name: "text", max: 1_000_000 });
@@ -181,7 +193,11 @@ export async function route(request, env) {
       if (!["autoscan", "keyword"].includes(data.mode)) {
         throw new AppError("INVALID_MODE", "mode must be autoscan or keyword", "runs", 400);
       }
-      if (data.mode === "keyword") data.keyword = nonEmptyString(data.keyword, { name: "keyword", max: 200 });
+      if (data.mode === "keyword") {
+        data.category = normalizeCategory(data.category || "tools");
+        data.auto_generate = data.auto_generate === true;
+        if (!data.auto_generate) data.keyword = nonEmptyString(data.keyword, { name: "keyword", max: 200 });
+      }
       return ok(await startRun(env, data), 201, cors);
     }
     if (url.pathname === "/api/runs" && request.method === "GET") {
@@ -226,7 +242,7 @@ export async function route(request, env) {
 
     const knownPath = [
       "/", "/health", "/bindings", "/api/status", "/api/diagnostics",
-      "/api/foundation/db-test", "/api/foundation/queue-test", "/api/extract", "/api/repair",
+      "/api/foundation/db-test", "/api/foundation/queue-test", "/api/search/categories", "/api/search/suggestions", "/api/extract", "/api/repair",
       "/api/sources/catalog", "/api/sources", "/api/sources/summary", "/api/sources/reset",
       "/api/sources/high-yield-defaults", "/api/sources/enable-all", "/api/sources/disable-all",
       "/api/sources/bulk", "/api/sources/ranks/refresh",

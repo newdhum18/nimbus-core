@@ -22,6 +22,12 @@ export const MIGRATIONS = Object.freeze([
     "name": "autonomous_source_intelligence",
     "file": "src/db/migrations/0004_source_intelligence.sql",
     "checksum": "e77100a405e8998a9347331dc7b6a7839dbfb17feb07f26e914221dbf8af4f83"
+  },
+  {
+    "version": 5,
+    "name": "adaptive_keyword_intelligence",
+    "file": "src/db/migrations/0005_keyword_intelligence.sql",
+    "checksum": "545d92d4c4ae66dd0867e304d8fd7779df7fe09b614ec88c8506eb6770778e2e"
   }
 ].map(Object.freeze));
 export const EXPECTED_SCHEMA_VERSION = MIGRATIONS.at(-1)?.version ?? 0;
