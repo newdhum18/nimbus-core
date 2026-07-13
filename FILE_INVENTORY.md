@@ -1,13 +1,18 @@
-# File Inventory
+# Nimbus Core V36 Phase 11 — File Inventory
 
-Files: 157
+- Package: `Nimbus-Core-V36-Phase-11-FINAL-v36.7.0`
+- Version: `36.7.0`
+- Status: **SOURCE PASS — READY FOR DEPLOYMENT VERIFICATION**
+- Inventoried source files: **158**
 
-| Path | Bytes | SHA-256 |
+Generated metadata files are excluded from their own inventory to avoid circular hashes.
+
+| Path | Size (bytes) | SHA-256 |
 |---|---:|---|
-| `.github/workflows/deploy-worker.yml` | 1220 | `e41e596d60748ab98d03e7a378af569e01e14fa2d9ffc1dbb54c51e37d193858` |
+| `.github/workflows/deploy-worker.yml` | 1836 | `9abf78b7c03906d63db00a2106e1a20eead7cd888708755a8134dbcd9014f227` |
 | `.github/workflows/validate-phase.yml` | 1143 | `90e20bbafe062a36c2cc1a8b856dbfb868ef70694ad6c364bf167f122deaf853` |
-| `.gitignore` | 124 | `c4751413ad96f7380a0247534af5fad2061ea53fb6fc9f9fb78c77f20bac23dc` |
-| `CHANGELOG.md` | 2584 | `e0c9b0b005ed63023b0e41f95199d6c5565917d5a8297ecc0eec8feb24b6f432` |
+| `.gitignore` | 152 | `d7e7a93a60b88492c71f0c837d42bf716535fddf68780c4c94cd00c5305ead48` |
+| `CHANGELOG.md` | 3346 | `00bb98d5b073913410916bdd7458d1cd00c78b2f09aad6e335de499f4a7bc44b` |
 | `CLOUDFLARE_CLEAN_SETUP.md` | 357 | `fa3ec0d5a1acba85d934e7e8e7186e1f1db5f5ec0d6fe756c1f646adc9c226c4` |
 | `DEPLOYMENT.md` | 696 | `6b5fbc6d6d82e612186b8956dda882a20cac32699ae84e8d2345054924e4aa6b` |
 | `ENGINEERING_AUDIT_PRE_GITHUB.md` | 1177 | `81e907fee3a4e860eda57362a383361f233f7639adbe45bcafa0ecee5b7478b4` |
@@ -16,7 +21,8 @@ Files: 157
 | `FEATURE_MATRIX_V28_V36.md` | 3553 | `ac324a286c8819a589d8fdfbd1a830cf647e9e268562e1c803b2da22d2599264` |
 | `FEATURE_MATRIX_V30_V35.md` | 1662 | `7b64a07a5c93ccf8511366ceca6f6e4e8b3cc1753a8693c5530acb6f50786e9a` |
 | `KNOWN_ISSUES.md` | 618 | `d66d007efbb31309a0f1971131c31f038e289c07bf4907b3da9f41e49b37ee90` |
-| `PHASE_STATUS.md` | 406 | `f3707dc20010b2334b0b588d3b35e783dec1a51c380ebd866878606d8096ffd1` |
+| `PHASE_11_COMPLETION_REPORT.md` | 1297 | `c7b71045671208056da1afd2aed7973aa6209d3ae07f7ef998dfe79b36063b8d` |
+| `PHASE_STATUS.md` | 837 | `850556d3de6d14487ce2bc5458c481367d8ed295f658d2f6a7e271e0b63fd54a` |
 | `PHASE_TEST_REPORT.md` | 571 | `94ec2377df99afcfc57980143930a86c1f7f656bc8d808a6291eeeb2bacc0ae3` |
 | `README.md` | 1857 | `2895a241eda7830724fa5d8c5ad80c55680e06ecb20afaf4a2fca53f473039dd` |
 | `TEST_REPORT.md` | 939 | `c5f4812bd593608fa1cdce9c4bac8931fb77da1bbc443a0a1557bbbca1287326` |
@@ -67,16 +73,16 @@ Files: 157
 | `evidence/phase09-test-output.txt` | 11815 | `fd13626c2c33859c7c0557fec12c47d621c648e54d0ac3a56bed8aecb348f533` |
 | `evidence/phase09-worker-dry-run.txt` | 375 | `3ac4b76eeb502153dd1f55fa0ff76342c0b03562727f2bceda30483cf56ca762` |
 | `evidence/test-output.txt` | 12191 | `656ec874cfac3bdc07a0bbbc64baa487012f08b128d4fd540a1aebd8e5658022` |
-| `package-lock.json` | 48397 | `df0357c9c456e4e66c7625763cc1d58a09027032da09c4d21bde231bfc78612b` |
-| `package.json` | 1817 | `9597965fdaaf84ad626b6bf1920a9a022f832537964f3bf5a6cb85aee6a0d8e8` |
+| `package-lock.json` | 48397 | `78bf51c34863a99d5e90bfa1a5b84eb9869131a69b904272f27fc6d144d43255` |
+| `package.json` | 1834 | `f401da6137f7ad2ac912dda122882014f798d18cc9b80749e4c98b568669f65d` |
 | `public/_headers` | 155 | `17c3b142c0879287e6ee2170c9323a32094953821992dfa1487516892d874f56` |
-| `public/app.js` | 14167 | `7fa9a1f363383345d0a1c434f3dac1baa5be43598729bc732145215629c58791` |
-| `public/index.html` | 6813 | `a87dcb3097b14cbf9793eec1f2b69a3266b014c3120e7795b56474263dfeaa70` |
-| `public/style.css` | 5101 | `65950512e28b8f0403fd1789cc7e9d392421ccf50a17cd54b34a740c1e30b461` |
+| `public/app.js` | 16942 | `f5a6f243527e490d2252a7b9cbe5a13c3d3a318e43cbecfa0fefe3115d76ec76` |
+| `public/index.html` | 9934 | `11c46f5000e53c08139f91e8703928d0f6130af4ddb35599898e8c0f0fb6cc34` |
+| `public/style.css` | 10853 | `2df851e676a266cfe9b9881f69af8b77c20398c1c72cb6f5e8d2b8cfd1397e6b` |
 | `scripts/build-web.mjs` | 236 | `edf4768920075d89a1388bf204397bf61e4e52e134c9af9e0e9ca4a2dc5e409f` |
 | `scripts/check-config.mjs` | 1379 | `f6ba24e18d8599f18f44a5ced9472e6acfac0341c863b3381ce3e7d583dc1e9f` |
 | `scripts/check-release.mjs` | 433 | `2a86380d7e6d3b59298f577293f37afd47dfcc81264d9f590ae876bc128c6eb0` |
-| `scripts/clean.mjs` | 185 | `b3e07ffdb2be8f50aadde54f31b87ef34a116962d7f0b83d4b3c3ef39be048f3` |
+| `scripts/clean.mjs` | 244 | `9b482eea9c622f660b5499ccaea592753893f3421ea9f7bbcf49411edd2f1b46` |
 | `scripts/db-inspect-local.mjs` | 1248 | `11528423fa017c18a56520f2a4634af165bf8ab89af8d1ec904149398bcb319a` |
 | `scripts/db-migrate-local.mjs` | 1680 | `d060159155c6c68c44af09c96b87becf510898b7789e6cb20494eaef56492682` |
 | `scripts/db-repair-local.mjs` | 758 | `90ef5d5c1bb04a85a97f5970eef1058069128545a7acd4e2f4426ae4a59c2979` |
@@ -158,6 +164,6 @@ Files: 157
 | `tests/search.test.mjs` | 1624 | `8104ef08cfc73eaf9958dcebbec417fbeef435003cec8229e216f8bde7a85a80` |
 | `tests/source-manager.test.mjs` | 4076 | `b73c46cdb0812f714a1007b278f3c4905fc2aedb410f3bedbcbaf9e416082b80` |
 | `tests/sources.test.mjs` | 823 | `71381c70b056629dd5dd7afbe08c192b5658102bb65b636e3f75aef1b8276a65` |
-| `tests/ui-recovery.test.mjs` | 1822 | `e6ab678c8fc00be2cafaf0c9e6c7ba939a3637a9164758a1d58102cdf0d948df` |
+| `tests/ui-recovery.test.mjs` | 3174 | `de6f058afd1e8ffa20de38a3cfba4cc251c4b7c38d9122ec6f6c531273e8fd3b` |
 | `wrangler.pages.jsonc` | 169 | `2f52b594c04aa681f4103df6873d40e1e59a7ee224f3377baddf3e2483ca48d0` |
 | `wrangler.worker.jsonc` | 800 | `2f82971f05a89df466400a8274158700a63ba1af10a0d4cccb8cc47e0df40744` |

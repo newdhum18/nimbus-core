@@ -1,6 +1,6 @@
 const API = "https://nimbus-core-v36-worker.newdhum18.workers.dev";
 const $ = (selector) => document.querySelector(selector);
-const state = { runs: [], currentRunId: localStorage.getItem("nimbus.currentRunId") || "", sourceOffset: 0, sourceLimit: 100, poll: null };
+const state = { runs: [], currentRunId: localStorage.getItem("nimbus.currentRunId") || "", sourceOffset: 0, sourceLimit: 100, poll: null, searchTimer: null };
 
 function toast(message) {
   const node = $("#toast");
@@ -33,18 +33,40 @@ function metric(value, label) {
   return `<div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`;
 }
 
+function setButtonBusy(button, busy, busyText = "Working…") {
+  if (!button) return;
+  if (busy) { button.dataset.label = button.textContent; button.textContent = busyText; button.disabled = true; }
+  else { button.textContent = button.dataset.label || button.textContent; button.disabled = false; }
+}
+
+async function copyText(value) {
+  try { await navigator.clipboard.writeText(value); toast("Copied to clipboard"); }
+  catch { toast("Copy is unavailable in this browser"); }
+}
+
 function showPage(pageId) {
+  const page = $(`#${pageId}`);
+  const tab = document.querySelector(`.tab[data-page="${pageId}"]`);
+  if (!page || !tab) return;
   document.querySelectorAll(".page,.tab").forEach((node) => node.classList.remove("active"));
-  $(`#${pageId}`).classList.add("active");
-  document.querySelector(`.tab[data-page="${pageId}"]`).classList.add("active");
+  page.classList.add("active");
+  tab.classList.add("active");
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => {
   showPage(button.dataset.page);
-  if (button.dataset.page === "extract") resetExtract();
-  if (button.dataset.page === "archive") loadArchive().catch(reportError);
   if (button.dataset.page === "results") loadResults().catch(reportError);
   if (button.dataset.page === "sources") loadSources().catch(reportError);
+  if (button.dataset.page === "tools") checkBindingsSummary().catch(reportError);
+}));
+
+document.querySelectorAll(".subtab").forEach((button) => button.addEventListener("click", () => {
+  document.querySelectorAll(".subtab,.subpage").forEach((node) => node.classList.remove("active"));
+  button.classList.add("active");
+  $(`#${button.dataset.subpage}`).classList.add("active");
+  if (button.dataset.subpage === "extractPanel") resetExtract();
+  if (button.dataset.subpage === "archivePanel") loadArchive().catch(reportError);
 }));
 
 function reportError(error, target = null) {
@@ -114,6 +136,8 @@ async function loadCurrentRun() {
     $("#runState").textContent = "idle";
     $("#runState").className = "pill neutral";
     $("#progressBar").style.width = "0%";
+    $("#progressLabel").textContent = "0%";
+    $("#progressMeta").textContent = "Waiting for a run";
     return;
   }
   const data = await api(`/api/runs/${encodeURIComponent(state.currentRunId)}`);
@@ -124,6 +148,9 @@ async function loadCurrentRun() {
   $("#runState").textContent = run.status;
   $("#runState").className = `pill ${run.status || "neutral"}`;
   $("#progressBar").style.width = `${progress}%`;
+  $("#progressLabel").textContent = `${progress}%`;
+  const completed = Number(counts.completed || 0);
+  $("#progressMeta").textContent = `${completed} of ${Number(run.total_tasks || 0)} tasks completed`;
   if (["running", "recovering"].includes(run.status)) startPolling(); else stopPolling();
 }
 
@@ -155,7 +182,11 @@ async function startRun(mode) {
     if (!body.keyword) throw new Error("Enter a keyword first.");
   }
   log.textContent = "Starting…";
-  const data = await api("/api/runs/start", { method: "POST", body: JSON.stringify(body) });
+  const button = mode === "autoscan" ? $("#startAuto") : $("#startKeyword");
+  setButtonBusy(button, true, "Starting…");
+  let data;
+  try { data = await api("/api/runs/start", { method: "POST", body: JSON.stringify(body) }); }
+  finally { setButtonBusy(button, false); }
   setCurrentRun(data.runId);
   log.textContent = JSON.stringify(data, null, 2);
   await refreshDashboard();
@@ -221,11 +252,16 @@ async function loadResults() {
   setCurrentRun(runId);
   const data = await api(`/api/runs/${encodeURIComponent(runId)}/results?limit=500&offset=0`);
   $("#resultSummary").textContent = `${data.total} result(s) · run ${data.run_status}`;
-  $("#resultList").innerHTML = data.results.length ? data.results.map((result) => `
+  $("#resultList").innerHTML = data.results.length ? data.results.map((result, index) => `
     <div class="result">
       <a href="${escapeHtml(result.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(result.url)}</a>
       <small>${escapeHtml(result.link_type)} · ${escapeHtml(result.validation_status)} · ${escapeHtml(result.source_name || "unknown source")}</small>
+      <div class="result-toolbar">
+        <button class="mini-btn copy-result" data-url="${escapeHtml(result.url)}" type="button">Copy</button>
+        <a class="mini-btn" href="${escapeHtml(result.url)}" target="_blank" rel="noopener noreferrer">Open</a>
+      </div>
     </div>`).join("") : '<p class="muted">No results yet. Running tasks may still be processing.</p>';
+  document.querySelectorAll(".copy-result").forEach((button) => button.addEventListener("click", () => copyText(button.dataset.url)));
 }
 
 function openExport(format) {
@@ -247,7 +283,7 @@ async function loadSources() {
   $("#sourceList").innerHTML = data.sources?.length ? data.sources.map((source) => `
     <label class="source">
       <input type="checkbox" data-source-id="${escapeHtml(source.id)}" ${Number(source.enabled) ? "checked" : ""}>
-      <span><strong>${escapeHtml(source.name)}</strong><small>${escapeHtml(source.category || "uncategorized")} · ${escapeHtml(source.source_type || "unknown")} · priority ${escapeHtml(source.priority)} · rank ${escapeHtml(source.rank_score ?? 0)}</small></span>
+      <span><strong>${escapeHtml(source.name)}</strong><small>${escapeHtml(source.category || "uncategorized")} · ${escapeHtml(source.source_type || "unknown")} · priority ${escapeHtml(source.priority)} · rank ${escapeHtml(source.rank_score ?? 0)}</small><span class="source-badge">${Number(source.enabled) ? "Enabled" : "Disabled"}</span></span>
     </label>`).join("") : '<p class="muted">No matching sources.</p>';
   document.querySelectorAll("[data-source-id]").forEach((checkbox) => checkbox.addEventListener("change", async () => {
     checkbox.disabled = true;
@@ -264,14 +300,31 @@ async function loadSources() {
   }));
 }
 
+function renderHealthCards(data) {
+  const cards = [
+    ["Worker", Boolean(data.ok), data.ok ? "Healthy" : "Unavailable"],
+    ["Database", Boolean(data.db ?? data.sources), data.db ?? data.sources ? "Connected" : "Unavailable"],
+    ["Queue", Boolean(data.queue ?? data.tasks), data.queue ?? data.tasks ? "Connected" : "Unavailable"]
+  ];
+  $("#healthCards").innerHTML = cards.map(([name, ok, detail]) => `<div class="health-card"><span class="health-dot ${ok ? "ok" : "bad"}"></span><div><strong>${name}</strong><small>${detail}</small></div></div>`).join("");
+}
+
 async function loadTool(path, method = "GET") {
   const target = $("#toolsLog");
   target.textContent = "Loading…";
   try {
-    target.textContent = JSON.stringify(await api(path, { method }), null, 2);
+    const data = await api(path, { method });
+    target.textContent = JSON.stringify(data, null, 2);
+    renderHealthCards(data);
+    return data;
   } catch (error) {
     reportError(error, target);
+    renderHealthCards({ ok: false, db: false, queue: false });
   }
+}
+
+async function checkBindingsSummary() {
+  return loadTool("/bindings");
 }
 
 $("#refreshAll").onclick = () => refreshDashboard().catch(reportError);

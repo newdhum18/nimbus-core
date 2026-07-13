@@ -44,3 +44,37 @@ test("legacy V35.3 user workflows are retained through V36 routes", () => {
   assert.match(app, /loadArchive/);
   assert.doesNotMatch(app, /repairDb/);
 });
+
+
+test("Phase 11 primary navigation is consolidated into five mobile areas", () => {
+  for (const label of ["Dashboard", "Search", "Results", "Sources", "System"]) {
+    assert.match(html, new RegExp(`data-page="[^"]+"[^>]*>.*${label}`, "is"));
+  }
+  assert.equal((html.match(/class="tab(?: active)?"/g) || []).length, 5);
+});
+
+test("Search workspace exposes the four required tools", () => {
+  for (const id of ["autoscanPanel", "keywordPanel", "extractPanel", "archivePanel"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+});
+
+test("Result actions and system diagnostics controls are present", () => {
+  for (const id of ["exportJson", "exportCsv", "loadDiagnostics", "loadBindings", "toast"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(app, /navigator\.clipboard|clipboard/i);
+  assert.match(app, /window\.open|location\.href|open\(/i);
+});
+
+test("interactive controls have explicit button types", () => {
+  const buttons = [...html.matchAll(/<button\b([^>]*)>/gi)];
+  assert.ok(buttons.length > 0);
+  for (const [, attrs] of buttons) assert.match(attrs, /\btype="button"/i);
+});
+
+test("mobile layout includes touch and overflow protections", () => {
+  assert.match(css, /touch-action|minimum|44px|min-height/i);
+  assert.match(css, /overflow-x\s*:\s*(auto|hidden)/i);
+  assert.match(css, /@media\s*\(/i);
+});

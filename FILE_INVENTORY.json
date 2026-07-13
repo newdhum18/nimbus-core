@@ -1,11 +1,21 @@
 {
-  "package": "Nimbus-Core-V36-Phase-10-UI-Recovery-v1.9.1",
-  "file_count": 157,
+  "package": "Nimbus-Core-V36-Phase-11-FINAL-v36.7.0",
+  "version": "36.7.0",
+  "phase": "11",
+  "status": "SOURCE PASS \u2014 READY FOR DEPLOYMENT VERIFICATION",
+  "file_count": 158,
+  "excluded_generated_metadata": [
+    ".validation.cloudflare.json",
+    ".validation.runtime.json",
+    "FILE_INVENTORY.json",
+    "FILE_INVENTORY.md",
+    "SHA256SUMS.txt"
+  ],
   "files": [
     {
       "path": ".github/workflows/deploy-worker.yml",
-      "size": 1220,
-      "sha256": "e41e596d60748ab98d03e7a378af569e01e14fa2d9ffc1dbb54c51e37d193858"
+      "size": 1836,
+      "sha256": "9abf78b7c03906d63db00a2106e1a20eead7cd888708755a8134dbcd9014f227"
     },
     {
       "path": ".github/workflows/validate-phase.yml",
@@ -14,13 +24,13 @@
     },
     {
       "path": ".gitignore",
-      "size": 124,
-      "sha256": "c4751413ad96f7380a0247534af5fad2061ea53fb6fc9f9fb78c77f20bac23dc"
+      "size": 152,
+      "sha256": "d7e7a93a60b88492c71f0c837d42bf716535fddf68780c4c94cd00c5305ead48"
     },
     {
       "path": "CHANGELOG.md",
-      "size": 2584,
-      "sha256": "e0c9b0b005ed63023b0e41f95199d6c5565917d5a8297ecc0eec8feb24b6f432"
+      "size": 3346,
+      "sha256": "00bb98d5b073913410916bdd7458d1cd00c78b2f09aad6e335de499f4a7bc44b"
     },
     {
       "path": "CLOUDFLARE_CLEAN_SETUP.md",
@@ -63,9 +73,14 @@
       "sha256": "d66d007efbb31309a0f1971131c31f038e289c07bf4907b3da9f41e49b37ee90"
     },
     {
+      "path": "PHASE_11_COMPLETION_REPORT.md",
+      "size": 1297,
+      "sha256": "c7b71045671208056da1afd2aed7973aa6209d3ae07f7ef998dfe79b36063b8d"
+    },
+    {
       "path": "PHASE_STATUS.md",
-      "size": 406,
-      "sha256": "f3707dc20010b2334b0b588d3b35e783dec1a51c380ebd866878606d8096ffd1"
+      "size": 837,
+      "sha256": "850556d3de6d14487ce2bc5458c481367d8ed295f658d2f6a7e271e0b63fd54a"
     },
     {
       "path": "PHASE_TEST_REPORT.md",
@@ -320,12 +335,12 @@
     {
       "path": "package-lock.json",
       "size": 48397,
-      "sha256": "df0357c9c456e4e66c7625763cc1d58a09027032da09c4d21bde231bfc78612b"
+      "sha256": "78bf51c34863a99d5e90bfa1a5b84eb9869131a69b904272f27fc6d144d43255"
     },
     {
       "path": "package.json",
-      "size": 1817,
-      "sha256": "9597965fdaaf84ad626b6bf1920a9a022f832537964f3bf5a6cb85aee6a0d8e8"
+      "size": 1834,
+      "sha256": "f401da6137f7ad2ac912dda122882014f798d18cc9b80749e4c98b568669f65d"
     },
     {
       "path": "public/_headers",
@@ -334,18 +349,18 @@
     },
     {
       "path": "public/app.js",
-      "size": 14167,
-      "sha256": "7fa9a1f363383345d0a1c434f3dac1baa5be43598729bc732145215629c58791"
+      "size": 16942,
+      "sha256": "f5a6f243527e490d2252a7b9cbe5a13c3d3a318e43cbecfa0fefe3115d76ec76"
     },
     {
       "path": "public/index.html",
-      "size": 6813,
-      "sha256": "a87dcb3097b14cbf9793eec1f2b69a3266b014c3120e7795b56474263dfeaa70"
+      "size": 9934,
+      "sha256": "11c46f5000e53c08139f91e8703928d0f6130af4ddb35599898e8c0f0fb6cc34"
     },
     {
       "path": "public/style.css",
-      "size": 5101,
-      "sha256": "65950512e28b8f0403fd1789cc7e9d392421ccf50a17cd54b34a740c1e30b461"
+      "size": 10853,
+      "sha256": "2df851e676a266cfe9b9881f69af8b77c20398c1c72cb6f5e8d2b8cfd1397e6b"
     },
     {
       "path": "scripts/build-web.mjs",
@@ -364,8 +379,8 @@
     },
     {
       "path": "scripts/clean.mjs",
-      "size": 185,
-      "sha256": "b3e07ffdb2be8f50aadde54f31b87ef34a116962d7f0b83d4b3c3ef39be048f3"
+      "size": 244,
+      "sha256": "9b482eea9c622f660b5499ccaea592753893f3421ea9f7bbcf49411edd2f1b46"
     },
     {
       "path": "scripts/db-inspect-local.mjs",
@@ -774,8 +789,8 @@
     },
     {
       "path": "tests/ui-recovery.test.mjs",
-      "size": 1822,
-      "sha256": "e6ab678c8fc00be2cafaf0c9e6c7ba939a3637a9164758a1d58102cdf0d948df"
+      "size": 3174,
+      "sha256": "de6f058afd1e8ffa20de38a3cfba4cc251c4b7c38d9122ec6f6c531273e8fd3b"
     },
     {
       "path": "wrangler.pages.jsonc",

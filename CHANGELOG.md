@@ -55,3 +55,14 @@
 - Forced `npm ci` to use the public npm registry.
 - Removed stale Phase 09 text from the Phase 10 README.
 - No production deployment or remote database operation was performed.
+
+## 36.7.0 — Phase 11 UX & Interface Modernization
+
+- Rebuilt the mobile navigation into five clear primary areas: Dashboard, Search, Results, Sources, and System.
+- Consolidated AutoScan, Keyword Search, Extract, and Archive into one Search workspace.
+- Added a polished visual system, responsive cards, status indicators, loading states, and safer mobile controls.
+- Improved Dashboard progress context and current-run visibility.
+- Enhanced Results with Copy and Open actions.
+- Replaced raw diagnostics-first presentation with health cards while preserving developer JSON details.
+- Improved source cards, enabled-state visibility, small-screen behavior, safe-area support, and touch targets.
+- Preserved all Phase 10 API routes and operational workflows.
