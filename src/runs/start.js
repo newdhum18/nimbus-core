@@ -6,6 +6,15 @@ import { dispatchPending } from "../queue/producer.js";
 import { AppError } from "../api/errors.js";
 import { transitionRun, failRun } from "./lifecycle.js";
 
+export function withRoundIdentity(url, roundIndex) {
+  const separator = String(url).includes("#") ? "&" : "#";
+  return `${url}${separator}nimbus_round=${Number(roundIndex) + 1}`;
+}
+
+export function totalTasksForRounds(sourceCount, rounds) {
+  return Number(sourceCount) * Number(rounds);
+}
+
 function normalizeRounds(value) {
   const rounds = Number(value ?? 1);
   if (!Number.isInteger(rounds) || rounds < 1 || rounds > 100) {
@@ -51,7 +60,7 @@ export async function startRun(env, { mode, keyword = "", round = 1 }) {
 
   const runId = uid("run");
   const now = nowIso();
-  const totalTasks = sources.length * rounds;
+  const totalTasks = totalTasksForRounds(sources.length, rounds);
 
   await env.DB.prepare(`
     INSERT INTO runs(
@@ -70,7 +79,8 @@ export async function startRun(env, { mode, keyword = "", round = 1 }) {
 
     for (const batch of chunkArray(taskSpecs, 20)) {
       const statements = batch.map(({ source, query, roundIndex }) => {
-        const taskUrl = source.template_url.replaceAll("{q}", encodeURIComponent(query));
+        const baseTaskUrl = source.template_url.replaceAll("{q}", encodeURIComponent(query));
+        const taskUrl = withRoundIdentity(baseTaskUrl, roundIndex);
         const adaptivePriority = Math.max(0, Number(source.priority || 0) + Number(source.adaptive_rank || 0) - roundIndex);
         return env.DB.prepare(`
           INSERT INTO run_tasks(

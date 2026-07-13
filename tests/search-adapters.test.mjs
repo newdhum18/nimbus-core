@@ -6,6 +6,7 @@ import { parseHtmlSearchResults } from "../src/search/adapters/html.js";
 import { parseRssSearchResults } from "../src/search/adapters/rss.js";
 import { adapterForSource, supportedAdapterTypes } from "../src/search/adapters/index.js";
 import { normalizeTargetUrl } from "../src/search/normalization.js";
+import { decodeSearchTarget, contentVariants, extractHttpTargets } from "../src/search/target-decoder.js";
 
 const template = "https://search.example/?q={q}";
 
@@ -44,4 +45,26 @@ test("target normalization removes fragments and tracking", () => {
 test("adapter result contract is strict", () => {
   assert.throws(() => validateAdapterResult({}));
   assert.doesNotThrow(() => validateAdapterResult({ schema: "nimbus.search-adapter.v1", targets: [], warnings: [] }));
+});
+
+
+test("target decoder handles Google, DuckDuckGo and Bing wrappers", () => {
+  const target = "https://rentry.co/example";
+  assert.equal(decodeSearchTarget(`/url?q=${encodeURIComponent(target)}`, "https://www.google.com/search?q=x"), target);
+  assert.equal(decodeSearchTarget(`/l/?uddg=${encodeURIComponent(target)}`, "https://duckduckgo.com/html/?q=x"), target);
+  const encoded = "a1" + Buffer.from(target).toString("base64url");
+  assert.equal(decodeSearchTarget(`/ck/a?u=${encoded}`, "https://www.bing.com/search?q=x"), target);
+});
+
+test("content variants prefer raw Pastebin, Rentry and Reddit JSON", () => {
+  assert.equal(contentVariants("https://pastebin.com/AbC123")[0], "https://pastebin.com/raw/AbC123");
+  assert.equal(contentVariants("https://rentry.co/demo")[0], "https://rentry.co/raw/demo");
+  assert.match(contentVariants("https://www.reddit.com/r/test/comments/abc/title/")[0], /\.json\?raw_json=1$/);
+});
+
+test("HTTP target extraction reads anchors and JSON text", () => {
+  const text = '<a href="/url?q=https%3A%2F%2Frentry.co%2Fdemo">x</a>{"url":"https://pastebin.com/AbC123"}';
+  const targets = extractHttpTargets(text, "https://www.google.com/search?q=x");
+  assert.ok(targets.includes("https://rentry.co/raw/demo"));
+  assert.ok(targets.includes("https://pastebin.com/raw/AbC123"));
 });

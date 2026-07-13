@@ -53,3 +53,24 @@ test("redirect unwrap is safe", () => {
   );
   assert.equal(unwrapCommonRedirect("not-a-url"), "not-a-url");
 });
+
+
+test("extracts folder link embedded in JSON and comment text", () => {
+  const input = JSON.stringify({ comments: [{ body: "public mirror https:\/\/mega.nz\/folder\/AbCdEf12#abcdefghijklmnopqrstuvwxyzABCDE" }] });
+  const links = extractMegaFolders(input);
+  assert.equal(links.length, 1);
+  assert.match(links[0].normalizedUrl, /^https:\/\/mega\.nz\/folder\//);
+});
+
+
+test("extracts JavaScript hex escaped and base64 embedded folder links", () => {
+  const hexEscaped = modern.replaceAll("/", "\\x2f").replace("#", "\\x23").replace(":", "\\x3a");
+  assert.equal(extractMegaFolders(hexEscaped).length, 1);
+  const encoded = Buffer.from(`prefix ${modern} suffix`).toString("base64");
+  assert.equal(extractMegaFolders(encoded).length, 1);
+});
+
+test("extracts mildly whitespace-obfuscated folder URL", () => {
+  const obfuscated = modern.replace("https://", "https : / /").replace("mega.nz", "mega . nz").replace("/folder/", "/ folder /");
+  assert.equal(extractMegaFolders(obfuscated).length, 1);
+});
