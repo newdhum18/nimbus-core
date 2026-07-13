@@ -1,23 +1,11 @@
 import { baseAdapterResult, buildSearchUrl } from "./template.js";
-import { dedupeTargets } from "../normalization.js";
-
-const HREF_RE = /<a\b[^>]*?href\s*=\s*["']([^"']+)["'][^>]*>/gi;
-
-function decodeRedirectCandidate(value, baseUrl) {
-  const absolute = new URL(value, baseUrl);
-  for (const key of ["uddg", "url", "u", "target", "q"]) {
-    const candidate = absolute.searchParams.get(key);
-    if (candidate && /^https?:\/\//i.test(candidate)) return candidate;
-  }
-  return absolute.toString();
-}
+import { extractHttpTargets } from "../target-decoder.js";
 
 export function parseHtmlSearchResults(html, baseUrl) {
-  const targets = [];
-  for (const match of String(html || "").matchAll(HREF_RE)) {
-    try { targets.push(decodeRedirectCandidate(match[1], baseUrl)); } catch {}
-  }
-  return dedupeTargets(targets).filter((url) => new URL(url).hostname !== new URL(baseUrl).hostname);
+  const baseHost = new URL(baseUrl).hostname;
+  return extractHttpTargets(html, baseUrl).filter((url) => {
+    try { return new URL(url).hostname !== baseHost; } catch { return false; }
+  });
 }
 
 export function createHtmlAdapter(id = "generic-html") {

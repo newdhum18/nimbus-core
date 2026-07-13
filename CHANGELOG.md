@@ -1,3 +1,9 @@
+## 36.8.1 — Phase 12 multi-round task identity hotfix
+
+- Fixed D1 `idx_tasks_identity` unique-constraint failures when starting AutoScan with multiple rounds.
+- Added a deterministic client-only round fragment to each task URL so every source/round pair has a unique task identity without changing the fetched server URL.
+- Added regression coverage for 100 unique rounds.
+
 # Changelog
 
 ## 36.2.1 — Phase 06.1 Database Core Remediation
@@ -74,3 +80,26 @@
 - Removed raw JSON from normal user workflows.
 - Added adaptive source selection and configurable multi-round run planning.
 - Added result counts to run history and expanded source performance controls.
+
+## 36.8.2 — Phase 12 Search Pipeline & Source Quality Remediation
+
+- Fixed Dashboard Clear so hidden completed runs no longer remain in Dashboard counters.
+- Added Select All and Unselect All controls for source management.
+- Rebuilt the 300-source catalog around MEGA-relevant public indexes, paste sites, Reddit comments, and archive/web pages.
+- Removed GitHub and YouTube from search sources.
+- Disabled Bing by default and moved it to the lowest search priority tier.
+- Added Meawfy public results API, Meawfy search, OfverseDrops search, and Reddit comments search as approved defaults.
+- Added search-result target crawling so DDG/RSS result pages are followed and their page/comment text is scanned.
+- Improved extraction from HTML, JSON, Markdown-style text, escaped slashes, HTML entities, and percent-encoded URLs.
+- Preserved folder-only extraction and rejected file links.
+- Added deterministic multi-round query diversification and regression coverage for 1, 25, and 100 rounds.
+- Source reset now removes obsolete catalog entries before reseeding exactly 300 sources and 80 defaults.
+
+## 36.8.4 — Phase 12.5 D1 source reset hotfix
+
+- Replaced the 300-variable `NOT IN` reset query with one prepared statement per row.
+- Made source reset a single transactional D1 `batch()` operation with automatic rollback on failure.
+- Neutralized existing template URLs before upsert to prevent template swap/rename UNIQUE conflicts.
+- Preserved enabled state when requested and retained original `created_at` values.
+- Added regression coverage for SQL-variable limits, transactional failures, template collisions, 300/80 restore totals, and obsolete-source removal.
+- Confirmed `/api/sources/reset` returns HTTP 200 in the local Worker runtime validation.

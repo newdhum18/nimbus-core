@@ -9,7 +9,9 @@ const SORT_SQL = Object.freeze({
   rank: "s.rank_score DESC,s.priority DESC,s.id ASC",
   yield: "COALESCE(m.yield_rate,0) DESC,s.rank_score DESC,s.id ASC",
   name: "s.name COLLATE NOCASE ASC,s.id ASC",
-  failures: "COALESCE(m.consecutive_failures,0) DESC,s.id ASC"
+  failures: "COALESCE(m.consecutive_failures,0) DESC,s.id ASC",
+  speed: "CASE WHEN COALESCE(m.average_latency,0)=0 THEN 1 ELSE 0 END ASC,COALESCE(m.average_latency,0) ASC,s.id ASC",
+  health: "COALESCE(m.consecutive_failures,0) ASC,COALESCE(m.yield_rate,0) DESC,COALESCE(m.average_latency,0) ASC,s.id ASC"
 });
 
 export async function assertNoActiveRun(db) {
@@ -66,8 +68,27 @@ function buildFilters({ enabled, category, sourceType, search }) {
   return { where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "", bindings };
 }
 
+function sourceTier(row) {
+  const requests = Number(row.requests || 0);
+  const yieldRate = Number(row.yield_rate || 0);
+  const failures = Number(row.consecutive_failures || 0);
+  if (requests >= 5 && failures >= 5) return "dead";
+  if (requests === 0) return "unrated";
+  if (yieldRate >= 25) return "high_yield";
+  if (yieldRate >= 5) return "medium_yield";
+  return "low_yield";
+}
+function sourceHealth(row) {
+  const requests = Number(row.requests || 0);
+  const failures = Number(row.consecutive_failures || 0);
+  const blocks = Number(row.blocks || 0);
+  if (requests >= 5 && (failures >= 5 || blocks / requests >= 0.6)) return "dead";
+  if (failures >= 2 || blocks > 0) return "warning";
+  if (requests === 0) return "unknown";
+  return "healthy";
+}
 function decorateSource(row) {
-  return { ...row, recommendation: sourceRecommendation(row) };
+  return { ...row, tier: sourceTier(row), health: sourceHealth(row), recommendation: sourceRecommendation(row) };
 }
 
 export async function listSources(db, options = {}) {
