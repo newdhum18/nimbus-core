@@ -66,3 +66,11 @@
 - Replaced raw diagnostics-first presentation with health cards while preserving developer JSON details.
 - Improved source cards, enabled-state visibility, small-screen behavior, safe-area support, and touch targets.
 - Preserved all Phase 10 API routes and operational workflows.
+
+## 36.8.0 — Phase 11.5 + Phase 12
+
+- Final mobile UI/UX polish across Dashboard, Search, Results, Sources and System.
+- Added Developer Center, complete system check, state-aware controls, compact history and maintenance tools.
+- Removed raw JSON from normal user workflows.
+- Added adaptive source selection and configurable multi-round run planning.
+- Added result counts to run history and expanded source performance controls.

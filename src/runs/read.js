@@ -19,8 +19,10 @@ export async function getRun(db, runId) {
 
 export async function listRuns(db, limit = 50) {
   const rows = await db.prepare(`
-    SELECT * FROM runs
-    ORDER BY created_at DESC
+    SELECT r.*,
+           (SELECT COUNT(*) FROM links l WHERE l.run_id=r.id) AS links_found
+    FROM runs r
+    ORDER BY r.created_at DESC
     LIMIT ?
   `).bind(limit).all();
   return rows.results || [];

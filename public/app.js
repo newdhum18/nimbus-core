@@ -1,352 +1,74 @@
 const API = "https://nimbus-core-v36-worker.newdhum18.workers.dev";
 const $ = (selector) => document.querySelector(selector);
-const state = { runs: [], currentRunId: localStorage.getItem("nimbus.currentRunId") || "", sourceOffset: 0, sourceLimit: 100, poll: null, searchTimer: null };
+const state = {
+  runs: [], currentRunId: localStorage.getItem("nimbus.currentRunId") || "",
+  sourceOffset: 0, sourceLimit: 60, sourceTotal: 0, sourceRows: [],
+  poll: null, searchTimer: null, currentRunDetail: null, results: [],
+  hiddenRuns: new Set(JSON.parse(localStorage.getItem("nimbus.hiddenDashboardRuns") || "[]"))
+};
 
-function toast(message) {
-  const node = $("#toast");
-  node.textContent = message;
-  node.classList.add("show");
-  clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => node.classList.remove("show"), 2600);
-}
+function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);}
+function formatDate(value){if(!value)return "—";const d=new Date(value);return Number.isNaN(d.getTime())?"—":new Intl.DateTimeFormat("en",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(d);}
+function shortRun(run,index=0){return `Run #${Math.max(1,state.runs.length-index)}`;}
+function metric(value,label){return `<div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`;}
+function toast(message,type="info"){const n=$("#toast");n.textContent=`${type==="success"?"✓ ":type==="error"?"✕ ":""}${message}`;n.className=`toast show ${type}`;clearTimeout(toast.timer);toast.timer=setTimeout(()=>n.className="toast",2600);}
+function setBusy(btn,busy,text="Working…"){if(!btn)return;if(busy){btn.dataset.label=btn.textContent;btn.textContent=text;btn.disabled=true;}else{btn.textContent=btn.dataset.label||btn.textContent;btn.disabled=false;}}
+async function api(path,options={}){const r=await fetch(`${API}${path}`,{...options,headers:{"content-type":"application/json",...(options.headers||{})}});const d=await r.json().catch(()=>({ok:false,error:{message:`HTTP ${r.status}`}}));if(!r.ok||d.ok===false){const e=new Error(d?.error?.message||`HTTP ${r.status}`);e.code=d?.error?.code||"HTTP_ERROR";e.details=d?.error?.details||null;throw e;}return d;}
+async function copyText(v){try{await navigator.clipboard.writeText(v);toast("Copied to clipboard","success");}catch{toast("Copy is unavailable","error");}}
+function reportError(error,target=null){console.error(error);const msg=`${error.code?`${error.code}: `:""}${error.message}`;if(target)target.textContent=msg;toast(msg,"error");}
 
-async function api(path, options = {}) {
-  const response = await fetch(`${API}${path}`, {
-    ...options,
-    headers: { "content-type": "application/json", ...(options.headers || {}) }
-  });
-  const data = await response.json().catch(() => ({ ok: false, error: { message: `HTTP ${response.status}` } }));
-  if (!response.ok || data.ok === false) {
-    const error = new Error(data?.error?.message || `HTTP ${response.status}`);
-    error.code = data?.error?.code || "HTTP_ERROR";
-    error.details = data?.error?.details || null;
-    throw error;
-  }
-  return data;
-}
+function showPage(id){const page=$(`#${id}`),tab=document.querySelector(`.tab[data-page="${id}"]`);if(!page||!tab)return;document.querySelectorAll(".page,.tab").forEach(n=>n.classList.remove("active"));page.classList.add("active");tab.classList.add("active");window.scrollTo({top:0,behavior:"smooth"});}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{showPage(b.dataset.page);if(b.dataset.page==="results")loadResults().catch(reportError);if(b.dataset.page==="sources"){state.sourceOffset=0;loadSources(true).catch(reportError);}if(b.dataset.page==="tools")runSystemCheck().catch(reportError);});
+document.querySelectorAll(".subtab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".subtab,.subpage").forEach(n=>n.classList.remove("active"));b.classList.add("active");$(`#${b.dataset.subpage}`).classList.add("active");if(b.dataset.subpage==="archivePanel")loadArchive().catch(reportError);});
 
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
-}
+document.querySelectorAll("[data-round]").forEach(b=>b.onclick=()=>{$("#autoRound").value=b.dataset.round;});
+function setCurrentRun(id){state.currentRunId=id||"";localStorage.setItem("nimbus.currentRunId",state.currentRunId);}
+function terminal(status){return ["completed","failed","cancelled"].includes(status);}
+function progressFor(run,counts={}){const total=Number(run?.total_tasks||0);const finished=["completed","failed","cancelled","dead"].reduce((s,k)=>s+Number(counts[k]||0),0);if(!total)return 0;if(run?.status==="completed")return 100;return Math.min(100,Math.round(finished/total*100));}
+function elapsed(run){const start=new Date(run?.started_at||run?.created_at||0).getTime();const end=new Date(run?.completed_at||Date.now()).getTime();if(!start)return "—";const sec=Math.max(0,Math.floor((end-start)/1000));if(sec<60)return `${sec}s`;const m=Math.floor(sec/60),s=sec%60;return `${m}m ${s}s`;}
+function updateActionStates(status){const allowed={running:["pause","cancel"],paused:["resume","cancel","queue-recover"],recovering:["cancel"],failed:["queue-recover","dispatch"],completed:[],cancelled:[]}[status]||[];document.querySelectorAll(".run-command").forEach(b=>{b.disabled=!allowed.includes(b.dataset.action);b.classList.toggle("hidden",!allowed.includes(b.dataset.action));});$("#terminalRunActions").classList.toggle("hidden",!terminal(status));}
 
-function metric(value, label) {
-  return `<div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`;
-}
+async function checkConnection(checking=false){const c=$("#connection");if(checking){c.innerHTML='<span class="status-dot"></span>Checking system…';c.className="status checking";}try{const [h,b,d]=await Promise.all([api("/health"),api("/bindings"),api("/api/diagnostics")]);const ok=Boolean(h.ok!==false&&b.ok!==false&&d.ok!==false);c.innerHTML=`<span class="status-dot"></span>${ok?"nimbus-core-v36-worker — healthy":"System warning"}`;c.className=`status ${ok?"ok":"bad"}`;renderHealthCards({ok,db:Boolean(b.db??d.sources),queue:Boolean(b.queue??d.tasks)});return {h,b,d};}catch(e){c.innerHTML=`<span class="status-dot"></span>System unavailable`;c.className="status bad";renderHealthCards({ok:false,db:false,queue:false});throw e;}}
+async function runSystemCheck(){const btn=$("#refreshAll");setBusy(btn,true,"");btn.classList.add("spinning");try{await checkConnection(true);toast("Complete system check passed","success");}finally{setBusy(btn,false);btn.classList.remove("spinning");}}
 
-function setButtonBusy(button, busy, busyText = "Working…") {
-  if (!button) return;
-  if (busy) { button.dataset.label = button.textContent; button.textContent = busyText; button.disabled = true; }
-  else { button.textContent = button.dataset.label || button.textContent; button.disabled = false; }
-}
+async function loadRuns(){const d=await api("/api/runs?limit=50");state.runs=d.runs||[];if(!state.currentRunId&&state.runs[0]?.id)setCurrentRun(state.runs[0].id);if(state.currentRunId&&!state.runs.some(r=>r.id===state.currentRunId)&&state.runs[0]?.id)setCurrentRun(state.runs[0].id);renderRuns();updateRunSelect();return state.runs;}
+function updateRunSelect(){const s=$("#resultRun");s.innerHTML=state.runs.map((r,i)=>`<option value="${escapeHtml(r.id)}">${shortRun(r,i)} · ${escapeHtml(r.mode)} · ${escapeHtml(r.status)} · ${escapeHtml(formatDate(r.created_at))}</option>`).join("");if(state.currentRunId)s.value=state.currentRunId;}
+function renderRuns(){const visible=state.runs.filter(r=>!state.hiddenRuns.has(r.id)).slice(0,10);$("#recentRuns").innerHTML=visible.length?visible.map((r,i)=>`<div class="history-row"><div><strong>${shortRun(r,i)} · ${escapeHtml(r.status)}</strong><small>${escapeHtml(r.mode)} · ${Number(r.links_found||0)} files · ${escapeHtml(formatDate(r.created_at))}</small></div><button class="icon-open select-run" data-run-id="${escapeHtml(r.id)}" type="button" aria-label="Open run">›</button></div>`).join(""):'<div class="empty-state">No recent runs on this dashboard.</div>';document.querySelectorAll(".select-run").forEach(b=>b.onclick=async()=>{setCurrentRun(b.dataset.runId);await loadCurrentRun();toast("Run selected","success");});}
+async function loadCurrentRun(){if(!state.currentRunId){$("#currentRunLabel").textContent="No run selected.";$("#runState").textContent="idle";$("#progressBar").style.width="0%";updateActionStates("idle");return;}const d=await api(`/api/runs/${encodeURIComponent(state.currentRunId)}`);state.currentRunDetail=d;const r=d.run,c=d.task_counts||{},p=progressFor(r,c),total=Number(r.total_tasks||0),done=["completed","failed","dead","cancelled"].reduce((s,k)=>s+Number(c[k]||0),0),remaining=Math.max(0,total-done);$("#currentRunLabel").textContent=`${r.mode}${r.keyword?` · ${r.keyword}`:""} · ${r.id.slice(0,18)}…`;$("#runState").textContent=r.status;$("#runState").className=`pill ${r.status||"neutral"}`;$("#progressBar").style.width=`${p}%`;$("#progressLabel").textContent=`${p}%`;$("#progressMeta").textContent=`${done} of ${total} tasks processed`;const seconds=Math.max(1,(Date.now()-new Date(r.started_at||r.created_at).getTime())/1000),speed=(done/seconds).toFixed(2);$("#runLiveStats").innerHTML=metric(r.rounds||r.round_count||1,"ROUNDS")+metric(remaining,"REMAINING")+metric(`${speed}/s`,"SPEED")+metric(elapsed(r),"ELAPSED")+metric(Number(c.completed||0),"ALIVE")+metric(Number(c.failed||0)+Number(c.dead||0),"DEAD");updateActionStates(r.status);if(["running","recovering","paused"].includes(r.status))startPolling();else stopPolling();}
+async function loadGlobalMetrics(){const d=await api("/api/diagnostics");const t=Object.fromEntries((d.tasks||[]).map(x=>[x.status,Number(x.total||0)]));$("#metrics").innerHTML=metric(d.sources?.enabled||0,"SOURCES ON")+metric(Math.max(0,Number(d.sources?.total||0)-Number(d.sources?.enabled||0)),"SOURCES OFF")+metric(d.runs||0,"RUNS")+metric(d.links||0,"LINKS")+metric(t.pending||0,"PENDING")+metric(t.queued||0,"QUEUED")+metric(t.completed||0,"COMPLETED")+metric((t.failed||0)+(t.dead||0),"FAILED / DEAD");}
+async function refreshDashboard(){await Promise.all([loadRuns(),loadGlobalMetrics()]);await loadCurrentRun();}
+function startPolling(){if(state.poll)return;state.poll=setInterval(()=>{refreshDashboard().catch(console.error);if(document.querySelector("#results.active"))loadResults().catch(console.error);},2000);}function stopPolling(){if(state.poll)clearInterval(state.poll);state.poll=null;}
 
-async function copyText(value) {
-  try { await navigator.clipboard.writeText(value); toast("Copied to clipboard"); }
-  catch { toast("Copy is unavailable in this browser"); }
-}
+function operationStatus(id,text,type="neutral",details=""){const n=$(id);n.className=`operation-status ${type}`;n.innerHTML=`<strong>${escapeHtml(text)}</strong>${details?`<small>${escapeHtml(details)}</small>`:""}`;}
+async function startRun(mode){const btn=mode==="autoscan"?$("#startAuto"):$("#startKeyword");const statusId=mode==="autoscan"?"#autoStatus":"#keywordStatus";const body={mode,round:Number(mode==="autoscan"?$("#autoRound").value:$("#keywordRound").value)||1};if(mode==="keyword"){body.keyword=$("#keywordInput").value.trim();if(!body.keyword)throw new Error("Enter a keyword first.");}operationStatus(statusId,"Initializing search…","working");setBusy(btn,true,"Starting…");try{const d=await api("/api/runs/start",{method:"POST",body:JSON.stringify(body)});setCurrentRun(d.runId);operationStatus(statusId,"Search started","success",`${d.totalTasks} tasks queued · ${body.round} round(s)`);await refreshDashboard();showPage("dashboard");toast(`${mode==="autoscan"?"AutoScan":"Keyword search"} started`,"success");}finally{setBusy(btn,false);}}
+async function runAction(action){if(!state.currentRunId)throw new Error("Select a run first.");const labels={pause:"Scan paused",resume:"Scan resumed",cancel:"Scan cancelled","queue-recover":"Recovery started",dispatch:"Queue dispatched"};await api(`/api/runs/${encodeURIComponent(state.currentRunId)}/${action}`,{method:"POST"});toast(labels[action]||"Command accepted","success");await refreshDashboard();}
 
-function showPage(pageId) {
-  const page = $(`#${pageId}`);
-  const tab = document.querySelector(`.tab[data-page="${pageId}"]`);
-  if (!page || !tab) return;
-  document.querySelectorAll(".page,.tab").forEach((node) => node.classList.remove("active"));
-  page.classList.add("active");
-  tab.classList.add("active");
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
+async function extractLinks(){const text=$("#extractText").value;if(!text.trim())throw new Error("Paste text or HTML first.");operationStatus("#extractStatus","Scanning and validating…","working");const d=await api("/api/extract",{method:"POST",body:JSON.stringify({text,allowLegacy:true})});operationStatus("#extractStatus","Extraction completed","success",`${d.total} valid folder link(s)`);$("#extractList").innerHTML=d.links.length?d.links.map(l=>`<div class="result"><a href="${escapeHtml(l.normalizedUrl)}" target="_blank" rel="noopener">${escapeHtml(l.normalizedUrl)}</a><small>${escapeHtml(l.type)} · valid</small></div>`).join(""):'<div class="empty-state">No valid complete folder links found.</div>';}
+async function loadArchive(){if(!state.runs.length)await loadRuns();const a=state.runs.filter(r=>terminal(r.status));$("#archiveList").innerHTML=a.length?a.map((r,i)=>`<div class="history-row"><div><strong>${shortRun(r,i)} · ${escapeHtml(r.status)}</strong><small>${escapeHtml(r.mode)} · ${Number(r.links_found||0)} files · ${escapeHtml(formatDate(r.created_at))}</small></div><button class="icon-open archive-open" data-run-id="${escapeHtml(r.id)}" type="button">›</button></div>`).join(""):'<div class="empty-state">No archived runs yet.</div>';document.querySelectorAll(".archive-open").forEach(b=>b.onclick=async()=>{setCurrentRun(b.dataset.runId);updateRunSelect();showPage("results");await loadResults();});}
 
-document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => {
-  showPage(button.dataset.page);
-  if (button.dataset.page === "results") loadResults().catch(reportError);
-  if (button.dataset.page === "sources") loadSources().catch(reportError);
-  if (button.dataset.page === "tools") checkBindingsSummary().catch(reportError);
-}));
+function statusClass(v){const x=String(v||"unknown").toLowerCase();return x.includes("valid")||x==="alive"?"valid":x.includes("dead")||x.includes("invalid")?"dead":"unknown";}
+function renderResults(){const q=$("#resultSearch").value.trim().toLowerCase(),f=$("#resultFilter").value;const rows=state.results.filter(r=>(!q||r.url.toLowerCase().includes(q)||String(r.source_name||"").toLowerCase().includes(q))&&(f==="all"||statusClass(r.validation_status)===f));$("#resultList").innerHTML=rows.length?rows.map(r=>`<div class="result ${statusClass(r.validation_status)}"><div class="result-meta"><span class="result-badge">FOLDER</span><span>${escapeHtml(r.source_name||"Unknown source")}</span><span>${escapeHtml(formatDate(r.discovered_at))}</span></div><a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">${escapeHtml(r.url)}</a><small>${escapeHtml(r.validation_status||"unknown")}</small><div class="result-toolbar"><button class="mini-btn copy-result" data-url="${escapeHtml(r.url)}" type="button">Copy</button><a class="mini-btn" href="${escapeHtml(r.url)}" target="_blank" rel="noopener">Open</a></div></div>`).join(""):'<div class="empty-state">No matching results.</div>';document.querySelectorAll(".copy-result").forEach(b=>b.onclick=()=>copyText(b.dataset.url));}
+async function loadResults(){if(!state.runs.length)await loadRuns();const id=$("#resultRun").value||state.currentRunId;if(!id){$("#resultSummary").innerHTML='<div class="empty-state">No run selected.</div>';return;}setCurrentRun(id);const d=await api(`/api/runs/${encodeURIComponent(id)}/results?limit=500&offset=0`);state.results=d.results||[];const valid=state.results.filter(r=>statusClass(r.validation_status)==="valid").length,dead=state.results.filter(r=>statusClass(r.validation_status)==="dead").length;$("#resultSummary").innerHTML=metric(d.total,"FILES")+metric(valid,"ALIVE")+metric(dead,"DEAD")+metric(Math.max(0,d.total-valid-dead),"UNKNOWN");renderResults();}
+function openExport(fmt){const id=$("#resultRun").value||state.currentRunId;if(!id)return toast("Select a run first","error");window.open(`${API}/api/runs/${encodeURIComponent(id)}/export.${fmt}`,"_blank","noopener");}
 
-document.querySelectorAll(".subtab").forEach((button) => button.addEventListener("click", () => {
-  document.querySelectorAll(".subtab,.subpage").forEach((node) => node.classList.remove("active"));
-  button.classList.add("active");
-  $(`#${button.dataset.subpage}`).classList.add("active");
-  if (button.dataset.subpage === "extractPanel") resetExtract();
-  if (button.dataset.subpage === "archivePanel") loadArchive().catch(reportError);
-}));
+async function loadSources(reset=false){if(reset){state.sourceOffset=0;state.sourceRows=[];}const enabled=$("#sourceStatus").value,sort=$("#sourceSort").value,query=$("#sourceSearch").value.trim();const params=new URLSearchParams({limit:String(state.sourceLimit),offset:String(state.sourceOffset),search:query,sort});if(enabled!=="all")params.set("enabled",enabled==="enabled"?"true":"false");const [summary,d]=await Promise.all([api("/api/sources/summary"),api(`/api/sources?${params}`)]);state.sourceTotal=d.total||0;state.sourceRows=reset?(d.sources||[]):[...state.sourceRows,...(d.sources||[])];$("#sourceMetrics").innerHTML=metric(summary.total||0,"TOTAL")+metric(summary.enabled||0,"ENABLED")+metric(Math.max(0,Number(summary.total||0)-Number(summary.enabled||0)),"DISABLED")+metric(Number(summary.performance?.average_yield||0).toFixed(1)+"%","AVG YIELD");renderSources();$("#loadMoreSources").classList.toggle("hidden",state.sourceRows.length>=state.sourceTotal);}
+function renderSources(){$("#sourceList").innerHTML=state.sourceRows.length?state.sourceRows.map(s=>`<label class="source"><input type="checkbox" data-source-id="${escapeHtml(s.id)}" ${Number(s.enabled)?"checked":""}><span><strong>${escapeHtml(s.name)}</strong><small>${escapeHtml(s.category||"uncategorized")} · ${escapeHtml(s.source_type||"unknown")} · priority ${escapeHtml(s.priority)} · rank ${escapeHtml(Number(s.rank_score||0).toFixed(1))}</small><span class="source-badges"><em>${Number(s.enabled)?"Enabled":"Disabled"}</em><em>Yield ${escapeHtml(Number(s.yield_rate||0).toFixed(1))}%</em><em>${s.consecutive_failures?`${s.consecutive_failures} failures`:"Healthy"}</em></span></span></label>`).join(""):'<div class="empty-state">No matching sources.</div>';document.querySelectorAll("[data-source-id]").forEach(checkbox=>checkbox.onchange=async()=>{checkbox.disabled=true;try{await api(`/api/sources/${encodeURIComponent(checkbox.dataset.sourceId)}/${checkbox.checked?"enable":"disable"}`,{method:"POST"});const row=state.sourceRows.find(s=>s.id===checkbox.dataset.sourceId);if(row)row.enabled=checkbox.checked?1:0;renderSources();toast("Source updated","success");}catch(e){checkbox.checked=!checkbox.checked;reportError(e);}finally{checkbox.disabled=false;}});}
 
-function reportError(error, target = null) {
-  console.error(error);
-  const message = `${error.code ? `${error.code}: ` : ""}${error.message}`;
-  if (target) target.textContent = message;
-  toast(message);
-}
+function renderHealthCards(d={}){const cards=[["Worker",Boolean(d.ok),d.ok?"Healthy":"Unavailable"],["Database",Boolean(d.db),d.db?"Connected":"Unavailable"],["Queue",Boolean(d.queue),d.queue?"Connected":"Unavailable"]];$("#healthCards").innerHTML=cards.map(([n,ok,t])=>`<div class="health-card"><span class="health-dot ${ok?"ok":"bad"}"></span><div><strong>${n}</strong><small>${t}</small></div></div>`).join("");}
+function developerCards(d={}){const rows=[["Runtime",`Nimbus Core V36 · ${d.system?.version||"36.8.0"}`],["Worker",d.system?.worker||"nimbus-core-v36-worker"],["Database",d.system?.database||"nimbus-core-v36-db"],["Queue",d.system?.queue||"nimbus-core-v36-queue"],["Runs",String(d.runs??"—")],["Links",String(d.links??"—")],["Recent errors",String(d.recentErrors?.length??0)]];const html=rows.map(([a,b])=>`<div class="developer-card"><strong>${escapeHtml(a)}</strong><small>${escapeHtml(b)}</small></div>`).join("");$("#developerCards").innerHTML=html;$("#drawerCards").innerHTML=html;}
+async function loadTool(path){const t=$("#toolsLog");t.textContent="Loading…";try{const d=await api(path);t.textContent=JSON.stringify(d,null,2);renderHealthCards({ok:Boolean(d.ok),db:Boolean(d.db??d.sources),queue:Boolean(d.queue??d.tasks)});developerCards(d);return d;}catch(e){reportError(e,t);renderHealthCards({});}}
+async function clearUiCache(){if(!confirm("Clear local UI cache and reload the application?"))return;try{sessionStorage.clear();if("caches" in window){for(const k of await caches.keys())await caches.delete(k);}toast("UI cache cleared","success");setTimeout(()=>location.reload(),500);}catch(e){reportError(e);}}
+function openDrawer(){const d=$("#developerDrawer");d.classList.add("open");d.setAttribute("aria-hidden","false");loadTool("/api/diagnostics").catch(reportError);}function closeDrawer(){const d=$("#developerDrawer");d.classList.remove("open");d.setAttribute("aria-hidden","true");}
 
-function progressFor(run, counts = {}) {
-  const total = Number(run?.total_tasks || 0);
-  const done = ["completed", "failed", "cancelled", "dead"].reduce((sum, key) => sum + Number(counts[key] || 0), 0);
-  return total ? Math.min(100, Math.round((done / total) * 100)) : 0;
-}
+$("#developerMenu").onclick=openDrawer;document.querySelectorAll("[data-close-drawer]").forEach(n=>n.onclick=closeDrawer);
+$("#refreshAll").onclick=()=>runSystemCheck().catch(reportError);$("#reloadDashboard").onclick=()=>refreshDashboard().catch(reportError);
+document.querySelectorAll(".run-command").forEach(b=>b.onclick=()=>runAction(b.dataset.action).catch(reportError));
+$("#clearDashboard").onclick=()=>{if(!confirm("Clear previous runs from this dashboard view? Archived results will remain in D1."))return;state.runs.forEach(r=>{if(terminal(r.status))state.hiddenRuns.add(r.id);});localStorage.setItem("nimbus.hiddenDashboardRuns",JSON.stringify([...state.hiddenRuns]));renderRuns();toast("Dashboard history cleared","success");};
+$("#viewCurrentResults").onclick=()=>{showPage("results");loadResults().catch(reportError);};$("#startNewRun").onclick=()=>showPage("autoscan");
+$("#startAuto").onclick=()=>startRun("autoscan").catch(e=>reportError(e,$("#autoStatus")));$("#startKeyword").onclick=()=>startRun("keyword").catch(e=>reportError(e,$("#keywordStatus")));$("#extractBtn").onclick=()=>extractLinks().catch(e=>reportError(e,$("#extractStatus")));
+$("#reloadArchive").onclick=()=>loadArchive().catch(reportError);$("#resultRun").onchange=()=>{setCurrentRun($("#resultRun").value);loadResults().catch(reportError);};$("#reloadResults").onclick=()=>loadResults().catch(reportError);$("#resultSearch").oninput=renderResults;$("#resultFilter").onchange=renderResults;$("#exportJson").onclick=()=>openExport("json");$("#exportCsv").onclick=()=>openExport("csv");$("#copyAll").onclick=()=>copyText(state.results.map(r=>r.url).join("\n"));
+$("#reloadSources").onclick=()=>loadSources(true).catch(reportError);$("#sourceSearch").oninput=()=>{clearTimeout(state.searchTimer);state.searchTimer=setTimeout(()=>loadSources(true).catch(reportError),220);};$("#sourceStatus").onchange=()=>loadSources(true).catch(reportError);$("#sourceSort").onchange=()=>loadSources(true).catch(reportError);$("#loadMoreSources").onclick=()=>{state.sourceOffset+=state.sourceLimit;loadSources(false).catch(reportError);};
+$("#restoreDefaults").onclick=async()=>{if(!confirm("Restore the default 80 enabled sources?"))return;try{await api("/api/sources/high-yield-defaults",{method:"POST"});await loadSources(true);toast("Default sources restored","success");}catch(e){reportError(e);}};$("#refreshRanks").onclick=async()=>{try{await api("/api/sources/ranks/refresh",{method:"POST"});await loadSources(true);toast("Ranks refreshed","success");}catch(e){reportError(e);}};
+$("#loadDiagnostics").onclick=()=>loadTool("/api/diagnostics");$("#loadBindings").onclick=()=>loadTool("/bindings");$("#retryFailed").onclick=()=>runAction("queue-recover").catch(reportError);$("#recoverSystemRun").onclick=()=>runAction("queue-recover").catch(reportError);$("#redispatchQueue").onclick=()=>runAction("dispatch").catch(reportError);$("#clearUiCache").onclick=clearUiCache;$("#reloadApplication").onclick=()=>location.reload();$("#logoutButton").onclick=()=>{if(confirm("End the local session and clear local data?")){localStorage.removeItem("nimbus.currentRunId");sessionStorage.clear();toast("Local session cleared","success");setTimeout(()=>location.reload(),500);}};
 
-async function checkConnection() {
-  try {
-    const data = await api("/health");
-    $("#connection").textContent = `${data.service || "Worker"} — ${data.status || "healthy"}`;
-    $("#connection").className = "status ok";
-  } catch (error) {
-    $("#connection").textContent = `Worker unavailable — ${error.message}`;
-    $("#connection").className = "status bad";
-  }
-}
-
-async function loadRuns() {
-  const data = await api("/api/runs?limit=30");
-  state.runs = data.runs || [];
-  if (!state.currentRunId && state.runs[0]?.id) setCurrentRun(state.runs[0].id);
-  if (state.currentRunId && !state.runs.some((run) => run.id === state.currentRunId) && state.runs[0]?.id) setCurrentRun(state.runs[0].id);
-  renderRuns();
-  updateRunSelect();
-  return state.runs;
-}
-
-function setCurrentRun(runId) {
-  state.currentRunId = runId || "";
-  localStorage.setItem("nimbus.currentRunId", state.currentRunId);
-}
-
-function updateRunSelect() {
-  const select = $("#resultRun");
-  select.innerHTML = state.runs.map((run) => `<option value="${escapeHtml(run.id)}">${escapeHtml(run.mode)} · ${escapeHtml(run.status)} · ${escapeHtml(run.id.slice(0, 14))}</option>`).join("");
-  if (state.currentRunId) select.value = state.currentRunId;
-}
-
-function renderRuns() {
-  $("#recentRuns").innerHTML = state.runs.length ? state.runs.map((run) => `
-    <div class="item">
-      <div class="item-main">
-        <strong>${escapeHtml(run.mode)} · ${escapeHtml(run.status)}</strong>
-        <small>${escapeHtml(run.id)}${run.keyword ? ` · ${escapeHtml(run.keyword)}` : ""}</small>
-      </div>
-      <button class="secondary select-run" data-run-id="${escapeHtml(run.id)}" type="button">Open</button>
-    </div>`).join("") : '<p class="muted">No runs yet.</p>';
-  document.querySelectorAll(".select-run").forEach((button) => button.addEventListener("click", async () => {
-    setCurrentRun(button.dataset.runId);
-    await loadCurrentRun();
-    toast("Run selected");
-  }));
-}
-
-async function loadCurrentRun() {
-  if (!state.currentRunId) {
-    $("#currentRunLabel").textContent = "No run selected.";
-    $("#runState").textContent = "idle";
-    $("#runState").className = "pill neutral";
-    $("#progressBar").style.width = "0%";
-    $("#progressLabel").textContent = "0%";
-    $("#progressMeta").textContent = "Waiting for a run";
-    return;
-  }
-  const data = await api(`/api/runs/${encodeURIComponent(state.currentRunId)}`);
-  const run = data.run;
-  const counts = data.task_counts || {};
-  const progress = progressFor(run, counts);
-  $("#currentRunLabel").textContent = `${run.mode}${run.keyword ? ` · ${run.keyword}` : ""} · ${run.id}`;
-  $("#runState").textContent = run.status;
-  $("#runState").className = `pill ${run.status || "neutral"}`;
-  $("#progressBar").style.width = `${progress}%`;
-  $("#progressLabel").textContent = `${progress}%`;
-  const completed = Number(counts.completed || 0);
-  $("#progressMeta").textContent = `${completed} of ${Number(run.total_tasks || 0)} tasks completed`;
-  if (["running", "recovering"].includes(run.status)) startPolling(); else stopPolling();
-}
-
-async function loadGlobalMetrics() {
-  const data = await api("/api/diagnostics");
-  const taskMap = Object.fromEntries((data.tasks || []).map((row) => [row.status, Number(row.total || 0)]));
-  $("#metrics").innerHTML =
-    metric(data.sources?.enabled || 0, "SOURCES ON") +
-    metric(Math.max(0, Number(data.sources?.total || 0) - Number(data.sources?.enabled || 0)), "SOURCES OFF") +
-    metric(data.runs || 0, "RUNS") +
-    metric(data.links || 0, "LINKS") +
-    metric(taskMap.pending || 0, "PENDING") +
-    metric(taskMap.queued || 0, "QUEUED") +
-    metric(taskMap.completed || 0, "COMPLETED") +
-    metric((taskMap.failed || 0) + (taskMap.dead || 0), "FAILED / DEAD");
-}
-
-async function refreshDashboard() {
-  await Promise.all([checkConnection(), loadRuns(), loadGlobalMetrics()]);
-  await loadCurrentRun();
-}
-
-async function startRun(mode) {
-  const log = mode === "autoscan" ? $("#autoLog") : $("#keywordLog");
-  const body = { mode };
-  if (mode === "autoscan") body.round = Number($("#autoRound").value || 0);
-  if (mode === "keyword") {
-    body.keyword = $("#keywordInput").value.trim();
-    if (!body.keyword) throw new Error("Enter a keyword first.");
-  }
-  log.textContent = "Starting…";
-  const button = mode === "autoscan" ? $("#startAuto") : $("#startKeyword");
-  setButtonBusy(button, true, "Starting…");
-  let data;
-  try { data = await api("/api/runs/start", { method: "POST", body: JSON.stringify(body) }); }
-  finally { setButtonBusy(button, false); }
-  setCurrentRun(data.runId);
-  log.textContent = JSON.stringify(data, null, 2);
-  await refreshDashboard();
-  showPage("dashboard");
-  toast(`${mode === "autoscan" ? "AutoScan" : "Keyword search"} started`);
-}
-
-async function runAction(action) {
-  if (!state.currentRunId) throw new Error("Select a run first.");
-  const data = await api(`/api/runs/${encodeURIComponent(state.currentRunId)}/${action}`, { method: "POST" });
-  toast(`${action} accepted`);
-  await refreshDashboard();
-  return data;
-}
-
-function startPolling() {
-  if (state.poll) return;
-  state.poll = setInterval(() => refreshDashboard().catch(console.error), 5000);
-}
-function stopPolling() {
-  if (state.poll) clearInterval(state.poll);
-  state.poll = null;
-}
-
-function resetExtract() {
-  if (!$("#extractLog").textContent) $("#extractLog").textContent = "Ready.";
-}
-
-async function extractLinks() {
-  const text = $("#extractText").value;
-  if (!text.trim()) throw new Error("Paste text or HTML first.");
-  $("#extractLog").textContent = "Extracting…";
-  const data = await api("/api/extract", { method: "POST", body: JSON.stringify({ text, allowLegacy: true }) });
-  $("#extractLog").textContent = `${data.total} valid complete folder link(s).`;
-  $("#extractList").innerHTML = data.links.length ? data.links.map((link) => `
-    <div class="result"><a href="${escapeHtml(link.normalizedUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link.normalizedUrl)}</a><small>${escapeHtml(link.type)}</small></div>`).join("") : '<p class="muted">No valid complete folder links found.</p>';
-}
-
-async function loadArchive() {
-  if (!state.runs.length) await loadRuns();
-  const terminal = state.runs.filter((run) => ["completed", "failed", "cancelled"].includes(run.status));
-  $("#archiveList").innerHTML = terminal.length ? terminal.map((run) => `
-    <div class="item">
-      <div class="item-main"><strong>${escapeHtml(run.mode)} · ${escapeHtml(run.status)}</strong><small>${escapeHtml(run.id)}${run.keyword ? ` · ${escapeHtml(run.keyword)}` : ""}</small></div>
-      <button class="secondary archive-open" data-run-id="${escapeHtml(run.id)}" type="button">Open</button>
-    </div>`).join("") : '<p class="muted">No completed or terminal runs yet.</p>';
-  document.querySelectorAll(".archive-open").forEach((button) => button.addEventListener("click", async () => {
-    setCurrentRun(button.dataset.runId);
-    updateRunSelect();
-    showPage("results");
-    await loadResults();
-  }));
-}
-
-async function loadResults() {
-  if (!state.runs.length) await loadRuns();
-  const runId = $("#resultRun").value || state.currentRunId;
-  if (!runId) {
-    $("#resultSummary").textContent = "No run selected.";
-    $("#resultList").innerHTML = "";
-    return;
-  }
-  setCurrentRun(runId);
-  const data = await api(`/api/runs/${encodeURIComponent(runId)}/results?limit=500&offset=0`);
-  $("#resultSummary").textContent = `${data.total} result(s) · run ${data.run_status}`;
-  $("#resultList").innerHTML = data.results.length ? data.results.map((result, index) => `
-    <div class="result">
-      <a href="${escapeHtml(result.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(result.url)}</a>
-      <small>${escapeHtml(result.link_type)} · ${escapeHtml(result.validation_status)} · ${escapeHtml(result.source_name || "unknown source")}</small>
-      <div class="result-toolbar">
-        <button class="mini-btn copy-result" data-url="${escapeHtml(result.url)}" type="button">Copy</button>
-        <a class="mini-btn" href="${escapeHtml(result.url)}" target="_blank" rel="noopener noreferrer">Open</a>
-      </div>
-    </div>`).join("") : '<p class="muted">No results yet. Running tasks may still be processing.</p>';
-  document.querySelectorAll(".copy-result").forEach((button) => button.addEventListener("click", () => copyText(button.dataset.url)));
-}
-
-function openExport(format) {
-  const runId = $("#resultRun").value || state.currentRunId;
-  if (!runId) return toast("Select a run first");
-  window.open(`${API}/api/runs/${encodeURIComponent(runId)}/export.${format}`, "_blank", "noopener");
-}
-
-async function loadSources() {
-  const [summary, data] = await Promise.all([
-    api("/api/sources/summary"),
-    api(`/api/sources?limit=${state.sourceLimit}&offset=${state.sourceOffset}&search=${encodeURIComponent($("#sourceSearch").value.trim())}&sort=priority`)
-  ]);
-  $("#sourceMetrics").innerHTML =
-    metric(summary.total || 0, "TOTAL") +
-    metric(summary.enabled || 0, "ENABLED") +
-    metric(Math.max(0, Number(summary.total || 0) - Number(summary.enabled || 0)), "DISABLED") +
-    metric(summary.default_enabled || 80, "DEFAULT ON");
-  $("#sourceList").innerHTML = data.sources?.length ? data.sources.map((source) => `
-    <label class="source">
-      <input type="checkbox" data-source-id="${escapeHtml(source.id)}" ${Number(source.enabled) ? "checked" : ""}>
-      <span><strong>${escapeHtml(source.name)}</strong><small>${escapeHtml(source.category || "uncategorized")} · ${escapeHtml(source.source_type || "unknown")} · priority ${escapeHtml(source.priority)} · rank ${escapeHtml(source.rank_score ?? 0)}</small><span class="source-badge">${Number(source.enabled) ? "Enabled" : "Disabled"}</span></span>
-    </label>`).join("") : '<p class="muted">No matching sources.</p>';
-  document.querySelectorAll("[data-source-id]").forEach((checkbox) => checkbox.addEventListener("change", async () => {
-    checkbox.disabled = true;
-    try {
-      await api(`/api/sources/${encodeURIComponent(checkbox.dataset.sourceId)}/${checkbox.checked ? "enable" : "disable"}`, { method: "POST" });
-      toast("Source updated");
-      await loadSources();
-    } catch (error) {
-      checkbox.checked = !checkbox.checked;
-      reportError(error);
-    } finally {
-      checkbox.disabled = false;
-    }
-  }));
-}
-
-function renderHealthCards(data) {
-  const cards = [
-    ["Worker", Boolean(data.ok), data.ok ? "Healthy" : "Unavailable"],
-    ["Database", Boolean(data.db ?? data.sources), data.db ?? data.sources ? "Connected" : "Unavailable"],
-    ["Queue", Boolean(data.queue ?? data.tasks), data.queue ?? data.tasks ? "Connected" : "Unavailable"]
-  ];
-  $("#healthCards").innerHTML = cards.map(([name, ok, detail]) => `<div class="health-card"><span class="health-dot ${ok ? "ok" : "bad"}"></span><div><strong>${name}</strong><small>${detail}</small></div></div>`).join("");
-}
-
-async function loadTool(path, method = "GET") {
-  const target = $("#toolsLog");
-  target.textContent = "Loading…";
-  try {
-    const data = await api(path, { method });
-    target.textContent = JSON.stringify(data, null, 2);
-    renderHealthCards(data);
-    return data;
-  } catch (error) {
-    reportError(error, target);
-    renderHealthCards({ ok: false, db: false, queue: false });
-  }
-}
-
-async function checkBindingsSummary() {
-  return loadTool("/bindings");
-}
-
-$("#refreshAll").onclick = () => refreshDashboard().catch(reportError);
-$("#reloadDashboard").onclick = () => refreshDashboard().catch(reportError);
-$("#startAuto").onclick = () => startRun("autoscan").catch((error) => reportError(error, $("#autoLog")));
-$("#startKeyword").onclick = () => startRun("keyword").catch((error) => reportError(error, $("#keywordLog")));
-$("#pauseRun").onclick = () => runAction("pause").catch(reportError);
-$("#resumeRun").onclick = () => runAction("resume").catch(reportError);
-$("#cancelRun").onclick = () => runAction("cancel").catch(reportError);
-$("#recoverRun").onclick = () => runAction("queue-recover").catch(reportError);
-$("#dispatchRun").onclick = () => runAction("dispatch").catch(reportError);
-$("#resultRun").onchange = () => { setCurrentRun($("#resultRun").value); loadResults().catch(reportError); };
-$("#extractBtn").onclick = () => extractLinks().catch((error) => reportError(error, $("#extractLog")));
-$("#reloadArchive").onclick = () => loadArchive().catch(reportError);
-$("#reloadResults").onclick = () => loadResults().catch(reportError);
-$("#exportJson").onclick = () => openExport("json");
-$("#exportCsv").onclick = () => openExport("csv");
-$("#reloadSources").onclick = () => loadSources().catch(reportError);
-$("#sourceSearch").oninput = () => { clearTimeout(state.searchTimer); state.searchTimer = setTimeout(() => loadSources().catch(reportError), 350); };
-$("#restoreDefaults").onclick = async () => { try { await api("/api/sources/high-yield-defaults", { method: "POST" }); await loadSources(); toast("Default 80 sources restored"); } catch (error) { reportError(error); } };
-$("#refreshRanks").onclick = async () => { try { await api("/api/sources/ranks/refresh", { method: "POST" }); await loadSources(); toast("Ranks refreshed"); } catch (error) { reportError(error); } };
-$("#loadDiagnostics").onclick = () => loadTool("/api/diagnostics");
-$("#loadBindings").onclick = () => loadTool("/bindings");
-
-refreshDashboard().catch(reportError);
+refreshDashboard().then(()=>checkConnection()).catch(reportError);
