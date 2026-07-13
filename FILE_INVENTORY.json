@@ -1,16 +1,5 @@
 {
-  "package": "Nimbus-Core-V36-Phase-11-FINAL-v36.7.0",
-  "version": "36.7.0",
-  "phase": "11",
-  "status": "SOURCE PASS \u2014 READY FOR DEPLOYMENT VERIFICATION",
-  "file_count": 158,
-  "excluded_generated_metadata": [
-    ".validation.cloudflare.json",
-    ".validation.runtime.json",
-    "FILE_INVENTORY.json",
-    "FILE_INVENTORY.md",
-    "SHA256SUMS.txt"
-  ],
+  "version": "36.8.0",
   "files": [
     {
       "path": ".github/workflows/deploy-worker.yml",
@@ -29,8 +18,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "size": 3346,
-      "sha256": "00bb98d5b073913410916bdd7458d1cd00c78b2f09aad6e335de499f4a7bc44b"
+      "size": 3780,
+      "sha256": "a2ee7b0aab6f4ac9aed6dc9b9dd653136e3f2cb7aff5d1d66d5ab00064f5c032"
     },
     {
       "path": "CLOUDFLARE_CLEAN_SETUP.md",
@@ -78,9 +67,14 @@
       "sha256": "c7b71045671208056da1afd2aed7973aa6209d3ae07f7ef998dfe79b36063b8d"
     },
     {
+      "path": "PHASE_12_COMPLETION_REPORT.md",
+      "size": 2170,
+      "sha256": "7d5816c2cb5c3bf5b8718c82bedd237b213a1273ee8971284a8df12ef037a89f"
+    },
+    {
       "path": "PHASE_STATUS.md",
-      "size": 837,
-      "sha256": "850556d3de6d14487ce2bc5458c481367d8ed295f658d2f6a7e271e0b63fd54a"
+      "size": 354,
+      "sha256": "b956336c731d0e5fc4336d543b04ee80e40a884b75247c488268ecb8daef0950"
     },
     {
       "path": "PHASE_TEST_REPORT.md",
@@ -335,12 +329,12 @@
     {
       "path": "package-lock.json",
       "size": 48397,
-      "sha256": "78bf51c34863a99d5e90bfa1a5b84eb9869131a69b904272f27fc6d144d43255"
+      "sha256": "b6834bb8907a9574ad4b87912aac38baa4f61efca19bc77c39668238df36eecf"
     },
     {
       "path": "package.json",
-      "size": 1834,
-      "sha256": "f401da6137f7ad2ac912dda122882014f798d18cc9b80749e4c98b568669f65d"
+      "size": 1844,
+      "sha256": "639b703187867a2a0237c5891f07a56be9c3eeff9d0aea79c5442d11865eb48a"
     },
     {
       "path": "public/_headers",
@@ -349,18 +343,18 @@
     },
     {
       "path": "public/app.js",
-      "size": 16942,
-      "sha256": "f5a6f243527e490d2252a7b9cbe5a13c3d3a318e43cbecfa0fefe3115d76ec76"
+      "size": 21755,
+      "sha256": "84e28803aa6b86c1b8a87c4723a331ef54966fb2d0c76e88a3fcc194691e95a2"
     },
     {
       "path": "public/index.html",
-      "size": 9934,
-      "sha256": "11c46f5000e53c08139f91e8703928d0f6130af4ddb35599898e8c0f0fb6cc34"
+      "size": 12008,
+      "sha256": "d2c99e688ba34df99e559231662e8720a535fa2db222d041d1fc60cf89505baf"
     },
     {
       "path": "public/style.css",
-      "size": 10853,
-      "sha256": "2df851e676a266cfe9b9881f69af8b77c20398c1c72cb6f5e8d2b8cfd1397e6b"
+      "size": 13335,
+      "sha256": "c46ffad2cdfe7225532ab2437631d6a60e6929a54f37890b9d83d80872b885e6"
     },
     {
       "path": "scripts/build-web.mjs",
@@ -604,8 +598,8 @@
     },
     {
       "path": "src/runs/read.js",
-      "size": 764,
-      "sha256": "f3940e8bd5fe4ac18f51ee4d572faa715e747dc428356a815a0b750728e05382"
+      "size": 852,
+      "sha256": "06aef2d416c8f30a7e9b7bb7f66ced8f1e10033d6d1fde9039caa741f0ea399b"
     },
     {
       "path": "src/runs/recovery.js",
@@ -619,8 +613,8 @@
     },
     {
       "path": "src/runs/start.js",
-      "size": 2382,
-      "sha256": "7a89f33e1ea84dfc9847404255c1a32b6b3776e5bbec843f55255d8ba5ac2c56"
+      "size": 3585,
+      "sha256": "4087088f81893bba273f6cc7b9521154ef777345e217fd0b08e5afbffd987dab"
     },
     {
       "path": "src/runs/state-machine.js",
