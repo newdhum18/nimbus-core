@@ -154,3 +154,13 @@
 - Changed keyword learning to use actual discovery context and only reward novel folder discoveries.
 - Removed the unused `src/search/crawler.js.tmp` release artifact.
 - Added regression coverage for 100 category rounds, 1/10/25/100 manual rounds and contextual term learning.
+
+
+## 36.9.5 — Phase 13.5 Extraction Regression Fix
+
+- Restored the proven Phase 13.2 MEGA extraction core to reduce CPU amplification on large pages.
+- Preserved discovery-context learning without changing the successful folder extraction path.
+- Reworked adaptive queries to keep the exact manual keyword first and use only meaningful expansions.
+- Removed artificial numbered fallback queries that reduced provider relevance.
+- Batched and capped keyword-learning writes so D1 learning cannot throttle queue extraction throughput.
+- Added regression coverage for exact-query priority, meaningful 100-round expansion, and batched learning.

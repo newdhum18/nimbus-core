@@ -29,7 +29,6 @@ function decodedVariants(input){
     .replace(/\/\s*folder\s*\//gi,"/folder/")
     .replace(/\s*#\s*/g,"#");
   const variants=new Set([raw,slashFixed,percentFixed,compact,decodeHtmlEntities(raw),decodeRepeated(raw),decodeRepeated(percentFixed),decodeRepeated(compact)]);
-  for(let pass=0;pass<3;pass++){for(const value of [...variants]){variants.add(decodeHtmlEntities(value));variants.add(decodeRepeated(value));try{variants.add(decodeURIComponent(value));}catch{} variants.add(value.replace(/(["\'])\s*\+\s*(["\'])/g,"").replace(/\\n|\\r|\\t/g,""));}}
   for(const source of [...variants]){
     for(const match of source.matchAll(BASE64_TOKEN)){
       const decoded=decodeBase64(match[1]);

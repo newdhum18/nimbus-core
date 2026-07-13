@@ -14,3 +14,9 @@
 - Learning input: page title, metadata and text surrounding discovered MEGA folders
 - Temporary release artifacts: removed
 - Deployment verification: PENDING
+
+
+### Phase 13.5 — Extraction Regression Fix
+Status: SOURCE VALIDATION IN PROGRESS
+Version: 36.9.5
+Focus: restore Phase 13.2 extraction throughput while retaining adaptive keyword learning.
