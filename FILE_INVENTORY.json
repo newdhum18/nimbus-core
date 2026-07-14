@@ -1,6 +1,6 @@
 {
   "baseline": "Nimbus Core V36 Zero Foundation",
-  "version": "36.13.3",
+  "version": "36.13.4",
   "schema_version": 10,
   "file_count": 154,
   "note": "Inventory excludes the inventory and checksum files themselves to avoid recursive hashes.",

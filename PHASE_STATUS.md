@@ -1,6 +1,6 @@
 # Nimbus Core V36 — Zero Foundation Status
 
-- Version: 36.13.3
+- Version: 36.13.4
 - Baseline: Zero Foundation
 - Source lineage: Clean Baseline v36.13.0 + complete Phase 16.2 hardening merge
 - Schema version: 10

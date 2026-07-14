@@ -1,9 +1,9 @@
 {
   "name": "nimbus-core-v36",
-  "version": "36.13.3",
+  "version": "36.13.4",
   "private": true,
   "type": "module",
-  "description": "Nimbus Core V36 source discovery recovery: provider failover, direct graph expansion, diagnostics, and mobile stability",
+  "description": "Nimbus Core V36 official-search-provider recovery and discovery diagnostics",
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "test": "node --test tests/*.test.mjs",
