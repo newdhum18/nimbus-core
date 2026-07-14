@@ -13,6 +13,9 @@ on:
       - "package.json"
       - "package-lock.json"
       - "wrangler.worker.jsonc"
+      - "wrangler.pages.jsonc"
+      - "docs/**"
+      - "backup/**"
       - ".github/workflows/deploy-worker.yml"
 
 concurrency:
@@ -48,6 +51,9 @@ jobs:
 
       - name: Validate source
         run: npm run validate:source
+
+      - name: Verify clean baseline
+        run: npm run baseline:verify
 
       - name: Apply D1 migrations
         run: npm run db:apply:remote

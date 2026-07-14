@@ -33,6 +33,9 @@ jobs:
         run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org
       - name: Validate source and tests
         run: npm run validate:source
+      - name: Verify clean baseline
+        run: npm run baseline:verify
+
       - name: Build web assets
         run: npm run build:web
       - name: Validate Cloudflare configuration and Wrangler bundle

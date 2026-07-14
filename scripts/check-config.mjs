@@ -12,7 +12,7 @@ assert.equal(worker.d1_databases?.[0]?.database_name, "nimbus-core-v36-db");
 assert.equal(worker.queues?.producers?.[0]?.binding, "QUEUE");
 assert.equal(worker.queues?.producers?.[0]?.queue, "nimbus-core-v36-queue");
 assert.equal(worker.queues?.consumers?.[0]?.queue, "nimbus-core-v36-queue");
-assert.equal(worker.queues?.consumers?.[0]?.max_batch_size, 1);
+assert.equal(worker.queues?.consumers?.[0]?.max_batch_size, 5);
 assert.equal(worker.queues?.consumers?.[0]?.max_batch_timeout, 2);
 assert.equal(worker.queues?.consumers?.[0]?.max_retries, 5);
 assert.equal(worker.queues?.consumers?.[0]?.retry_delay, 30);
