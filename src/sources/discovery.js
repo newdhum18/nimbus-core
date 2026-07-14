@@ -69,11 +69,14 @@ export async function promoteQualifiedCandidates(db,{limit=20}={}){
       alive_links DESC,novel_links DESC,extracted_links DESC,
       confidence DESC,successful_fetches DESC,last_seen_at DESC
     LIMIT ?`).bind(Math.max(1,Math.min(100,Number(limit)||20))).all();
-  let promoted=0,activated=0,sandboxed=0,updated=0;
+  let promoted=0,created=0,activated=0,sandboxed=0,updated=0;
   const decisions=[];
   for(const row of rows.results||[]){
     const sourceId=`discovered_${hash(row.host)}`;
-    const proven=Number(row.alive_links||0)>0||Number(row.novel_links||0)>0||Number(row.extracted_links||0)>0;
+    // A source is only activated automatically when it produced evidence that
+    // can improve search quality. Merely extracting arbitrary links is not
+    // enough; zero-yield domains are retained as disabled sandbox sources.
+    const proven=Number(row.alive_links||0)>0||Number(row.novel_links||0)>0;
     const enabled=proven?1:0;
     const priority=proven?900:420;
     const rank=Math.max(1,Math.min(95,Number(row.confidence||0)+(proven?20:0)));
@@ -83,16 +86,20 @@ export async function promoteQualifiedCandidates(db,{limit=20}={}){
     if(!existing){
       await db.prepare(`INSERT INTO sources(id,name,category,source_type,template_url,enabled,default_enabled,priority,rank_score,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`).bind(sourceId,`Discovered — ${row.host}`,row.family||"discovered","html",template,enabled,0,priority,rank,now,now).run();
       await db.prepare(`INSERT INTO source_metrics(source_id,requests,successes,failures,timeouts,blocks,links_found,valid_links,yield_rate,average_latency,consecutive_failures,last_success_at,last_failure_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_id) DO NOTHING`).bind(sourceId,Number(row.pages_tested||0),Number(row.successful_fetches||0),Number(row.failed_fetches||0),0,Number(row.blocked_fetches||0),Number(row.extracted_links||0),Number(row.alive_links||0),Number(row.pages_tested||0)?Number(row.extracted_links||0)*100/Math.max(1,Number(row.pages_tested||0)):0,Number(row.average_latency||0),0,Number(row.successful_fetches||0)>0?row.last_tested_at:null,Number(row.failed_fetches||0)>0?row.last_tested_at:null,now).run();
-      promoted++;if(enabled)activated++;else sandboxed++;
+      created++;if(enabled)activated++;else sandboxed++;
     }else{
       await db.prepare(`UPDATE sources SET enabled=CASE WHEN ?=1 THEN 1 ELSE enabled END,source_type='html',template_url=?,priority=MAX(priority,?),rank_score=MAX(rank_score,?),updated_at=? WHERE id=?`).bind(enabled,template,priority,rank,now,existing.id).run();
       updated++;
     }
     const finalId=existing?.id||sourceId;
+    // Count the domain transition, not only newly inserted source rows. This
+    // keeps run/UI promotion totals correct when a discovered source already
+    // exists and is being refreshed or reactivated.
+    promoted++;
     await db.prepare(`UPDATE source_candidate_domains SET state='promoted',promoted_source_id=?,quality_grade=CASE WHEN ?=1 AND quality_grade IN ('C','D') THEN 'B' ELSE quality_grade END,last_seen_at=?,rejection_reason=NULL WHERE host=?`).bind(finalId,enabled,now,row.host).run();
-    await db.prepare(`UPDATE source_candidates SET state='promoted',promoted_source_id=?,last_seen_at=?,rejection_reason=NULL WHERE host=?`).bind(finalId,now,row.host).run();
+    await db.prepare(`UPDATE source_candidates SET state='promoted',promoted_source_id=?,quality_grade=CASE WHEN ?=1 AND quality_grade IN ('C','D') THEN 'B' ELSE quality_grade END,last_seen_at=?,rejection_reason=NULL WHERE host=?`).bind(finalId,enabled,now,row.host).run();
     decisions.push({host:row.host,source_id:finalId,enabled:Boolean(enabled),mode:enabled?"active":"sandbox",evidence_count:Number(row.evidence_count||0),pages_tested:Number(row.pages_tested||0),extracted_links:Number(row.extracted_links||0),novel_links:Number(row.novel_links||0),alive_links:Number(row.alive_links||0),confidence:Number(row.confidence||0)});
   }
-  return{promoted,activated,sandboxed,updated,considered:(rows.results||[]).length,decisions};
+  return{promoted,created,activated,sandboxed,updated,considered:(rows.results||[]).length,decisions};
 }
 export async function sourceDiscoverySummary(db){const totals=await db.prepare(`SELECT COUNT(*) total,SUM(state IN ('candidate','testing','sandbox')) candidates,SUM(state='promoted') promoted,SUM(state='rejected') rejected,SUM(state='blocked') blocked,SUM(state='dormant') dormant,SUM(state='duplicate') duplicates,SUM(state='quarantined') quarantined FROM source_candidate_domains`).first();const recent=await db.prepare(`SELECT host,root_url,state,family,quality_grade,evidence_count,pages_tested,extracted_links,novel_links,alive_links,dead_links,unknown_links,duplicate_links,average_latency,confidence,last_seen_at,promoted_source_id,rejection_reason FROM source_candidate_domains ORDER BY last_seen_at DESC LIMIT 50`).all();return{total:Number(totals?.total||0),candidates:Number(totals?.candidates||0),promoted:Number(totals?.promoted||0),rejected:Number(totals?.rejected||0),blocked:Number(totals?.blocked||0),dormant:Number(totals?.dormant||0),duplicates:Number(totals?.duplicates||0),quarantined:Number(totals?.quarantined||0),recent:recent.results||[]};}

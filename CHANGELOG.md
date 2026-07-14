@@ -1,12 +1,13 @@
 # Changelog
 
-## 36.13.8 — Promotion Verification and Baseline Synchronization
+## 36.13.9 — Domain-Accurate Source Promotion Repair
 
-- Correct stale schema-version tests and release metadata after migration 0012.
-- Upgrade the clean reference SQLite database and schema export to version 12.
-- Add end-to-end database integration tests for active and sandbox source promotion.
-- Remove the obsolete hidden-files patch archive from the package.
-- Synchronize documentation, inventory, resource manifest, and checksums.
+- Count discovery promotion at the host/domain level instead of inflating totals with URL-level candidate evidence rows.
+- Count qualified domain transitions even when the executable source already exists and is refreshed.
+- Report newly created source rows separately from promoted domains.
+- Require novel or alive MEGA evidence before automatically enabling a discovered source.
+- Preserve reachable zero-yield domains as disabled sandbox sources.
+- Synchronize promoted candidate quality grades and add regression coverage for both accounting defects.
 
 ## 36.13.6 — Comprehensive Autonomous Source Promotion Repair
 

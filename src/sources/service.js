@@ -153,11 +153,14 @@ export async function sourceSummary(db) {
            COALESCE(AVG(CASE WHEN requests>0 THEN average_latency END),0) AS average_latency
     FROM source_metrics
   `).first();
+  // Domain-level discovery is authoritative. source_candidates contains many
+  // URL-level evidence rows for the same host, so counting it inflates the UI
+  // and makes one promoted source look like dozens of promotions.
   const discovery = await db.prepare(`
     SELECT COUNT(*) AS total,
-           SUM(CASE WHEN state='candidate' THEN 1 ELSE 0 END) AS candidates,
+           SUM(CASE WHEN state IN ('candidate','testing','sandbox') THEN 1 ELSE 0 END) AS candidates,
            SUM(CASE WHEN state='promoted' THEN 1 ELSE 0 END) AS promoted
-    FROM source_candidates
+    FROM source_candidate_domains
   `).first().catch(() => ({ total:0,candidates:0,promoted:0 }));
   return {
     total: Number(totals?.total || 0),

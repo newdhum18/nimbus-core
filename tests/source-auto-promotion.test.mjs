@@ -64,3 +64,31 @@ test("reachable zero-yield domain is retained as disabled sandbox source", async
   assert.equal(db.prepare(`SELECT state FROM source_candidate_domains WHERE host='sandbox.example'`).get().state,'promoted');
   db.close();
 });
+
+test("promotion count includes an existing source refreshed from a candidate domain", async()=>{
+  const db=await migratedDb();
+  const now=new Date().toISOString();
+  db.prepare(`INSERT INTO sources(id,name,category,source_type,template_url,enabled,default_enabled,priority,rank_score,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`)
+    .run('discovered_existing','Discovered — existing.example','web','html','https://lite.duckduckgo.com/lite/?q=site%3Aexisting.example%20{q}%20%22mega.nz%2Ffolder%22',0,0,100,1,now,now);
+  db.prepare(`INSERT INTO source_candidate_domains(host,root_url,state,family,quality_grade,evidence_count,pages_tested,extracted_links,novel_links,alive_links,dead_links,unknown_links,duplicate_links,successful_fetches,failed_fetches,blocked_fetches,average_latency,confidence,first_seen_at,last_seen_at,last_tested_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run('existing.example','https://existing.example/','candidate','web','C',2,2,3,1,0,0,0,0,2,0,0,100,12,now,now,now);
+  const result=await promoteQualifiedCandidates(d1(db),{limit:5});
+  assert.equal(result.promoted,1);
+  assert.equal(result.created,0);
+  assert.equal(result.updated,1);
+  assert.equal(db.prepare(`SELECT state FROM source_candidate_domains WHERE host='existing.example'`).get().state,'promoted');
+  db.close();
+});
+
+test("arbitrary extracted links do not auto-enable a zero-yield source", async()=>{
+  const db=await migratedDb();
+  const now=new Date().toISOString();
+  db.prepare(`INSERT INTO source_candidate_domains(host,root_url,state,family,quality_grade,evidence_count,pages_tested,extracted_links,novel_links,alive_links,dead_links,unknown_links,duplicate_links,successful_fetches,failed_fetches,blocked_fetches,average_latency,confidence,first_seen_at,last_seen_at,last_tested_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run('noise.example','https://noise.example/','candidate','web','C',1,1,50,0,0,0,0,0,1,0,0,80,10,now,now,now);
+  const result=await promoteQualifiedCandidates(d1(db),{limit:5});
+  assert.equal(result.promoted,1);
+  assert.equal(result.sandboxed,1);
+  const source=db.prepare(`SELECT enabled FROM sources WHERE name='Discovered — noise.example'`).get();
+  assert.equal(source.enabled,0);
+  db.close();
+});
