@@ -1,9 +1,9 @@
 {
   "name": "nimbus-core-v36",
-  "version": "36.13.2",
+  "version": "36.13.3",
   "private": true,
   "type": "module",
-  "description": "Nimbus Core V36 Zero Foundation maintenance: source discovery repair, compact Sources UI, and reliable AutoScan coverage",
+  "description": "Nimbus Core V36 source discovery recovery: provider failover, direct graph expansion, diagnostics, and mobile stability",
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "test": "node --test tests/*.test.mjs",

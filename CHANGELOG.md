@@ -1,6 +1,6 @@
 # Changelog
 
-## 36.13.2 — Source Recovery and Mobile UI Repair
+## 36.13.3 — Source Recovery and Mobile UI Repair
 
 - Decode DuckDuckGo, Google, and Bing search wrappers during source discovery.
 - Profile discovered example pages before generic domain endpoints.

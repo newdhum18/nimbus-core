@@ -2,7 +2,7 @@
 
 ## Identity
 
-- Version: 36.13.2
+- Version: 36.13.3
 - Schema: 10 migrations
 - Base comparison: v36.13.0 Clean Baseline vs v36.12.2 Phase 16.2
 

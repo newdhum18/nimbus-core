@@ -30,3 +30,10 @@ test("source discovery decodes wrapped search-result targets", () => {
   assert.ok(urls.includes("https://example-paste.test/post/42"));
   assert.ok(urls.includes("https://example-forum.test/thread/9"));
 });
+
+test("source discovery extracts visible bare hostnames from search text", () => {
+  const text = `Result mirror.example.org/path and forum.example.net were listed in snippets.`;
+  const urls = discoverCandidateUrls(text, "https://html.duckduckgo.com/html/?q=mega");
+  assert.ok(urls.includes("https://mirror.example.org/"));
+  assert.ok(urls.includes("https://forum.example.net/"));
+});

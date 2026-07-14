@@ -97,8 +97,14 @@ export async function fetchPage(
   try {
     const { response, finalUrl } = await fetchWithValidatedRedirects(url, {
       headers: {
-        "user-agent": "NimbusCore/36.0",
-        "accept": "text/html,text/plain,application/json,application/rss+xml,application/xml;q=0.9,*/*;q=0.1"
+        // Public search/index pages frequently return empty or bot-challenge pages
+        // to non-browser user agents. Use normal browser negotiation without
+        // impersonating authentication or bypassing access controls.
+        "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+        "accept": "text/html,application/xhtml+xml,application/json,application/rss+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.1",
+        "accept-language": "en-US,en;q=0.9",
+        "cache-control": "no-cache",
+        "pragma": "no-cache"
       },
       signal: controller.signal
     });

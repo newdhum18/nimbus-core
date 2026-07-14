@@ -17,6 +17,26 @@ function variants(seed,round){const suffixes=["archive","mirror","collection","i
 export function chunkItems(items,size=SYSTEM.sqlBatchSize){const out=[];for(let i=0;i<items.length;i+=Math.max(1,size))out.push(items.slice(i,i+Math.max(1,size)));return out;}
 export function deriveDiscoveryOutcome({total=0,completed=0,failed=0,cancelled=0}={}){const done=completed+failed+cancelled;if(total<=0||done<total)return{status:"running",outcome:"pending"};if(failed===0)return{status:"completed",outcome:"success"};if(completed>0)return{status:"completed",outcome:"partial"};return{status:"failed",outcome:"failure"};}
 function safeHost(value){try{return new URL(value).hostname;}catch{return null;}}
+function queryTextFromSearchUrl(value){
+  try{
+    const u=new URL(value);
+    return u.searchParams.get("q")||u.searchParams.get("query")||"";
+  }catch{return"";}
+}
+function searchFallbackUrls(value){
+  const text=queryTextFromSearchUrl(value);
+  if(!text)return[value];
+  return [...new Set([
+    value,
+    q(DDG_HTML,text),
+    q(DDG_LITE,text),
+    q(BING_RSS,text)
+  ])];
+}
+function materializeTemplate(value,term='"mega.nz/folder"'){
+  return String(value||"").replaceAll("{q}",encodeURIComponent(term));
+}
+
 
 export async function buildDiscoverySeeds(db,{rounds=1,profile="normal"}={}){
   const limit=Math.min(100,PROFILES[profile]||PROFILES.normal);
@@ -25,10 +45,38 @@ export async function buildDiscoverySeeds(db,{rounds=1,profile="normal"}={}){
   const bases=[];
   for(const row of links.results||[]){const p=folderParts(row.normalized_url);if(!p.id)continue;const full=`"https://mega.nz/folder/${p.id}${p.key?`#${p.key}`:""}"`;const short=`"mega.nz/folder/${p.id}"`;bases.push({strategy:"link_reappearance",seed:p.id,fingerprint:p.id,originSourceId:row.source_id||null,originHost:safeHost(row.source_url),queries:[full,short,`"${p.id}" "mega.nz/folder"`,`"${encodeURIComponent(`https://mega.nz/folder/${p.id}`)}"`,`"https:\/\/mega.nz\/folder\/${p.id}"`]});}
   for(const row of sources.results||[]){try{const host=new URL(row.template_url).hostname;bases.push({strategy:"successful_source_expansion",seed:host,originSourceId:row.id,originHost:host,queries:[`"${host}" "mega.nz/folder"`,`related:${host} "mega.nz/folder"`,`site:${host} "mega.nz/folder"`]});}catch{}}
+  // Probe existing public source surfaces directly as graph-expansion seeds.
+  // Their outbound links often reveal mirrors and sibling environments even
+  // when a public search provider returns an empty/bot-filtered result page.
+  for(const row of sources.results||[]){
+    try{
+      const direct=materializeTemplate(row.template_url);
+      const host=new URL(direct).hostname;
+      bases.push({strategy:"direct_source_probe",seed:host,originSourceId:row.id,originHost:host,directUrl:direct,queries:[`"${host}" "mega.nz/folder"`]});
+    }catch{}
+  }
   for(const term of ["\"mega.nz/folder\" public index","\"mega.nz/folder\" archive","\"mega.nz/folder\" paste","\"mega.nz/folder\" collection","\"mega.nz/folder\" forum","\"mega.nz/folder\" mirror"])bases.push({strategy:"broad_discovery",seed:term,queries:[term]});
   const out=[],seen=new Set();
-  for(let r=0;r<rounds;r++)for(const b of bases){for(const text of variants(b.queries[r%b.queries.length],r)){const provider=r%5===4?BING_RSS:r%2===1?DDG_LITE:DDG_HTML;const url=q(provider,text);const key=`${b.strategy}|${url}`;if(!seen.has(key)){seen.add(key);out.push({...b,url,strategy:`${b.strategy}:${r%5===4?"bing_rss":r%2===1?"ddg_lite":"ddg_html"}`,round:r+1,evidenceUrl:url});}}if(r%4===3&&b.seed&&/^[A-Za-z0-9_.-]+$/.test(b.seed)){const url=`${WAYBACK}${encodeURIComponent(`*.${b.seed}/*mega.nz/folder*`)}`;const key=`wayback|${url}`;if(!seen.has(key)){seen.add(key);out.push({...b,strategy:"wayback_backlink",url,round:r+1,evidenceUrl:url});}}}
-  return out.slice(0,Math.max(1,limit*rounds));
+  for(let r=0;r<rounds;r++)for(const b of bases){
+    if(b.directUrl){
+      const key=`direct|${b.directUrl}`;
+      if(!seen.has(key)){seen.add(key);out.push({...b,url:b.directUrl,strategy:"direct_source_probe",round:r+1,evidenceUrl:b.directUrl});}
+    }
+    for(const text of variants(b.queries[r%b.queries.length],r)){const provider=r%5===4?BING_RSS:r%2===1?DDG_LITE:DDG_HTML;const url=q(provider,text);const key=`${b.strategy}|${url}`;if(!seen.has(key)){seen.add(key);out.push({...b,url,strategy:`${b.strategy}:${r%5===4?"bing_rss":r%2===1?"ddg_lite":"ddg_html"}`,round:r+1,evidenceUrl:url});}}if(r%4===3&&b.seed&&/^[A-Za-z0-9_.-]+$/.test(b.seed)){const url=`${WAYBACK}${encodeURIComponent(`*.${b.seed}/*mega.nz/folder*`)}`;const key=`wayback|${url}`;if(!seen.has(key)){seen.add(key);out.push({...b,strategy:"wayback_backlink",url,round:r+1,evidenceUrl:url});}}}
+  const cap=Math.max(1,limit*rounds);
+  const groups=[
+    out.filter(x=>x.strategy==="direct_source_probe"),
+    out.filter(x=>x.strategy.startsWith("link_reappearance")),
+    out.filter(x=>x.strategy.startsWith("successful_source_expansion")),
+    out.filter(x=>x.strategy.startsWith("broad_discovery")),
+    out.filter(x=>x.strategy==="wayback_backlink")
+  ];
+  const balanced=[];let cursor=0;
+  while(balanced.length<cap&&groups.some(g=>cursor<g.length)){
+    for(const group of groups){if(cursor<group.length&&balanced.length<cap)balanced.push(group[cursor]);}
+    cursor++;
+  }
+  return balanced;
 }
 
 export async function startSourceDiscovery(env,{rounds=1,profile="normal"}={}){
@@ -56,10 +104,24 @@ export async function processSourceDiscoveryTask(env,taskId,{fetchBudget=SYSTEM.
   const lease=new Date(Date.now()+SYSTEM.sourceDiscoveryLeaseSeconds*1000).toISOString();const got=await env.DB.prepare(`UPDATE source_discovery_tasks SET status='running',attempts=attempts+1,started_at=COALESCE(started_at,?),lease_until=?,updated_at=? WHERE id=? AND status IN ('pending','failed','queued','dispatching')`).bind(nowIso(),lease,nowIso(),taskId).run();if((got.meta?.changes||0)!==1)return{retry:false,skipped:"lease_not_acquired"};
   let fetches=0;
   try{
-    const page=await fetchPage(task.url,{timeoutMs:7000});fetches++;const urls=discoverCandidateUrls(page.text||"",page.finalUrl||task.url,{limit:80});const domains=rootCandidates(urls);let discovered=domains.length,candidates=0,tested=0,promoted=0,novel=0,dupes=0,alive=0,dead=0,unknown=0;
+    const pages=[];
+    for(const candidateUrl of searchFallbackUrls(task.url)){
+      if(fetches>=Math.max(1,Math.min(3,fetchBudget)))break;
+      const page=await fetchPage(candidateUrl,{timeoutMs:7000});fetches++;pages.push(page);
+      const found=discoverCandidateUrls(page.text||"",page.finalUrl||candidateUrl,{limit:100});
+      if(found.length>0&&task.strategy!=="direct_source_probe")break;
+    }
+    const urls=[];
+    for(const page of pages)urls.push(...discoverCandidateUrls(page.text||"",page.finalUrl||task.url,{limit:100}));
+    const domains=rootCandidates([...new Set(urls)]);
+    if(domains.length===0){
+      const detail=pages.map(p=>`${p.status||0}:${p.error||"empty"}:${(p.text||"").length}`).join(",");
+      throw new Error(`discovery_no_targets:${detail||"no_response"}`);
+    }
+    let discovered=domains.length,candidates=0,tested=0,promoted=0,novel=0,dupes=0,alive=0,dead=0,unknown=0;
     for(const d of domains.slice(0,Math.max(1,Math.min(8,fetchBudget-fetches)))){const prof=await profileDomain(env,d,{fetchBudget:Math.max(1,Math.min(6,fetchBudget-fetches))});fetches+=prof.pages;tested+=prof.pages;alive+=prof.alive;dead+=prof.dead;unknown+=prof.unknown;const fps=new Set(prof.mega.map(x=>folderParts(x.normalizedUrl).id).filter(Boolean));if(task.input_fingerprint)fps.add(task.input_fingerprint);let domainNovel=0,domainDup=0;for(const l of prof.mega){const exists=await env.DB.prepare(`SELECT 1 FROM links WHERE normalized_url=? LIMIT 1`).bind(l.normalizedUrl).first();if(exists)domainDup++;else domainNovel++;}novel+=domainNovel;dupes+=domainDup;
       const reg=await registerSourceCandidates(env.DB,{urls:[d.root,...d.examples.slice(0,3),...prof.candidates.slice(0,10)],sourceId:task.origin_source_id,sourceHost:task.origin_host,runId:task.run_id,megaLinksFound:prof.mega.length,novelLinksFound:domainNovel,aliveLinksFound:prof.alive,deadLinksFound:prof.dead,unknownLinksFound:prof.unknown,duplicateLinksFound:domainDup,successful:prof.ok>0,blockedFetches:prof.blocked,pagesTested:prof.pages,latency:prof.latency,megaFingerprints:[...fps],evidenceUrl:d.examples[0]||task.evidence_url||task.url});candidates+=reg.registered;if(fetches>=fetchBudget)break;}
-    const p=await promoteQualifiedCandidates(env.DB,{limit:5});promoted+=p.promoted;await env.DB.prepare(`UPDATE source_discovery_tasks SET status='completed',completed_at=?,lease_until=NULL,result_json=?,last_error=NULL,updated_at=? WHERE id=?`).bind(nowIso(),JSON.stringify({domains:discovered,candidates,tested,promoted,novel,duplicates:dupes,alive,dead,unknown,fetches}),nowIso(),taskId).run();await env.DB.prepare(`UPDATE source_discovery_runs SET domains_discovered=domains_discovered+?,candidates_created=candidates_created+?,sources_tested=sources_tested+?,promoted_sources=promoted_sources+?,current_strategy=?,updated_at=? WHERE id=?`).bind(discovered,candidates,tested,promoted,task.strategy,nowIso(),task.run_id).run();const progress=await syncSourceDiscoveryProgress(env.DB,task.run_id);return{retry:false,runId:task.run_id,fetches,...progress};
+    const p=await promoteQualifiedCandidates(env.DB,{limit:5});promoted+=p.promoted;await env.DB.prepare(`UPDATE source_discovery_tasks SET status='completed',completed_at=?,lease_until=NULL,result_json=?,last_error=NULL,updated_at=? WHERE id=?`).bind(nowIso(),JSON.stringify({domains:discovered,candidates,tested,promoted,novel,duplicates:dupes,alive,dead,unknown,fetches,seed_pages:pages.map(p=>({ok:p.ok,status:p.status,error:p.error,final_url:p.finalUrl,bytes:(p.text||"").length}))}),nowIso(),taskId).run();await env.DB.prepare(`UPDATE source_discovery_runs SET domains_discovered=domains_discovered+?,candidates_created=candidates_created+?,sources_tested=sources_tested+?,promoted_sources=promoted_sources+?,current_strategy=?,updated_at=? WHERE id=?`).bind(discovered,candidates,tested,promoted,task.strategy,nowIso(),task.run_id).run();const progress=await syncSourceDiscoveryProgress(env.DB,task.run_id);return{retry:false,runId:task.run_id,fetches,...progress};
   }catch(error){const attempts=Number(task.attempts||0)+1,dead=attempts>=SYSTEM.sourceDiscoveryMaxAttempts;await env.DB.prepare(`UPDATE source_discovery_tasks SET status=?,lease_until=NULL,last_error=?,updated_at=? WHERE id=?`).bind(dead?"dead":"failed",String(error?.message||error),nowIso(),taskId).run();const progress=await syncSourceDiscoveryProgress(env.DB,task.run_id);return{retry:!dead,runId:task.run_id,fetches,...progress,error:String(error?.message||error)};}
 }
 export async function processSourceDiscoveryStep(env,runId){return dispatchSourceDiscovery(env,runId);}

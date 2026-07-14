@@ -3,6 +3,7 @@ import { assertPublicHttpUrl } from "../search/crawler.js";
 import { extractHttpTargets } from "../search/target-decoder.js";
 
 const BLOCKED_HOSTS = [/(^|\.)mega\.(nz|io)$/i,/(^|\.)duckduckgo\.com$/i,/(^|\.)bing\.com$/i,/(^|\.)google\./i,/(^|\.)web\.archive\.org$/i];
+const BARE_DOMAIN_RE = /(?:^|[\s>"'(])((?:[a-z0-9-]+\.)+[a-z]{2,63})(?=[:/\s<"')]|$)/gi;
 function hash(text){let h=2166136261;for(const ch of String(text)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}return(h>>>0).toString(36);}
 function hostRoot(value){const u=assertPublicHttpUrl(value);u.pathname="/";u.search="";u.hash="";return u.toString();}
 export function normalizeCandidateUrl(value){const url=assertPublicHttpUrl(value);url.hash="";for(const key of [...url.searchParams.keys()])if(/^(utm_|fbclid$|gclid$|ref$|source$)/i.test(key))url.searchParams.delete(key);return url.toString();}
@@ -23,6 +24,9 @@ export function discoverCandidateUrls(input,baseUrl,{limit=80}={}){
   for(const target of extractHttpTargets(raw,baseUrl))add(target);
   for(const m of raw.matchAll(/(?:href|src|action)\s*=\s*["']([^"']+)["']/gi))add(m[1]);
   for(const m of raw.matchAll(/https?:\/\/[^\s"'<>\\]+/gi))add(m[0]);
+  // Some search/RSS responses render a visible hostname without a clickable
+  // absolute URL. Preserve those public host signals as root candidates.
+  for(const m of raw.matchAll(BARE_DOMAIN_RE))add(`https://${m[1]}/`);
   return out.slice(0,limit);
 }
 

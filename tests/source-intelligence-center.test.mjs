@@ -50,3 +50,10 @@ test("domain intelligence, graph and partial outcomes are persisted",async()=>{
   assert.match(discovery,/source_graph_edges/);
   assert.match(discovery,/quality_grade/);
 });
+
+test("discovery seed mix includes direct probes and provider searches",async()=>{
+  const db={prepare(sql){return{bind(){return{all:async()=>sql.includes("FROM links")?{results:[]}:{results:[{id:"seed",template_url:"https://example.org/search?q={q}",name:"Example"}]}}}}}};
+  const seeds=await buildDiscoverySeeds(db,{rounds:1,profile:"quick"});
+  assert.ok(seeds.some(x=>x.strategy==="direct_source_probe"));
+  assert.ok(seeds.some(x=>/ddg_|bing_rss/.test(x.strategy)));
+});
