@@ -2,7 +2,7 @@
 
 ## Identity
 
-- Version: 36.13.7
+- Version: 36.13.8
 - Schema: 12 migrations
 - Base comparison: v36.13.0 Clean Baseline vs v36.12.2 Phase 16.2
 
@@ -25,7 +25,7 @@ Removed historical evidence bundles, repeated phase reports, local state, build 
 
 This package is source-validated locally. A Cloudflare preview deployment, remote migration application, Queue consumption test, and iPhone Safari functional test remain mandatory before merging to `main`.
 
-## v36.13.7 verification repair
+## v36.13.8 verification repair
 
 - Corrected release tests that still expected schema 11 after migration 0012.
 - Upgraded the clean reference database and schema export to migration 12.

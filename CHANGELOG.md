@@ -1,6 +1,6 @@
 # Changelog
 
-## 36.13.7 — Promotion Verification and Baseline Synchronization
+## 36.13.8 — Promotion Verification and Baseline Synchronization
 
 - Correct stale schema-version tests and release metadata after migration 0012.
 - Upgrade the clean reference SQLite database and schema export to version 12.

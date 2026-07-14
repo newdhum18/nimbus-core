@@ -1,4 +1,4 @@
-# Nimbus Core V36.13.7 Release Verification Report
+# Nimbus Core V36.13.8 Release Verification Report
 
 ## Finding
 
@@ -6,7 +6,7 @@ The submitted v36.13.6 package was not release-ready because two tests still exp
 
 ## Corrections
 
-- Synchronized all release/version assertions to v36.13.7.
+- Synchronized all release/version assertions to v36.13.8.
 - Synchronized all schema assertions and manifests to schema version 12.
 - Applied migration 0012 to the clean backup database.
 - Regenerated the SQL schema reference from the updated backup database.

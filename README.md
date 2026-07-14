@@ -4,7 +4,7 @@ Nimbus Core is a Cloudflare Pages + Worker + D1 + Queue application for discover
 
 ## Current baseline
 
-- Version: 36.13.7
+- Version: 36.13.8
 - Node.js: 22+
 - Worker: `nimbus-core-v36-worker`
 - Pages: `nimbus-core-v36-web`

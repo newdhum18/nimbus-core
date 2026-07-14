@@ -1,811 +1,820 @@
 {
-  "version": "36.13.7",
-  "schema_version": 12,
-  "file_count": 161,
+  "version": "36.13.8",
+  "file_count": 163,
   "files": [
     {
       "path": ".github/workflows/deploy-worker.yml",
-      "size": 1979,
-      "sha256": "56c5b339fb4f1f9c40f0dfd7ba120d7a796f5515a11d194ad989b045ba7fc49c"
+      "size_bytes": 2228,
+      "sha256": "e0d20a17b966a0caa8ffa93c38dd6a88ab269d2fd774b1fe69dc6d7d37fe846d"
     },
     {
       "path": ".github/workflows/validate-phase.yml",
-      "size": 1217,
+      "size_bytes": 1217,
       "sha256": "930828177868e48d6f3a52128c91fdfa98b8ba8aa2c340dcc8e88633d11c7109"
     },
     {
       "path": ".gitignore",
-      "size": 136,
+      "size_bytes": 136,
       "sha256": "d193adaffd4946d86a5ee5296d2f06a73a21752b900876199c3837cc27b2d2ce"
     },
     {
       "path": "BASELINE.md",
-      "size": 641,
+      "size_bytes": 641,
       "sha256": "2e297b16b96467b255abab34ee0117cbbc39dd8d9b70b35902f6f0d02049a5d8"
     },
     {
       "path": "CHANGELOG.md",
-      "size": 1947,
-      "sha256": "9eb7c9f246309911276d6a4bf2286f9920f65d22f832848e9a99074fca2b6cbf"
+      "size_bytes": 1947,
+      "sha256": "f0e5ad27ca48945f81118ddcf9c355f801b52bca84def4ebf8b7affd41ab23a4"
     },
     {
       "path": "CLEAN_BASELINE_REPORT.md",
-      "size": 1659,
-      "sha256": "23f5e5c9372a5bf5efc0bd6e88b14da62268195c24fbfdca189196d678b53e77"
+      "size_bytes": 1659,
+      "sha256": "a4f204be5599b5cbec90621f31254c5910d2e2dcc6d0499557cca600029074f3"
+    },
+    {
+      "path": "D1_MIGRATION_TIMEOUT_REPAIR_REPORT.md",
+      "size_bytes": 1078,
+      "sha256": "6a29da21b7a1d62482e31f8e5c81f23a98020527bcf704f3588c23c7bcc9c2a3"
     },
     {
       "path": "DEPLOYMENT.md",
-      "size": 888,
+      "size_bytes": 888,
       "sha256": "f84ee783c020e8288a23f82060290c263feda38bb42e9ac06c7550cf0a6058cc"
     },
     {
       "path": "PHASE_STATUS.md",
-      "size": 1160,
-      "sha256": "0b4407b86bdc4bb5d44c96893f36791dab22757543ddc43f0abf73b2070cea11"
+      "size_bytes": 1160,
+      "sha256": "e743ac01801bf9e9fcc27aa645eb050ad59918afaaabec2a1aa79d38f984f85a"
     },
     {
       "path": "README.md",
-      "size": 866,
-      "sha256": "db942b99baa8b1364ec9fc7838123eefda963eef509d06e531ba81f19a927064"
+      "size_bytes": 866,
+      "sha256": "fe077b36dd801418af18ea15524f3058f8e28a511a20bf0f492d0003c8204430"
     },
     {
       "path": "RELEASE_REPAIR_REPORT.md",
-      "size": 4585,
+      "size_bytes": 4585,
       "sha256": "5a68d4bc44d74aac3ee9e09925574c60b7a387c961ee10e1df64e03ed29e366f"
     },
     {
       "path": "RELEASE_VERIFICATION_REPORT.md",
-      "size": 1560,
-      "sha256": "fc23de40baf79bf511e5e21f6136fa7a3e7a492b3154914e48b37c9966eb31d2"
+      "size_bytes": 1560,
+      "sha256": "301bb189ed7c6a6f630fe2cb30e7723032f1efc7186adc1322ba1ae5b1561d10"
     },
     {
       "path": "backup/DATABASE_SCHEMA_REFERENCE.sql",
-      "size": 13810,
+      "size_bytes": 13810,
       "sha256": "2cdc8dfc4cfabdd2c49d9918692fe35888d51c21eff93567a53d142304541f14"
     },
     {
       "path": "backup/README.md",
-      "size": 532,
+      "size_bytes": 532,
       "sha256": "8137d1676479474d9b672a59807133017fa59baa00cb27a8dbe01274b12ad38a"
     },
     {
       "path": "backup/RESOURCE_MANIFEST.json",
-      "size": 329,
-      "sha256": "46b0003b8df10edcb4ed4606e5a5a6ea41c54aeaf5f1651bf5839a6eb78516b4"
+      "size_bytes": 329,
+      "sha256": "e49eb91f23847c1a46eea6f4080225598851361c4a8becea237d04510f761dd1"
     },
     {
       "path": "backup/nimbus-core-v36-zero.sqlite",
-      "size": 450560,
+      "size_bytes": 450560,
       "sha256": "0c9cb54a70dfa809a95db1d135985e8e814fa64a10c506a80b3bf88e58d7619f"
     },
     {
       "path": "docs/API_SPEC.md",
-      "size": 681,
+      "size_bytes": 681,
       "sha256": "1f117822cbb2e6a303b1a3f2c27f9133647c87aa7d517bbcf01091972503f208"
     },
     {
       "path": "docs/ARCHITECTURE.md",
-      "size": 626,
+      "size_bytes": 626,
       "sha256": "e3358457318827074ad4c8c545b2338e17bc42e0e41e156e854597d515a7b35b"
     },
     {
       "path": "docs/DATABASE_SPEC.md",
-      "size": 923,
+      "size_bytes": 923,
       "sha256": "0015771b76eb133d11f21da3efba27978fcfe436a87a636d60a76921e22604b7"
     },
     {
       "path": "docs/DECISION_LOG.md",
-      "size": 417,
+      "size_bytes": 417,
       "sha256": "48eb866a42f96c16a8debfedb00f0601c7866a9372a2b770b6229225524c50c5"
     },
     {
       "path": "docs/MASTER_PLAN.md",
-      "size": 286,
+      "size_bytes": 286,
       "sha256": "44778c2e5d26641f40284c311b59ca39da248d4cecd3b52ba55f9e96444d0b31"
     },
     {
       "path": "docs/QUEUE_SPEC.md",
-      "size": 473,
+      "size_bytes": 473,
       "sha256": "74c420d0c5846d5a3f1ef696accfbef58f01e8b51ef69c4f3f1aadc1508fecfa"
     },
     {
       "path": "docs/TEST_PLAN.md",
-      "size": 536,
+      "size_bytes": 536,
       "sha256": "516c816fe399b3fd482745b8346ccce3017abca61ebb37639197d8a1c8852c72"
     },
     {
       "path": "docs/phase06/PHASE05_PHASE06_CROSS_AUDIT.md",
-      "size": 2242,
+      "size_bytes": 2242,
       "sha256": "fd28d448fe31d113f4260c2c5946b7a409d932ef425f469da3606e1bc967063d"
     },
     {
       "path": "docs/phase06/PHASE_06_1_DATABASE_REMEDIATION.md",
-      "size": 2173,
+      "size_bytes": 2173,
       "sha256": "471fe8764c99878533b19e0c5aa84c6d1a4fbfc68db16ba2411d775a7029a038"
     },
     {
       "path": "docs/phase06/PHASE_06_DATABASE_CORE.md",
-      "size": 1880,
+      "size_bytes": 1880,
       "sha256": "ea8a91032e8ca1788c008179996b693ca98d750759588529fda7f10a1fc4b06e"
     },
     {
       "path": "docs/phase06/REMOTE_D1_MIGRATION_AND_ROLLBACK.md",
-      "size": 1884,
+      "size_bytes": 1884,
       "sha256": "f0049b5947d092a54ff00bf1a362d05038fde4e98052c9fe2212ba81293700e5"
     },
     {
       "path": "docs/phase07/PHASE_07_RUNTIME_LIFECYCLE.md",
-      "size": 2270,
+      "size_bytes": 2270,
       "sha256": "8ed6fa5a771197db8dff256d8c7e412ea88ab6075f5dda63bbc8b842843e0d90"
     },
     {
       "path": "docs/phase08/PHASE_07_REVIEW.md",
-      "size": 1353,
+      "size_bytes": 1353,
       "sha256": "5078a98f45fca62622b8bc22a51c86442c207f747daea39bdafc3c61f6863ad4"
     },
     {
       "path": "docs/phase08/PHASE_08_QUEUE_RUNTIME.md",
-      "size": 2510,
+      "size_bytes": 2510,
       "sha256": "775c131fb15b7eb395aa5974eb1d989b2c53b9dc1346e9bf577b33d66eaded63"
     },
     {
       "path": "docs/phase09/PHASE_09_SOURCE_MANAGER.md",
-      "size": 2174,
+      "size_bytes": 2174,
       "sha256": "428a415c4488a9dbaf5ca8cde93d70bc762451cf1577d5e3417a08ccae7171c0"
     },
     {
       "path": "docs/phase10/GITHUB_BRANCH_UPLOAD_GUIDE.md",
-      "size": 1553,
+      "size_bytes": 1553,
       "sha256": "bbd492f35077959f1d4f3df5911357b088a8b45323df18ef8d396b62dac36945"
     },
     {
       "path": "docs/phase10/PHASE_10_SEARCH_ADAPTER_CORE.md",
-      "size": 928,
+      "size_bytes": 928,
       "sha256": "8ab5dfda644f5a609b7e2e45585da8b7fe7f80de181cf23aaa9b425ed63bef4b"
     },
     {
       "path": "docs/phase10-ui-recovery/COMPARISON_V34_V35.md",
-      "size": 653,
+      "size_bytes": 653,
       "sha256": "7fc5c1df72da074a2cd22f2d4d5359066e8741f4406588c024b8336476201687"
     },
     {
       "path": "docs/phase10-ui-recovery/README.md",
-      "size": 1261,
+      "size_bytes": 1261,
       "sha256": "ba0d22cdfa3c5728227fd6c9d48fb03c54a4f85331eb0a9bec6a9a763cf096e7"
     },
     {
       "path": "package-lock.json",
-      "size": 48399,
-      "sha256": "8af21af164cb897af9ee2cf3e60ee3795246331cf01b37583d1a8d8970c81279"
+      "size_bytes": 48399,
+      "sha256": "f625e4cea9c27351981cee5982e712aa01d348331707931b7a0a763309cde002"
     },
     {
       "path": "package.json",
-      "size": 1767,
-      "sha256": "d7668fb1bb6e5e0119a9a0760f2587c1ee7af37fabfd8f1eb68f62b2ffd0a9da"
+      "size_bytes": 1724,
+      "sha256": "9b833ae3745286eaa81e10ef6e8afd285fb9b7b155bcb44a5b171194a568c997"
     },
     {
       "path": "public/_headers",
-      "size": 155,
+      "size_bytes": 155,
       "sha256": "17c3b142c0879287e6ee2170c9323a32094953821992dfa1487516892d874f56"
     },
     {
       "path": "public/app.js",
-      "size": 29604,
+      "size_bytes": 29604,
       "sha256": "7502bd83f10c53ed7aec18880eb3ee0474b9a6fe68081bcdfbf65e5c559014f6"
     },
     {
       "path": "public/index.html",
-      "size": 15458,
+      "size_bytes": 15458,
       "sha256": "77ef46e9f0de534cd90f9780526abc47e3a52e6f358967ce6158eb81a9b22d6e"
     },
     {
       "path": "public/style.css",
-      "size": 17552,
+      "size_bytes": 17552,
       "sha256": "d210df943935d2054b702f2728f187f8b30a98b1340b12d84f723a948c8097ac"
     },
     {
+      "path": "scripts/apply-d1-migrations-remote.mjs",
+      "size_bytes": 1149,
+      "sha256": "20e42f13ac2ee65bb88b1287e9eaa44578cf5775fa76b4444ccb719e8fc11543"
+    },
+    {
       "path": "scripts/build-web.mjs",
-      "size": 236,
+      "size_bytes": 236,
       "sha256": "edf4768920075d89a1388bf204397bf61e4e52e134c9af9e0e9ca4a2dc5e409f"
     },
     {
       "path": "scripts/check-config.mjs",
-      "size": 1395,
+      "size_bytes": 1395,
       "sha256": "636a171085ec0418936aedf5dad0b1d742ad5803041261b7092ce803d3de0043"
     },
     {
       "path": "scripts/check-release.mjs",
-      "size": 433,
+      "size_bytes": 433,
       "sha256": "2a86380d7e6d3b59298f577293f37afd47dfcc81264d9f590ae876bc128c6eb0"
     },
     {
       "path": "scripts/clean.mjs",
-      "size": 244,
+      "size_bytes": 244,
       "sha256": "9b482eea9c622f660b5499ccaea592753893f3421ea9f7bbcf49411edd2f1b46"
     },
     {
       "path": "scripts/db-inspect-local.mjs",
-      "size": 1248,
+      "size_bytes": 1248,
       "sha256": "11528423fa017c18a56520f2a4634af165bf8ab89af8d1ec904149398bcb319a"
     },
     {
       "path": "scripts/db-migrate-local.mjs",
-      "size": 1771,
+      "size_bytes": 1771,
       "sha256": "1c2a07481dea2be0d95bb145ab75c5c341555c3946f217d0313cef520c69096b"
     },
     {
       "path": "scripts/db-repair-local.mjs",
-      "size": 758,
+      "size_bytes": 758,
       "sha256": "90ef5d5c1bb04a85a97f5970eef1058069128545a7acd4e2f4426ae4a59c2979"
     },
     {
       "path": "scripts/validate-cloudflare.mjs",
-      "size": 1398,
+      "size_bytes": 1398,
       "sha256": "4f3d85e72b95be5b08b79e44664ac80190f3b9873d0156da1777690d3b19e1d7"
     },
     {
       "path": "scripts/validate-runtime.mjs",
-      "size": 7760,
+      "size_bytes": 7760,
       "sha256": "3a50ff8a545696509e87ba75cfdf5b96a7d1e910a10995e1a1b7c34c5815d823"
     },
     {
       "path": "scripts/verify-baseline.mjs",
-      "size": 1276,
-      "sha256": "c5ddc849294a94fb72c1249700008266556b068c1111bf16d027a32c087c8c43"
+      "size_bytes": 1276,
+      "sha256": "38fb9c138f27c0c5a6701c1eb97bf858dfcf7adf8f7abfa5b549fca0aa6cb69a"
     },
     {
       "path": "src/api/cors.js",
-      "size": 807,
+      "size_bytes": 807,
       "sha256": "0fe8a3c25c1d62cfd36ae630040012f1a04fcf0cd8f8b250b671ff8078df25d2"
     },
     {
       "path": "src/api/errors.js",
-      "size": 492,
+      "size_bytes": 492,
       "sha256": "5597686590c04a8fbf88d6423787dc1f2edc0aa4f27a89e839021173ce9fafc3"
     },
     {
       "path": "src/api/responses.js",
-      "size": 934,
+      "size_bytes": 934,
       "sha256": "21b9742895dad5c7911f8c5f7c3eb47311ce4ba0f38311bd8bc172aff16e64f7"
     },
     {
       "path": "src/api/validation.js",
-      "size": 1195,
+      "size_bytes": 1195,
       "sha256": "c90a3ef4571fd18b0fe23e702d0485b3616eaca7ab1c7b8cc0109bf87c47f077"
     },
     {
       "path": "src/config.js",
-      "size": 1187,
-      "sha256": "062deb4422f7cb046145981a5996a986c54155ca5c17d5992f457e0f1109161f"
+      "size_bytes": 1187,
+      "sha256": "a8d224899256f5ab74bd2fc01f0f37bde4083c870e7d996ee88f03d3508b71f6"
     },
     {
       "path": "src/db/batch.js",
-      "size": 1022,
+      "size_bytes": 1022,
       "sha256": "5c45b6421795e1714af0673bc282fce838c074b85e971a070cf5df2fa98f6efb"
     },
     {
       "path": "src/db/migration-catalog.js",
-      "size": 2726,
+      "size_bytes": 2726,
       "sha256": "08b9abb86c70e64e41801196ac46cd3750d5cba61c6cd8489ef05245a9ff57ca"
     },
     {
       "path": "src/db/migrations/0001_initial.sql",
-      "size": 6808,
+      "size_bytes": 6808,
       "sha256": "fd4418507ca134441918b49648505fc59d3389d2e2fe067a7f2b2f46ddf712c4"
     },
     {
       "path": "src/db/migrations/0002_task_identity.sql",
-      "size": 174,
+      "size_bytes": 174,
       "sha256": "8e26cad2244058d8b979941e815b86f98a9882ecadeeccd1d0d0bb1354c0d316"
     },
     {
       "path": "src/db/migrations/0003_source_seed.sql",
-      "size": 71873,
+      "size_bytes": 71873,
       "sha256": "c9bdfb94788ea22577cf6dfb61c315199c9d6b6321c17d93dac8e48bf2ff70d4"
     },
     {
       "path": "src/db/migrations/0004_source_intelligence.sql",
-      "size": 725,
+      "size_bytes": 725,
       "sha256": "e77100a405e8998a9347331dc7b6a7839dbfb17feb07f26e914221dbf8af4f83"
     },
     {
       "path": "src/db/migrations/0005_keyword_intelligence.sql",
-      "size": 513,
+      "size_bytes": 513,
       "sha256": "545d92d4c4ae66dd0867e304d8fd7779df7fe09b614ec88c8506eb6770778e2e"
     },
     {
       "path": "src/db/migrations/0006_source_discovery.sql",
-      "size": 1202,
+      "size_bytes": 1202,
       "sha256": "92a5e90dadf95bc5834b6cf7ab3a79a4c915eda73000227529c7d946d051952d"
     },
     {
       "path": "src/db/migrations/0007_queue_and_validation.sql",
-      "size": 458,
+      "size_bytes": 458,
       "sha256": "6219671f3d8508ccd70a7cd5ad91fa59d4a8e7ac56450bbc0216a932297d3b85"
     },
     {
       "path": "src/db/migrations/0008_source_intelligence_center.sql",
-      "size": 4496,
+      "size_bytes": 4496,
       "sha256": "5174e1a94ead46a2291e7cf1b86263bb4602b9d1f4cc1e20c5649b1f96e91328"
     },
     {
       "path": "src/db/migrations/0009_source_discovery_runtime.sql",
-      "size": 2018,
+      "size_bytes": 2018,
       "sha256": "49ec1dd8498487d82b647b3d20f691322375fd8612286cb0d19084397283baac"
     },
     {
       "path": "src/db/migrations/0010_zero_foundation_hardening.sql",
-      "size": 765,
+      "size_bytes": 765,
       "sha256": "cdffe6acf6b44f34fecef3e5571d325fff1bacd635c1c7942305e2952f0082cc"
     },
     {
       "path": "src/db/migrations/0011_source_candidate_provenance_fix.sql",
-      "size": 3132,
+      "size_bytes": 3132,
       "sha256": "8cd43787a33ac17309eac3de99a59086141046b96891c2003ae506ba60bb4b1d"
     },
     {
       "path": "src/db/migrations/0012_source_auto_promotion.sql",
-      "size": 350,
+      "size_bytes": 350,
       "sha256": "3d0626c9967ee3d43046da8582bd9a52c8104211117448f22eded9b1dee2f6ed"
     },
     {
       "path": "src/db/migrations.js",
-      "size": 1676,
+      "size_bytes": 1676,
       "sha256": "6d8068187122ab263b5edc24d3ef93df325125322bf0dc7adff7a2176a257e4c"
     },
     {
       "path": "src/db/queries.js",
-      "size": 469,
+      "size_bytes": 469,
       "sha256": "80a91b61969393b8ce702ff10a05760e64dc2be90a07aaeeafada9f593443b1c"
     },
     {
       "path": "src/db/repair.js",
-      "size": 1348,
+      "size_bytes": 1348,
       "sha256": "6f99decfef91371a51c45dc89df52ff8c4ab6790131eb573da1c62c8751b0bc9"
     },
     {
       "path": "src/db/repositories/base.js",
-      "size": 848,
+      "size_bytes": 848,
       "sha256": "56eaf0a4910b321d76c72b276751f95d35dbc14bf6604bde70025b2126205a48"
     },
     {
       "path": "src/db/repositories/events.js",
-      "size": 1184,
+      "size_bytes": 1184,
       "sha256": "d68bdbcb656aef4ed56c44b3860d7939294a3ddad728ea7d637b2e041be4aeb8"
     },
     {
       "path": "src/db/repositories/index.js",
-      "size": 236,
+      "size_bytes": 236,
       "sha256": "0149caca829a4264916d6a9cfb5eb4bc58a75591a70a40da0dcfd92e9e627540"
     },
     {
       "path": "src/db/repositories/results.js",
-      "size": 2629,
+      "size_bytes": 2629,
       "sha256": "40e85f9f1c32bb70673a4f72ab50824a333d97bbe7109c68cdb60d15a5ada078"
     },
     {
       "path": "src/db/repositories/runs.js",
-      "size": 2416,
+      "size_bytes": 2416,
       "sha256": "497c13a26bfed586e09bdf612cee5a5e00e1dddc04821244bd61f0492c5e4ac9"
     },
     {
       "path": "src/db/repositories/settings.js",
-      "size": 554,
+      "size_bytes": 554,
       "sha256": "e583380dc7c0f355dd42400558720345f9c75c164233e1a9dfda9e6176d0dd60"
     },
     {
       "path": "src/db/repositories/sources.js",
-      "size": 2061,
+      "size_bytes": 2061,
       "sha256": "a69b06ada61252ea5e21756be14953ff455ca2fb3fd572e806f0b3c8f2b12d90"
     },
     {
       "path": "src/db/repositories/tasks.js",
-      "size": 2114,
+      "size_bytes": 2114,
       "sha256": "322a0a1f2e4a4d3fa547e615a3b2282eaa50af5d1924bdddfdce4635640b6583"
     },
     {
       "path": "src/db/schema.sql",
-      "size": 79275,
+      "size_bytes": 79275,
       "sha256": "5f4f1455b61e78b0c6f8c3f2aaea1aed06c42ba3ecd7083d8a840b62077889a3"
     },
     {
       "path": "src/diagnostics/health.js",
-      "size": 270,
+      "size_bytes": 270,
       "sha256": "577387227c14643aa59a0e23080b40413eceeb0690b277434e329c0300e9a400"
     },
     {
       "path": "src/diagnostics/report.js",
-      "size": 1082,
+      "size_bytes": 1082,
       "sha256": "9db3663ac69f654bcc6feec733e05e82cc101a04965bff44730225e9196fddfb"
     },
     {
       "path": "src/extract/mega.js",
-      "size": 2997,
+      "size_bytes": 2997,
       "sha256": "35e34719e6163e16fda865de12b76dcc6dc23a78f0c12210fc47c3de026c53e2"
     },
     {
       "path": "src/extract/normalize.js",
-      "size": 1009,
+      "size_bytes": 1009,
       "sha256": "d66b357483c4544f022d5ea348995b10728da9da790fa86f2681856ab2e7354b"
     },
     {
       "path": "src/extract/redirects.js",
-      "size": 336,
+      "size_bytes": 336,
       "sha256": "40e56191e10a58af83d54c44193710e2122446ce0671c266a828ee8c39295355"
     },
     {
       "path": "src/queue/consumer.js",
-      "size": 13753,
+      "size_bytes": 13753,
       "sha256": "c4a17142b809fdf10d9f664ea8e286a430da39726c7b7407454caa26a76c6033"
     },
     {
       "path": "src/queue/contract.js",
-      "size": 2559,
+      "size_bytes": 2559,
       "sha256": "c9ab71dacf9cec8d56e8cbb500eec242efa3d3c65fbb3c86171f2e9226f257d8"
     },
     {
       "path": "src/queue/fallback.js",
-      "size": 1292,
+      "size_bytes": 1292,
       "sha256": "676c6d0720a676349993a29c55fb39cdb8d77fbc76638a63551530001cddc256"
     },
     {
       "path": "src/queue/lease.js",
-      "size": 1325,
+      "size_bytes": 1325,
       "sha256": "92e2c160dc093dba832a294f9945f58acd6d4611eecebf3171f95a6eed1d38a0"
     },
     {
       "path": "src/queue/producer.js",
-      "size": 2840,
+      "size_bytes": 2840,
       "sha256": "e9f67ccd534397aae8ea18f8b39b9c349f5f131195d2051996f670572e0295b1"
     },
     {
       "path": "src/queue/recovery.js",
-      "size": 662,
+      "size_bytes": 662,
       "sha256": "cdc74cc45c6347fd5a7d02da5058940e8202a3c8ba6f178e8e014e3405923410"
     },
     {
       "path": "src/queue/retry.js",
-      "size": 1577,
+      "size_bytes": 1577,
       "sha256": "85dde2a9c6f95794af317c607f57b7a1e0d79fabae9e6ff29b591a18ecfda1e3"
     },
     {
       "path": "src/queue/usage.js",
-      "size": 1458,
+      "size_bytes": 1458,
       "sha256": "5e997f7663e21289218a5408808fb9e7554dea6784ff1437d37190340c3e2e9c"
     },
     {
       "path": "src/queue/watchdog.js",
-      "size": 1149,
+      "size_bytes": 1149,
       "sha256": "e0319a7ccd0575b6ee1c77441c06ddeec0c6328b3317785a654dec4bd4dcdcff"
     },
     {
       "path": "src/results/mega-validation.js",
-      "size": 2267,
+      "size_bytes": 2267,
       "sha256": "86f365bc29a17811314b82a9eac9c33bdfc3d0c62da05f20bce199f06e57b497"
     },
     {
       "path": "src/results/service.js",
-      "size": 1480,
+      "size_bytes": 1480,
       "sha256": "32873dd96850a093bb3efcb9f2ae8ab3608bb8dd65253560dc7f583e19d2f484"
     },
     {
       "path": "src/router.js",
-      "size": 15428,
+      "size_bytes": 15428,
       "sha256": "beeb37cd1d91ced5b62e4f2e54990492fe8c5688a4eb2b16b87362bd2e4536b7"
     },
     {
       "path": "src/runs/cancel.js",
-      "size": 898,
+      "size_bytes": 898,
       "sha256": "50a55722e224be5a3f072538c3fd4c08991eacc908f594253c9a5c6ff0ee8cb2"
     },
     {
       "path": "src/runs/lifecycle.js",
-      "size": 2654,
+      "size_bytes": 2654,
       "sha256": "9fb3427efacace7460c823d9734f9fd09f0e154b2d7697c4512e8e0ff672b53c"
     },
     {
       "path": "src/runs/pause.js",
-      "size": 160,
+      "size_bytes": 160,
       "sha256": "2f7b770411f88703a9a0c350afa7de0609b2853bf52368b78eea3c75ee950117"
     },
     {
       "path": "src/runs/progress.js",
-      "size": 1365,
+      "size_bytes": 1365,
       "sha256": "203e59cbc16f0903855bc1b8c263d5b39fd12f4ecfd8dd70909c053c058595ea"
     },
     {
       "path": "src/runs/read.js",
-      "size": 852,
+      "size_bytes": 852,
       "sha256": "06aef2d416c8f30a7e9b7bb7f66ced8f1e10033d6d1fde9039caa741f0ea399b"
     },
     {
       "path": "src/runs/recovery.js",
-      "size": 1464,
+      "size_bytes": 1464,
       "sha256": "a4e624a62af603994f1947afe46f6f933ca648b9f838fc6db2b25f0b232a2218"
     },
     {
       "path": "src/runs/resume.js",
-      "size": 1269,
+      "size_bytes": 1269,
       "sha256": "72b59e5f3fe2482b98cfe767c3076e621f4515b8b934bee5d5da8890108fcd47"
     },
     {
       "path": "src/runs/start.js",
-      "size": 5473,
+      "size_bytes": 5473,
       "sha256": "6395d14be777f57cc4a9883c99bde586d415e9368a505d9a8498483f7bea5cac"
     },
     {
       "path": "src/runs/state-machine.js",
-      "size": 1652,
+      "size_bytes": 1652,
       "sha256": "b9f2852a10475de7962e9ae3dd2655107985ddeabc81099c3e7c2051c7fd1175"
     },
     {
       "path": "src/search/adapters/html.js",
-      "size": 799,
+      "size_bytes": 799,
       "sha256": "c7fa7497ff529de57df28167808d9d9cb783e99188ea8d737b22525eeeed3631"
     },
     {
       "path": "src/search/adapters/index.js",
-      "size": 620,
+      "size_bytes": 620,
       "sha256": "ec989bf95888f29207a2d45aefb7c305b5fe063420cd1f77b8c0b1d77d2d84df"
     },
     {
       "path": "src/search/adapters/rss.js",
-      "size": 925,
+      "size_bytes": 925,
       "sha256": "a1d37a0d4f888d49027602267ced3835e829ccb5fa8d4e6349cf5bc4d7ada028"
     },
     {
       "path": "src/search/adapters/template.js",
-      "size": 1192,
+      "size_bytes": 1192,
       "sha256": "77e3aee354d82e538d369116d53ca1e440a1761f7ee33e742ee472eaa00d4f8e"
     },
     {
       "path": "src/search/autoscan.js",
-      "size": 404,
+      "size_bytes": 404,
       "sha256": "18db8b6118d70ee0ed2067f20099e61c4aa544d102e400b730f36bc91e7275c0"
     },
     {
       "path": "src/search/contracts/adapter.js",
-      "size": 1486,
+      "size_bytes": 1486,
       "sha256": "179783b0509e7c833f68c4e1f0d5492551ca7202657f799f073cde5cf0d9e1c8"
     },
     {
       "path": "src/search/crawler.js",
-      "size": 6372,
+      "size_bytes": 6372,
       "sha256": "9a77ed63062a37e0ac677bde67f67d4581bb042543b25433b18655e7df0203ff"
     },
     {
       "path": "src/search/keyword-intelligence.js",
-      "size": 5416,
+      "size_bytes": 5416,
       "sha256": "b07f1e8be7c57325b6c1303e87aba01529ec15de4c0aabc21ea7029f86ca8d0c"
     },
     {
       "path": "src/search/keyword.js",
-      "size": 3407,
+      "size_bytes": 3407,
       "sha256": "854ceb967dc479ffdcd01be2f96deab2805a007a27166ea7c94428c026c53c3e"
     },
     {
       "path": "src/search/normalization.js",
-      "size": 880,
+      "size_bytes": 880,
       "sha256": "711e8628ffac4dfe72e86b9f0e560c3ecafafd52a322e08ebcb367eadee26f7c"
     },
     {
       "path": "src/search/ranking.js",
-      "size": 309,
+      "size_bytes": 309,
       "sha256": "4b0eebdfa4c401db81a0afa0492daf8b77fba07df316acc9d6cf1c453886efc2"
     },
     {
       "path": "src/search/target-decoder.js",
-      "size": 3671,
+      "size_bytes": 3671,
       "sha256": "88b10d0984f22b019be4d1e72bd7bbe4a1a8012c0ecb3876e8bfcb8a4017a1c4"
     },
     {
       "path": "src/sources/catalog.js",
-      "size": 6018,
+      "size_bytes": 6018,
       "sha256": "ac839ca8b6d47c7447ba7eda6c7b2ff2705b3fdcd0c78ac0a839aca921526dfa"
     },
     {
       "path": "src/sources/defaults.js",
-      "size": 3992,
+      "size_bytes": 3992,
       "sha256": "9b160e39bcd264d9472e8bc88918abb5879394a11e0060faed426fc6b5c5394c"
     },
     {
       "path": "src/sources/discovery-providers.js",
-      "size": 3413,
+      "size_bytes": 3413,
       "sha256": "3261600121727a7b8bc8dceccfe5754b034951d3bf9fa6e32479dac8a35dcafe"
     },
     {
       "path": "src/sources/discovery-queue.js",
-      "size": 4610,
+      "size_bytes": 4610,
       "sha256": "6eb37469cb1cc6a7b8dbcc612685d96cab59a4f73139e50ec3f100634a8bbd5f"
     },
     {
       "path": "src/sources/discovery-runs.js",
-      "size": 17143,
+      "size_bytes": 17143,
       "sha256": "03856cab87153d168b46c0cf250130b77e0bd2d1dd2ee4870f5db4547336c21a"
     },
     {
       "path": "src/sources/discovery.js",
-      "size": 13809,
+      "size_bytes": 13809,
       "sha256": "696e8628c0b525d1bce1aa043a8264b7a46e1c6c69c08a5dbd10f0d3211d7195"
     },
     {
       "path": "src/sources/intelligence.js",
-      "size": 2900,
+      "size_bytes": 2900,
       "sha256": "a8eae0b8e25a37583468420552eba9fe06c755a9f9aaadfdad346ec853d6d83d"
     },
     {
       "path": "src/sources/metrics.js",
-      "size": 3615,
+      "size_bytes": 3615,
       "sha256": "e235c266ec9fe5009fcf7086260185f4b563360e16b4f1a5bb5ae3feb68c75f5"
     },
     {
       "path": "src/sources/ranking.js",
-      "size": 2024,
+      "size_bytes": 2024,
       "sha256": "f0ca02cfb2d39f58c697dff8acedfefb0f5fff087f6ebf75f7a0e034b385a036"
     },
     {
       "path": "src/sources/service.js",
-      "size": 9768,
+      "size_bytes": 9768,
       "sha256": "25df76d4e24772b280fba892598c95909ff6fea3dca15cda077b2fcc2df632ee"
     },
     {
       "path": "src/worker.js",
-      "size": 356,
+      "size_bytes": 356,
       "sha256": "1c1ea4db6626fc664eeae093a87e8996aea57c92c06a16294a02b8d625918126"
     },
     {
       "path": "tests/architecture.test.mjs",
-      "size": 1201,
+      "size_bytes": 1201,
       "sha256": "0ff04793a3440f01adc52eb2e1c91bd6624791ac5f79624913ace9eb2bb13f41"
     },
     {
       "path": "tests/batch.test.mjs",
-      "size": 933,
+      "size_bytes": 933,
       "sha256": "d9bb7741f9317a1172408b9f3f78971504180458a9cd44ba2039b24c1c572ac5"
     },
     {
       "path": "tests/clean-baseline.test.mjs",
-      "size": 1428,
-      "sha256": "9d3ee0608b308800adcdbaecc4f5b942f7ba162ddd7b2e6d9535ff6367a75dc1"
+      "size_bytes": 1428,
+      "sha256": "c03821bf874040494c8cc6ae304eb7addbf3c9b1ee4d3415ebb1f169f92367ad"
     },
     {
       "path": "tests/config.test.mjs",
-      "size": 1351,
-      "sha256": "1f4c3cb3a64f6acee22fcb747396235a450195ce26a58c990ce01010028f5735"
+      "size_bytes": 1351,
+      "sha256": "9c9671926130fb354bb4ef5715d0f0c6820c9a3b9bdea9d565d0f46f91186ad8"
     },
     {
       "path": "tests/cors.test.mjs",
-      "size": 953,
+      "size_bytes": 953,
       "sha256": "6c56016939e1990702e5c9f3a892383f4331fa5f4d525e6beece8894c4808184"
     },
     {
       "path": "tests/database-core.test.mjs",
-      "size": 8350,
+      "size_bytes": 8350,
       "sha256": "3dc07df616c1f229f141f1870713978469f44a8f86bdc71a64d50fbcf3a68ac5"
     },
     {
       "path": "tests/discovery-context.test.mjs",
-      "size": 1473,
+      "size_bytes": 1473,
       "sha256": "983376700570cc3ce688fcc0377cb32def6d010445d38833b53f2b4cf26db4a8"
     },
     {
       "path": "tests/dynamic-source-ui.test.mjs",
-      "size": 1209,
+      "size_bytes": 1209,
       "sha256": "64293147676da8f1254f00ce2e8a7de56b91c09c25c0b498b9b204cba085bb0e"
     },
     {
       "path": "tests/extract.test.mjs",
-      "size": 2785,
+      "size_bytes": 2785,
       "sha256": "6ad7415f43bc0fb5eaec647deed2b3fcba66b1991caf2bfa4af94ca7c31bd0fd"
     },
     {
       "path": "tests/keyword-intelligence.test.mjs",
-      "size": 2680,
+      "size_bytes": 2680,
       "sha256": "bc0d2a98e05b0ab4b82828fe2df667fbef44a0164f880c26a5192f1ed6e6cac0"
     },
     {
       "path": "tests/keyword-learning-batch.test.mjs",
-      "size": 808,
+      "size_bytes": 808,
       "sha256": "151b1976283a1871f54a55147561635b16d45dacf51e4e42bfac121f0a7aa794"
     },
     {
       "path": "tests/queue-runtime.test.mjs",
-      "size": 4099,
+      "size_bytes": 4099,
       "sha256": "34eef5fecf10a005938c167f568e978af5b9658f6b342f11f02fba4d090fc168"
     },
     {
       "path": "tests/queue.test.mjs",
-      "size": 1979,
+      "size_bytes": 1979,
       "sha256": "4754698cb20b1df3517d8b1d3051c91b27fa97fa243c85867848412d71920346"
     },
     {
       "path": "tests/router.test.mjs",
-      "size": 2795,
+      "size_bytes": 2795,
       "sha256": "8d8ad61689f010798400309473b44a035d7905b9a0746e23d3248c449e4452cd"
     },
     {
       "path": "tests/run-lifecycle.test.mjs",
-      "size": 3323,
+      "size_bytes": 3323,
       "sha256": "02625138e08d772e690499d728163de79dcabb49f70a364db5ee7e414af469c7"
     },
     {
       "path": "tests/runtime-services.test.mjs",
-      "size": 1291,
+      "size_bytes": 1291,
       "sha256": "b0cfe6f7c914bb93b47dfd568b38b326550b1f48d715b697370b0ee3e4012700"
     },
     {
       "path": "tests/schema.test.mjs",
-      "size": 1006,
+      "size_bytes": 1006,
       "sha256": "bf010b695ad7e64dfe86eccf320698a1b091b5bdd79cead986b5d26f6d0fa8c9"
     },
     {
       "path": "tests/search-adapters.test.mjs",
-      "size": 4255,
+      "size_bytes": 4255,
       "sha256": "34586f37240aaac156616d345ddac382989818cd90adee5adf256704ee292f38"
     },
     {
       "path": "tests/search.test.mjs",
-      "size": 2897,
+      "size_bytes": 2897,
       "sha256": "07c9e6160f88f4aaf5e33144321192c50955fac86ef4c9d5482b6177cb5eb726"
     },
     {
       "path": "tests/source-auto-promotion.test.mjs",
-      "size": 4045,
+      "size_bytes": 4045,
       "sha256": "d49fc8ed8d7f05f40e82a10a8af49e1de1654bb88f2110b4352261bd962ab539"
     },
     {
       "path": "tests/source-candidate-provenance.test.mjs",
-      "size": 789,
+      "size_bytes": 789,
       "sha256": "04fd3b1a18cf22cfa45337820b51c5748cb162a5107e129951950d583bdb0787"
     },
     {
       "path": "tests/source-discovery-providers.test.mjs",
-      "size": 600,
+      "size_bytes": 600,
       "sha256": "a27eca0e967323dcda352b36faa5848808e8c2a0b7f04adfca2ff46c411c78e8"
     },
     {
       "path": "tests/source-discovery.test.mjs",
-      "size": 2047,
+      "size_bytes": 2047,
       "sha256": "c0220cdb592677e781f3177a8d6aad2fc5c8f3b33cb451b9e5419c0824831583"
     },
     {
       "path": "tests/source-intelligence-center.test.mjs",
-      "size": 3382,
+      "size_bytes": 3382,
       "sha256": "a9ddfaff82fd2622ac1d2b1b4a24b9df7ab19dcdfdc58b29bd753f55a3432d00"
     },
     {
       "path": "tests/source-intelligence-hardening.test.mjs",
-      "size": 2076,
+      "size_bytes": 2076,
       "sha256": "7ecf61841c4cf5ddb304e21dffa4b7df66e8ecfabd4eb09ad09ad055eac8ea24"
     },
     {
       "path": "tests/source-manager.test.mjs",
-      "size": 4842,
+      "size_bytes": 4842,
       "sha256": "8112fc830c39d51642b7ab877e80018f7ac321e8021aa120014a60e4c0b71206"
     },
     {
       "path": "tests/source-reset.test.mjs",
-      "size": 4331,
+      "size_bytes": 4331,
       "sha256": "2ea77e76961d3e2530323c2ac42de0062ff714afcef8d90742c221113d22d5fc"
     },
     {
       "path": "tests/sources.test.mjs",
-      "size": 1151,
+      "size_bytes": 1151,
       "sha256": "38a7a26e0e521db35dbe2af545283fc0bbf174b28695902512d7228110da41f0"
     },
     {
       "path": "tests/ui-recovery.test.mjs",
-      "size": 3174,
+      "size_bytes": 3174,
       "sha256": "de6f058afd1e8ffa20de38a3cfba4cc251c4b7c38d9122ec6f6c531273e8fd3b"
     },
     {
       "path": "wrangler.pages.jsonc",
-      "size": 169,
+      "size_bytes": 169,
       "sha256": "2f52b594c04aa681f4103df6873d40e1e59a7ee224f3377baddf3e2483ca48d0"
     },
     {
       "path": "wrangler.worker.jsonc",
-      "size": 845,
+      "size_bytes": 845,
       "sha256": "a2fbe5e96e24f187a704e67d9cf9ba0ae074b6497f6655a49514fb865969a7a6"
     }
   ]
