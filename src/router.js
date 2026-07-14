@@ -24,7 +24,7 @@ import { sourceDiscoverySummary, promoteQualifiedCandidates } from "./sources/di
 import { queueUsage } from "./queue/usage.js";
 import { processPendingDirect } from "./queue/fallback.js";
 import { validateMegaFolderUrl, validateStoredLinks } from "./results/mega-validation.js";
-import { startSourceDiscovery, processSourceDiscoveryStep, sourceDiscoveryRun, listSourceDiscoveryRuns, sourceDiscoveryAction, sourceDiscoveryProviderStatus } from "./sources/discovery-runs.js";
+import { startSourceDiscovery, processSourceDiscoveryStep, sourceDiscoveryRun, listSourceDiscoveryRuns, sourceDiscoveryAction } from "./sources/discovery-runs.js";
 
 async function requestBody(request) {
   return request.json().catch(() => ({}));
@@ -142,20 +142,12 @@ export async function route(request, env) {
     }
 
 
-    if (url.pathname === "/api/source-discovery/providers" && request.method === "GET") {
-      return ok(sourceDiscoveryProviderStatus(env),200,cors);
-    }
     if (url.pathname === "/api/source-discovery/runs" && request.method === "GET") {
       return ok(await listSourceDiscoveryRuns(requireDb(env), { limit: positiveInt(url.searchParams.get("limit"), { name:"limit", min:1, max:100, fallback:20 }) }), 200, cors);
     }
     if (url.pathname === "/api/source-discovery/start" && request.method === "POST") {
       const data=await requestBody(request);
       return ok(await startSourceDiscovery(env,{rounds:data.rounds,profile:data.profile}),201,cors);
-    }
-    const sourceDiscoveryTasksMatch=/^\/api\/source-discovery\/runs\/([^/]+)\/tasks$/.exec(url.pathname);
-    if(sourceDiscoveryTasksMatch&&request.method==="GET"){
-      const rows=await requireDb(env).prepare(`SELECT id,strategy,status,attempts,last_error,result_json,updated_at FROM source_discovery_tasks WHERE run_id=? ORDER BY updated_at DESC LIMIT 50`).bind(sourceDiscoveryTasksMatch[1]).all();
-      return ok({tasks:rows.results||[]},200,cors);
     }
     const sourceDiscoveryMatch=/^\/api\/source-discovery\/runs\/([^/]+)(?:\/(step|pause|resume|cancel|recover))?$/.exec(url.pathname);
     if(sourceDiscoveryMatch){

@@ -1,11 +1,14 @@
 {
-  "version": "36.13.2",
-  "schema_version": 10,
+  "version": "36.13.5",
+  "schema_version": 11,
   "repository": "newdhum18/nimbus-core",
   "pages": "nimbus-core-v36-web",
   "worker": "nimbus-core-v36-worker",
   "database": "nimbus-core-v36-db",
   "queue": "nimbus-core-v36-queue",
-  "bindings": {"database": "DB", "queue": "QUEUE"},
+  "bindings": {
+    "database": "DB",
+    "queue": "QUEUE"
+  },
   "contains_secrets": false
 }

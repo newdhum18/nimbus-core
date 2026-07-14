@@ -29,7 +29,7 @@ test("migration checksum is the real SHA-256 of its SQL file", async () => {
   const bytes = await readFile(schemaPath);
   const checksum = createHash("sha256").update(bytes).digest("hex");
   assert.equal(checksum, MIGRATIONS[0].checksum);
-  assert.equal(EXPECTED_SCHEMA_VERSION, 10);
+  assert.equal(EXPECTED_SCHEMA_VERSION, 11);
 });
 
 test("fresh database creates exactly the approved eleven tables", async () => {
@@ -129,3 +129,6 @@ test("migration history rejects checksum drift", async () => {
   assert.notEqual(row.checksum,MIGRATIONS[0].checksum);
   db.close();
 });
+
+
+test("source candidate provenance accepts both run types", async()=>{const db=freshDb();for(const m of MIGRATIONS){db.exec(await readFile(m.file,"utf8"));db.prepare(`INSERT OR IGNORE INTO schema_migrations(version,name,checksum,applied_at) VALUES(?,?,?,?)`).run(m.version,m.name,m.checksum,new Date().toISOString());}const now=new Date().toISOString();db.prepare(`INSERT INTO runs(id,mode,keyword,status,created_at,updated_at) VALUES('run_auto','autoscan','','created',?,?)`).run(now,now);db.prepare(`INSERT INTO source_discovery_runs(id,status,profile,rounds,total_tasks,created_at,started_at,updated_at,outcome) VALUES('srun_test','running','quick',1,1,?,?,?,'pending')`).run(now,now,now);const q=db.prepare(`INSERT INTO source_candidates(id,normalized_url,host,discovered_from_autoscan_run_id,discovered_from_discovery_run_id,evidence_count,mega_links_found,successful_fetches,failed_fetches,confidence,state,first_seen_at,last_seen_at,pages_tested,novel_links_found,alive_links_found,duplicate_links_found,average_latency,quality_grade,family) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);q.run('a','https://a.example/','a.example','run_auto',null,1,0,1,0,1,'candidate',now,now,1,0,0,0,0,'C','web');q.run('b','https://b.example/','b.example',null,'srun_test',1,0,1,0,1,'candidate',now,now,1,0,0,0,0,'C','web');assert.equal(db.prepare(`SELECT COUNT(*) c FROM source_candidates`).get().c,2);db.close();});

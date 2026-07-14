@@ -5,7 +5,6 @@ import { validateMegaFolderUrl } from "../results/mega-validation.js";
 import { discoverCandidateUrls, registerSourceCandidates, promoteQualifiedCandidates } from "./discovery.js";
 import { dispatchSourceDiscovery } from "./discovery-queue.js";
 import { SYSTEM } from "../config.js";
-import { searchDiscoveryProviders, discoveryProviderStatus } from "./discovery-providers.js";
 
 const PROFILES=Object.freeze({quick:8,normal:20,deep:40,ultra:70});
 const DDG_HTML="https://html.duckduckgo.com/html/?q=";
@@ -13,7 +12,7 @@ const DDG_LITE="https://lite.duckduckgo.com/lite/?q=";
 const BING_RSS="https://www.bing.com/search?format=rss&q=";
 const WAYBACK="https://web.archive.org/cdx/search/cdx?output=json&filter=statuscode:200&collapse=urlkey&fl=original&limit=50&url=";
 function q(base,text){return`${base}${encodeURIComponent(text)}`;}
-function folderParts(url){const m=String(url||"").match(/mega\.nz\/folder\/([A-Za-z0-9_-]+)(?:#([A-Za-z0-9_-]+))?/i);return{id:m?.[1]||"",key:m?.[2]||""};}
+function folderParts(url){const m=String(url||"").match(/(?:https?:\/\/)?(?:www\.)?mega\.nz\/folder\/([A-Za-z0-9_-]{8})(?:#([A-Za-z0-9_-]{22}))?(?=$|[^A-Za-z0-9_-])/i);return{id:m?.[1]||"",key:m?.[2]||""};}
 function variants(seed,round){const suffixes=["archive","mirror","collection","index","paste","forum","links","shared folder","recent","rss","sitemap","public list","directory","catalog"];const s=suffixes[round%suffixes.length];return[`${seed} ${s}`,`${seed} ${s} -site:mega.nz`,`${seed} ${round%2?"recent":"updated"}`];}
 export function chunkItems(items,size=SYSTEM.sqlBatchSize){const out=[];for(let i=0;i<items.length;i+=Math.max(1,size))out.push(items.slice(i,i+Math.max(1,size)));return out;}
 export function deriveDiscoveryOutcome({total=0,completed=0,failed=0,cancelled=0}={}){const done=completed+failed+cancelled;if(total<=0||done<total)return{status:"running",outcome:"pending"};if(failed===0)return{status:"completed",outcome:"success"};if(completed>0)return{status:"completed",outcome:"partial"};return{status:"failed",outcome:"failure"};}
@@ -37,8 +36,6 @@ function searchFallbackUrls(value){
 function materializeTemplate(value,term='"mega.nz/folder"'){
   return String(value||"").replaceAll("{q}",encodeURIComponent(term));
 }
-
-export function sourceDiscoveryProviderStatus(env){return discoveryProviderStatus(env);}
 
 
 export async function buildDiscoverySeeds(db,{rounds=1,profile="normal"}={}){
@@ -101,48 +98,33 @@ async function profileDomain(env,domain,{fetchBudget=12,validationBudget=4}={}){
 }
 async function syncSourceDiscoveryProgress(db,runId){const c=await db.prepare(`SELECT COUNT(*) total,SUM(status='completed') completed,SUM(status IN ('failed','dead')) failed,SUM(status='cancelled') cancelled FROM source_discovery_tasks WHERE run_id=?`).bind(runId).first();const total=Number(c?.total||0),completed=Number(c?.completed||0),failed=Number(c?.failed||0),cancelled=Number(c?.cancelled||0),done=completed+failed+cancelled;const {status,outcome}=deriveDiscoveryOutcome({total,completed,failed,cancelled});const progress=total?Math.min(100,done*100/total):100;await db.prepare(`UPDATE source_discovery_runs SET status=?,outcome=?,completed_tasks=?,failed_tasks=?,progress=?,completed_at=CASE WHEN ? IN ('completed','failed') THEN ? ELSE completed_at END,updated_at=? WHERE id=?`).bind(status,outcome,completed,failed,progress,status,nowIso(),nowIso(),runId).run();return{status,outcome,progress,total,completed,failed};}
 
+export function isPermanentDiscoveryError(error){const m=String(error?.message||error||"").toLowerCase();return m.includes("foreign key constraint")||m.includes("check constraint")||m.includes("no such table")||m.includes("no such column")||m.includes("invalid schema")||m.includes("invalid task");}
+
 export async function processSourceDiscoveryTask(env,taskId,{fetchBudget=SYSTEM.sourceDiscoveryFetchBudget}={}){
   const task=await env.DB.prepare(`SELECT t.*,r.status run_status FROM source_discovery_tasks t JOIN source_discovery_runs r ON r.id=t.run_id WHERE t.id=?`).bind(taskId).first();if(!task)return{retry:false,skipped:"missing"};
   if(task.run_status!=="running"){if(["queued","dispatching","running","failed"].includes(task.status))await env.DB.prepare(`UPDATE source_discovery_tasks SET status='pending',lease_until=NULL,updated_at=? WHERE id=?`).bind(nowIso(),taskId).run();return{retry:false,skipped:"run_not_running"};}
   const lease=new Date(Date.now()+SYSTEM.sourceDiscoveryLeaseSeconds*1000).toISOString();const got=await env.DB.prepare(`UPDATE source_discovery_tasks SET status='running',attempts=attempts+1,started_at=COALESCE(started_at,?),lease_until=?,updated_at=? WHERE id=? AND status IN ('pending','failed','queued','dispatching')`).bind(nowIso(),lease,nowIso(),taskId).run();if((got.meta?.changes||0)!==1)return{retry:false,skipped:"lease_not_acquired"};
   let fetches=0;
   try{
-    const pages=[];const providerAttempts=[];const urls=[];
-    const searchStrategy=!String(task.strategy||"").startsWith("direct_source_probe")&&!String(task.strategy||"").startsWith("wayback_backlink");
-    if(searchStrategy){
-      const query=queryTextFromSearchUrl(task.url)||String(task.seed_value||'"mega.nz/folder"');
-      const provider=await searchDiscoveryProviders(env,query,{count:20});
-      providerAttempts.push(...provider.attempts);
-      urls.push(...provider.urls);
+    const pages=[];
+    for(const candidateUrl of searchFallbackUrls(task.url)){
+      if(fetches>=Math.max(1,Math.min(3,fetchBudget)))break;
+      const page=await fetchPage(candidateUrl,{timeoutMs:7000});fetches++;pages.push(page);
+      const found=discoverCandidateUrls(page.text||"",page.finalUrl||candidateUrl,{limit:100});
+      if(found.length>0&&task.strategy!=="direct_source_probe")break;
     }
-    // Best-effort HTML/RSS fallback remains available, but it is not treated as
-    // proof that a search provider is healthy when it returns an empty page.
-    if(urls.length===0||!searchStrategy){
-      for(const candidateUrl of searchFallbackUrls(task.url)){
-        if(fetches>=Math.max(1,Math.min(3,fetchBudget)))break;
-        const page=await fetchPage(candidateUrl,{timeoutMs:7000});fetches++;pages.push(page);
-        const found=discoverCandidateUrls(page.text||"",page.finalUrl||candidateUrl,{limit:100});
-        urls.push(...found);
-        if(found.length>0&&task.strategy!=="direct_source_probe")break;
-      }
-    }
-    // A direct probe is allowed to finish with no outbound domains. This is a
-    // valid observation about an existing source, not a retryable search error.
+    const urls=[];
+    for(const page of pages)urls.push(...discoverCandidateUrls(page.text||"",page.finalUrl||task.url,{limit:100}));
     const domains=rootCandidates([...new Set(urls)]);
-    if(domains.length===0&&task.strategy==="direct_source_probe"){
-      await env.DB.prepare(`UPDATE source_discovery_tasks SET status='completed',completed_at=?,lease_until=NULL,result_json=?,last_error=NULL,updated_at=? WHERE id=?`).bind(nowIso(),JSON.stringify({domains:0,candidates:0,tested:0,promoted:0,fetches,provider_attempts:providerAttempts,seed_pages:pages.map(p=>({ok:p.ok,status:p.status,error:p.error,final_url:p.finalUrl,bytes:(p.text||"").length})),note:"direct_probe_no_outbound_domains"}),nowIso(),taskId).run();
-      const progress=await syncSourceDiscoveryProgress(env.DB,task.run_id);return{retry:false,runId:task.run_id,fetches,...progress};
-    }
     if(domains.length===0){
-      const details={provider_attempts:providerAttempts,seed_pages:pages.map(p=>({ok:p.ok,status:p.status,error:p.error,final_url:p.finalUrl,bytes:(p.text||"").length}))};
-      const message=providerAttempts.some(x=>x.configured)?"discovery_no_targets":"discovery_provider_not_configured";
-      throw new Error(`${message}:${JSON.stringify(details).slice(0,1400)}`);
+      const detail=pages.map(p=>`${p.status||0}:${p.error||"empty"}:${(p.text||"").length}`).join(",");
+      throw new Error(`discovery_no_targets:${detail||"no_response"}`);
     }
     let discovered=domains.length,candidates=0,tested=0,promoted=0,novel=0,dupes=0,alive=0,dead=0,unknown=0;
     for(const d of domains.slice(0,Math.max(1,Math.min(8,fetchBudget-fetches)))){const prof=await profileDomain(env,d,{fetchBudget:Math.max(1,Math.min(6,fetchBudget-fetches))});fetches+=prof.pages;tested+=prof.pages;alive+=prof.alive;dead+=prof.dead;unknown+=prof.unknown;const fps=new Set(prof.mega.map(x=>folderParts(x.normalizedUrl).id).filter(Boolean));if(task.input_fingerprint)fps.add(task.input_fingerprint);let domainNovel=0,domainDup=0;for(const l of prof.mega){const exists=await env.DB.prepare(`SELECT 1 FROM links WHERE normalized_url=? LIMIT 1`).bind(l.normalizedUrl).first();if(exists)domainDup++;else domainNovel++;}novel+=domainNovel;dupes+=domainDup;
-      const reg=await registerSourceCandidates(env.DB,{urls:[d.root,...d.examples.slice(0,3),...prof.candidates.slice(0,10)],sourceId:task.origin_source_id,sourceHost:task.origin_host,runId:task.run_id,megaLinksFound:prof.mega.length,novelLinksFound:domainNovel,aliveLinksFound:prof.alive,deadLinksFound:prof.dead,unknownLinksFound:prof.unknown,duplicateLinksFound:domainDup,successful:prof.ok>0,blockedFetches:prof.blocked,pagesTested:prof.pages,latency:prof.latency,megaFingerprints:[...fps],evidenceUrl:d.examples[0]||task.evidence_url||task.url});candidates+=reg.registered;if(fetches>=fetchBudget)break;}
-    const p=await promoteQualifiedCandidates(env.DB,{limit:5});promoted+=p.promoted;await env.DB.prepare(`UPDATE source_discovery_tasks SET status='completed',completed_at=?,lease_until=NULL,result_json=?,last_error=NULL,updated_at=? WHERE id=?`).bind(nowIso(),JSON.stringify({domains:discovered,candidates,tested,promoted,novel,duplicates:dupes,alive,dead,unknown,fetches,provider_attempts:providerAttempts,seed_pages:pages.map(p=>({ok:p.ok,status:p.status,error:p.error,final_url:p.finalUrl,bytes:(p.text||"").length}))}),nowIso(),taskId).run();await env.DB.prepare(`UPDATE source_discovery_runs SET domains_discovered=domains_discovered+?,candidates_created=candidates_created+?,sources_tested=sources_tested+?,promoted_sources=promoted_sources+?,current_strategy=?,updated_at=? WHERE id=?`).bind(discovered,candidates,tested,promoted,task.strategy,nowIso(),task.run_id).run();const progress=await syncSourceDiscoveryProgress(env.DB,task.run_id);return{retry:false,runId:task.run_id,fetches,...progress};
-  }catch(error){const attempts=Number(task.attempts||0)+1,dead=attempts>=SYSTEM.sourceDiscoveryMaxAttempts;await env.DB.prepare(`UPDATE source_discovery_tasks SET status=?,lease_until=NULL,last_error=?,updated_at=? WHERE id=?`).bind(dead?"dead":"failed",String(error?.message||error),nowIso(),taskId).run();const progress=await syncSourceDiscoveryProgress(env.DB,task.run_id);return{retry:!dead,runId:task.run_id,fetches,...progress,error:String(error?.message||error)};}
+      const reg=await registerSourceCandidates(env.DB,{urls:[d.root,...d.examples.slice(0,3),...prof.candidates.slice(0,10)],sourceId:task.origin_source_id,sourceHost:task.origin_host,discoveryRunId:task.run_id,megaLinksFound:prof.mega.length,novelLinksFound:domainNovel,aliveLinksFound:prof.alive,deadLinksFound:prof.dead,unknownLinksFound:prof.unknown,duplicateLinksFound:domainDup,successful:prof.ok>0,blockedFetches:prof.blocked,pagesTested:prof.pages,latency:prof.latency,megaFingerprints:[...fps],evidenceUrl:d.examples[0]||task.evidence_url||task.url});candidates+=reg.registered;if(fetches>=fetchBudget)break;}
+    const p=await promoteQualifiedCandidates(env.DB,{limit:5});promoted+=p.promoted;await env.DB.prepare(`UPDATE source_discovery_tasks SET status='completed',completed_at=?,lease_until=NULL,result_json=?,last_error=NULL,updated_at=? WHERE id=?`).bind(nowIso(),JSON.stringify({domains:discovered,candidates,tested,promoted,novel,duplicates:dupes,alive,dead,unknown,fetches,seed_pages:pages.map(p=>({ok:p.ok,status:p.status,error:p.error,final_url:p.finalUrl,bytes:(p.text||"").length}))}),nowIso(),taskId).run();await env.DB.prepare(`UPDATE source_discovery_runs SET domains_discovered=domains_discovered+?,candidates_created=candidates_created+?,sources_tested=sources_tested+?,promoted_sources=promoted_sources+?,current_strategy=?,updated_at=? WHERE id=?`).bind(discovered,candidates,tested,promoted,task.strategy,nowIso(),task.run_id).run();const progress=await syncSourceDiscoveryProgress(env.DB,task.run_id);return{retry:false,runId:task.run_id,fetches,...progress};
+  }catch(error){const attempts=Number(task.attempts||0)+1,permanent=isPermanentDiscoveryError(error),dead=permanent||attempts>=SYSTEM.sourceDiscoveryMaxAttempts;await env.DB.prepare(`UPDATE source_discovery_tasks SET status=?,lease_until=NULL,last_error=?,updated_at=? WHERE id=?`).bind(dead?"dead":"failed",String(error?.message||error),nowIso(),taskId).run();const progress=await syncSourceDiscoveryProgress(env.DB,task.run_id);return{retry:!dead,permanent,runId:task.run_id,fetches,...progress,error:String(error?.message||error)};}
 }
 export async function processSourceDiscoveryStep(env,runId){return dispatchSourceDiscovery(env,runId);}
 export async function sourceDiscoveryRun(db,id){

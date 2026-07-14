@@ -232,7 +232,7 @@ export async function processTask(env, messageBody) {
       await registerSourceCandidates(env.DB, {
         urls: [...new Set(candidates)],
         sourceId: current.source_id,
-        runId: current.run_id,
+        autoscanRunId: current.run_id,
         megaLinksFound: linkStats.novel,
         successful: true
       }).catch(()=>{});
@@ -273,7 +273,7 @@ export async function processTask(env, messageBody) {
     `).bind(nowIso(), nowIso(), taskId).run();
 
     await event(env.DB, {
-      runId: current.run_id,
+      autoscanRunId: current.run_id,
       taskId,
       type: "task_completed",
       message: "Task completed",
@@ -292,7 +292,7 @@ export async function processTask(env, messageBody) {
     }).catch(() => {});
 
     await event(env.DB, {
-      runId: current.run_id,
+      autoscanRunId: current.run_id,
       taskId,
       type: "task_failed",
       level: "error",
@@ -303,7 +303,7 @@ export async function processTask(env, messageBody) {
     return {
       action: state === "dead" ? "ack" : "retry",
       delaySeconds: SYSTEM.queueRetryDelaySeconds,
-      runId: current.run_id,
+      autoscanRunId: current.run_id,
       error: error instanceof Error ? error.message : String(error)
     };
   }
