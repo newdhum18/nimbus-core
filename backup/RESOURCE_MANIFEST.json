@@ -1,0 +1,11 @@
+{
+  "version": "36.13.1",
+  "schema_version": 10,
+  "repository": "newdhum18/nimbus-core",
+  "pages": "nimbus-core-v36-web",
+  "worker": "nimbus-core-v36-worker",
+  "database": "nimbus-core-v36-db",
+  "queue": "nimbus-core-v36-queue",
+  "bindings": {"database": "DB", "queue": "QUEUE"},
+  "contains_secrets": false
+}

@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS links (
   normalized_url TEXT NOT NULL,
   link_type TEXT NOT NULL CHECK(link_type IN ('folder','legacy_folder')),
   has_key INTEGER NOT NULL CHECK(has_key IN (0,1)),
-  validation_status TEXT NOT NULL CHECK(validation_status IN ('valid','invalid','unchecked','dead')),
+  validation_status TEXT NOT NULL CHECK(validation_status IN ('structurally_valid','valid','invalid','unchecked','unknown','dead','pending')),
   is_complete INTEGER NOT NULL CHECK(is_complete IN (0,1)),
   discovered_at TEXT NOT NULL,
   checked_at TEXT,

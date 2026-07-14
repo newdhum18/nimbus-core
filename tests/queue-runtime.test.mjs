@@ -45,18 +45,20 @@ function d1ForDispatch() {
 test("queue contract is versioned, minimal and valid",()=>{
   const body=makeTaskMessage({messageId:"msg_1",runId:"run_1",taskId:"task_1",attempt:0,enqueuedAt:"2026-07-12T00:00:00.000Z"});
   assert.equal(body.schema,QUEUE_SCHEMA);
-  assert.deepEqual(Object.keys(body),["schema","type","message_id","run_id","task_id","attempt","enqueued_at"]);
+  assert.deepEqual(Object.keys(body),["schema","type","message_id","run_id","tasks","enqueued_at"]);
+  assert.deepEqual(body.tasks,[{task_id:"task_1",attempt:0}]);
   assert.equal(validateTaskMessage(body).ok,true);
-  assert.equal(validateTaskMessage({...body,html:"secret"}).ok,false);
+  assert.equal(validateTaskMessage({...body,tasks:[]}).ok,false);
   assert.equal(validateTaskMessage({...body,schema:"nimbus.queue.v0"}).reason,"unsupported_schema");
 });
 
-test("producer dispatches only selected tasks with v1 messages",async()=>{
+test("producer dispatches selected tasks in one v2 envelope",async()=>{
   const DB=d1ForDispatch(); const sent=[];
   const env={DB,QUEUE:{async sendBatch(messages){sent.push(...messages);}}};
   const result=await dispatchPending(env,"run_1",20);
   assert.equal(result.queued,2); assert.equal(result.message_schema,QUEUE_SCHEMA);
-  assert.equal(sent.length,2); assert.equal(sent[0].body.run_id,"run_1"); assert.ok(sent[0].body.message_id.startsWith("msg_"));
+  assert.equal(sent.length,1); assert.equal(sent[0].body.run_id,"run_1"); assert.ok(sent[0].body.message_id.startsWith("msg_"));
+  assert.deepEqual(sent[0].body.tasks.map(t=>t.task_id),["task_1","task_2"]);
   assert.deepEqual(DB.state.tasks.map(t=>t.status),["queued","queued"]);
 });
 

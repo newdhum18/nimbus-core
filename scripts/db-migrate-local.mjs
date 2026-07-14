@@ -1,11 +1,13 @@
 import { DatabaseSync } from 'node:sqlite';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdir } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { MIGRATIONS } from '../src/db/migration-catalog.js';
 const args=new Set(process.argv.slice(2));
 const dbArg=process.argv.find(x=>x.startsWith('--database='));
 const dbPath=dbArg?.slice('--database='.length)||'.wrangler/state/v3/d1/miniflare-D1DatabaseObject/local.sqlite';
 const dry=args.has('--dry-run');
+await mkdir(dirname(dbPath),{recursive:true});
 const db=new DatabaseSync(dbPath); db.exec('PRAGMA foreign_keys=ON');
 db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL UNIQUE,checksum TEXT NOT NULL,applied_at TEXT NOT NULL)`);
 const applied=new Map(db.prepare('SELECT version,name,checksum FROM schema_migrations').all().map(r=>[Number(r.version),r]));

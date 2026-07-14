@@ -20,6 +20,11 @@ import { listResults, resultsToCsv } from "./results/service.js";
 import { repairDatabase } from "./db/repair.js";
 import { extractMegaFolders } from "./extract/mega.js";
 import { KEYWORD_CATEGORIES, keywordSuggestions, normalizeCategory } from "./search/keyword-intelligence.js";
+import { sourceDiscoverySummary, promoteQualifiedCandidates } from "./sources/discovery.js";
+import { queueUsage } from "./queue/usage.js";
+import { processPendingDirect } from "./queue/fallback.js";
+import { validateMegaFolderUrl, validateStoredLinks } from "./results/mega-validation.js";
+import { startSourceDiscovery, processSourceDiscoveryStep, sourceDiscoveryRun, listSourceDiscoveryRuns, sourceDiscoveryAction } from "./sources/discovery-runs.js";
 
 async function requestBody(request) {
   return request.json().catch(() => ({}));
@@ -95,6 +100,7 @@ export async function route(request, env) {
       const value = (await db.prepare("SELECT 1 value").first())?.value;
       return ok({ component: "d1", value }, 200, cors);
     }
+    if (url.pathname === "/api/queue/usage" && request.method === "GET") return ok(await queueUsage(requireDb(env)),200,cors);
     if (url.pathname === "/api/foundation/queue-test" && request.method === "POST") {
       requireQueue(env);
       await env.QUEUE.send({ type: "foundation_test", sentAt: new Date().toISOString() });
@@ -113,6 +119,16 @@ export async function route(request, env) {
       return ok(await keywordSuggestions(requireDb(env), { category, limit, seed }), 200, cors);
     }
 
+    if (url.pathname === "/api/mega/validate" && request.method === "POST") {
+      const data=await requestBody(request);
+      const link=nonEmptyString(data.url,{name:"url",max:500});
+      return ok(await validateMegaFolderUrl(link),200,cors);
+    }
+    if (url.pathname === "/api/mega/validate-stored" && request.method === "POST") {
+      const data=await requestBody(request);
+      const limit=positiveInt(data.limit,{name:"limit",min:1,max:30,fallback:10});
+      return ok(await validateStoredLinks(requireDb(env),{runId:data.run_id||null,limit}),200,cors);
+    }
     if (url.pathname === "/api/extract" && request.method === "POST") {
       const data = await requestBody(request);
       const text = nonEmptyString(data.text, { name: "text", max: 1_000_000 });
@@ -123,6 +139,26 @@ export async function route(request, env) {
     if (url.pathname === "/api/repair" && request.method === "POST") {
       requireDb(env);
       return ok(await repairDatabase(env), 200, cors);
+    }
+
+
+    if (url.pathname === "/api/source-discovery/runs" && request.method === "GET") {
+      return ok(await listSourceDiscoveryRuns(requireDb(env), { limit: positiveInt(url.searchParams.get("limit"), { name:"limit", min:1, max:100, fallback:20 }) }), 200, cors);
+    }
+    if (url.pathname === "/api/source-discovery/start" && request.method === "POST") {
+      const data=await requestBody(request);
+      return ok(await startSourceDiscovery(env,{rounds:data.rounds,profile:data.profile}),201,cors);
+    }
+    const sourceDiscoveryMatch=/^\/api\/source-discovery\/runs\/([^/]+)(?:\/(step|pause|resume|cancel|recover))?$/.exec(url.pathname);
+    if(sourceDiscoveryMatch){
+      const [,id,action]=sourceDiscoveryMatch;
+      if(request.method==="GET"&&!action)return ok(await sourceDiscoveryRun(requireDb(env),id),200,cors);
+      if(request.method==="POST"&&action==="step")return ok(await processSourceDiscoveryStep(env,id),200,cors);
+      if(request.method==="POST"&&action){
+        const result=await sourceDiscoveryAction(requireDb(env),id,action);
+        if(["resume","recover"].includes(action)) await processSourceDiscoveryStep(env,id).catch(()=>{});
+        return ok(result,200,cors);
+      }
     }
 
     if (url.pathname === "/api/sources/catalog" && request.method === "GET") {
@@ -153,6 +189,12 @@ export async function route(request, env) {
     }
     if (url.pathname === "/api/sources/summary" && request.method === "GET") {
       return ok(await sourceSummary(requireDb(env)), 200, cors);
+    }
+    if (url.pathname === "/api/sources/discovery" && request.method === "GET") {
+      return ok(await sourceDiscoverySummary(requireDb(env)), 200, cors);
+    }
+    if (url.pathname === "/api/sources/discovery/promote" && request.method === "POST") {
+      return ok(await promoteQualifiedCandidates(requireDb(env), { limit: 20 }), 200, cors);
     }
     if (url.pathname === "/api/sources/ranks/refresh" && request.method === "POST") {
       return ok(await refreshSourceRanks(requireDb(env)), 200, cors);
@@ -222,6 +264,9 @@ export async function route(request, env) {
       return ok({ run_id: runId, action, result }, 200, cors);
     }
 
+    const fallbackMatch=/^\/api\/runs\/([^/]+)\/direct-fallback$/.exec(url.pathname);
+    if(fallbackMatch && request.method==="POST") return ok(await processPendingDirect(env,fallbackMatch[1]),200,cors);
+
     const resultsMatch = runResultsRoute(url.pathname);
     if (resultsMatch && request.method === "GET") {
       const [, runId, format] = resultsMatch;
@@ -242,12 +287,13 @@ export async function route(request, env) {
 
     const knownPath = [
       "/", "/health", "/bindings", "/api/status", "/api/diagnostics",
-      "/api/foundation/db-test", "/api/foundation/queue-test", "/api/search/categories", "/api/search/suggestions", "/api/extract", "/api/repair",
+      "/api/foundation/db-test", "/api/foundation/queue-test", "/api/queue/usage", "/api/mega/validate", "/api/mega/validate-stored", "/api/search/categories", "/api/search/suggestions", "/api/extract", "/api/repair",
       "/api/sources/catalog", "/api/sources", "/api/sources/summary", "/api/sources/reset",
+      "/api/sources/discovery", "/api/sources/discovery/promote",
       "/api/sources/high-yield-defaults", "/api/sources/enable-all", "/api/sources/disable-all",
       "/api/sources/bulk", "/api/sources/ranks/refresh",
       "/api/runs/start", "/api/runs"
-    ].includes(url.pathname) || Boolean(runAction || detailMatch || resultsMatch || sourceMatch || sourceDetail);
+    ].includes(url.pathname) || Boolean(runAction || detailMatch || resultsMatch || sourceMatch || sourceDetail || fallbackMatch);
 
     if (knownPath) return fail({ code: "METHOD_NOT_ALLOWED", message: "The HTTP method is not allowed for this endpoint", component: "router" }, 405, cors);
     return fail({ code: "NOT_FOUND", message: "The requested endpoint does not exist", component: "router" }, 404, cors);

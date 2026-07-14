@@ -1,33 +1,23 @@
-# Deployment
+# Deployment — Zero Foundation v36.13.1
 
-## Prerequisites
+## Branch workflow
 
-- Node.js 22 or newer
-- npm
-- Cloudflare authentication
-- Approved D1 database ID
+1. Push to a feature branch.
+2. Require all GitHub checks to pass.
+3. Deploy a Cloudflare preview.
+4. Apply remote D1 migrations through the workflow.
+5. Verify `/health`, `/bindings`, `/api/foundation/db-test`, `/api/sources/catalog`, and `/api/diagnostics`.
+6. Test Source Discovery and AutoScan separately on iPhone Safari.
+7. Merge to `main` only after PASS.
 
-## Worker
+## Fixed resources
 
-1. Replace the D1 ID placeholder in `wrangler.worker.jsonc`.
-2. Run `npm ci`.
-3. Run `npm run validate`.
-4. Run `npm run check:release`.
-5. Apply schema with `npm run db:apply:remote`.
-6. Deploy with `npm run deploy:worker`.
-7. Test `/health`, `/bindings`, `/api/status`, and `/api/diagnostics`.
+- Pages: `nimbus-core-v36-web`
+- Worker: `nimbus-core-v36-worker`
+- D1: `nimbus-core-v36-db`
+- Queue: `nimbus-core-v36-queue`
+- Bindings: `DB`, `QUEUE`
 
-## Pages
+## Queue efficiency
 
-Current source directory: `public`  
-Build command: `npm run build:web`  
-Build output: `dist`
-
-Do not add Pages Functions.
-Remove unused Pages DB/QUEUE bindings only as a documented Cloudflare change.
-
-## Disabled
-
-- Cron
-- Cloudflare Access
-- Custom CPU limits
+Source Discovery packs 8 tasks into each Queue message and dispatches up to 32 tasks per pump. Concurrency remains conservative to protect the Cloudflare free tier. The in-app Queue counter is an application estimate, not the account-wide Cloudflare billing counter.
