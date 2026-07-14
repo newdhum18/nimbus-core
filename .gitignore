@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.wrangler/
+.validation*.json
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+coverage/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
