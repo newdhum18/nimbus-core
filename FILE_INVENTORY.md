@@ -1,26 +1,26 @@
-# File Inventory
+# Nimbus Core File Inventory
 
-Version: 36.13.5  
-Schema: 11  
-Files: 157
+Version: 36.13.7  
+Schema: 12  
+Files: 161
 
-| File | Bytes | SHA-256 |
+| Path | Bytes | SHA-256 |
 |---|---:|---|
 | `.github/workflows/deploy-worker.yml` | 1979 | `56c5b339fb4f1f9c40f0dfd7ba120d7a796f5515a11d194ad989b045ba7fc49c` |
 | `.github/workflows/validate-phase.yml` | 1217 | `930828177868e48d6f3a52128c91fdfa98b8ba8aa2c340dcc8e88633d11c7109` |
 | `.gitignore` | 136 | `d193adaffd4946d86a5ee5296d2f06a73a21752b900876199c3837cc27b2d2ce` |
 | `BASELINE.md` | 641 | `2e297b16b96467b255abab34ee0117cbbc39dd8d9b70b35902f6f0d02049a5d8` |
-| `CHANGELOG.md` | 866 | `a257c304e4d6a0244e2bef2fda743156f8bbc9b7c176d549951c2f930b97c15b` |
-| `CLEAN_BASELINE_REPORT.md` | 1228 | `f1d6a2a14a8e70e5ae786caa5847475cd2f728c8e6d124ed13b686aa2b039a11` |
+| `CHANGELOG.md` | 1947 | `9eb7c9f246309911276d6a4bf2286f9920f65d22f832848e9a99074fca2b6cbf` |
+| `CLEAN_BASELINE_REPORT.md` | 1659 | `23f5e5c9372a5bf5efc0bd6e88b14da62268195c24fbfdca189196d678b53e77` |
 | `DEPLOYMENT.md` | 888 | `f84ee783c020e8288a23f82060290c263feda38bb42e9ac06c7550cf0a6058cc` |
-| `Nimbus-Core-V36-Zero-Foundation-Hidden-Files-Patch.zip` | 2223 | `7521ea5710653bbea9687d2a803e72c8bf51a34d09c9b44a294a0ef80a61f4e7` |
-| `PHASE_STATUS.md` | 1133 | `4711530be480a0e09ffd11425e84feeacd4d4bb850b59379848e141bffc3a82c` |
-| `README.md` | 866 | `b54193e2068bd78d08e021aca6817b4188cbb6112dec8208ba07e8341a9f1cb2` |
+| `PHASE_STATUS.md` | 1160 | `0b4407b86bdc4bb5d44c96893f36791dab22757543ddc43f0abf73b2070cea11` |
+| `README.md` | 866 | `db942b99baa8b1364ec9fc7838123eefda963eef509d06e531ba81f19a927064` |
 | `RELEASE_REPAIR_REPORT.md` | 4585 | `5a68d4bc44d74aac3ee9e09925574c60b7a387c961ee10e1df64e03ed29e366f` |
-| `backup/DATABASE_SCHEMA_REFERENCE.sql` | 93099 | `f3a18311f635503c1f36e65e7e68f0a4464943ef4d51a8b0475d2edf2ad37dd9` |
-| `backup/README.md` | 532 | `a753536c0766b865649e5439e12abab262ec45d3e3fe59b4bb389bc911322980` |
-| `backup/RESOURCE_MANIFEST.json` | 329 | `f34091124e997bc87345858da9c6038ecf06e83a8cc3c8f5f4a34995bdd45477` |
-| `backup/nimbus-core-v36-zero.sqlite` | 450560 | `ab615cd6b26a0fc32795253208dc8a8f1709025aa24ccdd505d90c803159bcea` |
+| `RELEASE_VERIFICATION_REPORT.md` | 1560 | `fc23de40baf79bf511e5e21f6136fa7a3e7a492b3154914e48b37c9966eb31d2` |
+| `backup/DATABASE_SCHEMA_REFERENCE.sql` | 13810 | `2cdc8dfc4cfabdd2c49d9918692fe35888d51c21eff93567a53d142304541f14` |
+| `backup/README.md` | 532 | `8137d1676479474d9b672a59807133017fa59baa00cb27a8dbe01274b12ad38a` |
+| `backup/RESOURCE_MANIFEST.json` | 329 | `46b0003b8df10edcb4ed4606e5a5a6ea41c54aeaf5f1651bf5839a6eb78516b4` |
+| `backup/nimbus-core-v36-zero.sqlite` | 450560 | `0c9cb54a70dfa809a95db1d135985e8e814fa64a10c506a80b3bf88e58d7619f` |
 | `docs/API_SPEC.md` | 681 | `1f117822cbb2e6a303b1a3f2c27f9133647c87aa7d517bbcf01091972503f208` |
 | `docs/ARCHITECTURE.md` | 626 | `e3358457318827074ad4c8c545b2338e17bc42e0e41e156e854597d515a7b35b` |
 | `docs/DATABASE_SPEC.md` | 923 | `0015771b76eb133d11f21da3efba27978fcfe436a87a636d60a76921e22604b7` |
@@ -40,8 +40,8 @@ Files: 157
 | `docs/phase10/PHASE_10_SEARCH_ADAPTER_CORE.md` | 928 | `8ab5dfda644f5a609b7e2e45585da8b7fe7f80de181cf23aaa9b425ed63bef4b` |
 | `docs/phase10-ui-recovery/COMPARISON_V34_V35.md` | 653 | `7fc5c1df72da074a2cd22f2d4d5359066e8741f4406588c024b8336476201687` |
 | `docs/phase10-ui-recovery/README.md` | 1261 | `ba0d22cdfa3c5728227fd6c9d48fb03c54a4f85331eb0a9bec6a9a763cf096e7` |
-| `package-lock.json` | 48399 | `42ab43258470dd700e3d86a923cc388781213399ea1d39940b58078612e03c15` |
-| `package.json` | 1799 | `aca6ea05d2d46204bcf80626e3716ba13e278f6e77d3e710f215456b52e31721` |
+| `package-lock.json` | 48399 | `8af21af164cb897af9ee2cf3e60ee3795246331cf01b37583d1a8d8970c81279` |
+| `package.json` | 1767 | `d7668fb1bb6e5e0119a9a0760f2587c1ee7af37fabfd8f1eb68f62b2ffd0a9da` |
 | `public/_headers` | 155 | `17c3b142c0879287e6ee2170c9323a32094953821992dfa1487516892d874f56` |
 | `public/app.js` | 29604 | `7502bd83f10c53ed7aec18880eb3ee0474b9a6fe68081bcdfbf65e5c559014f6` |
 | `public/index.html` | 15458 | `77ef46e9f0de534cd90f9780526abc47e3a52e6f358967ce6158eb81a9b22d6e` |
@@ -55,14 +55,14 @@ Files: 157
 | `scripts/db-repair-local.mjs` | 758 | `90ef5d5c1bb04a85a97f5970eef1058069128545a7acd4e2f4426ae4a59c2979` |
 | `scripts/validate-cloudflare.mjs` | 1398 | `4f3d85e72b95be5b08b79e44664ac80190f3b9873d0156da1777690d3b19e1d7` |
 | `scripts/validate-runtime.mjs` | 7760 | `3a50ff8a545696509e87ba75cfdf5b96a7d1e910a10995e1a1b7c34c5815d823` |
-| `scripts/verify-baseline.mjs` | 1286 | `62e2e8097cf93f031d3963d6a81b5621792e3332d2a4615459c380bc11b50291` |
+| `scripts/verify-baseline.mjs` | 1276 | `c5ddc849294a94fb72c1249700008266556b068c1111bf16d027a32c087c8c43` |
 | `src/api/cors.js` | 807 | `0fe8a3c25c1d62cfd36ae630040012f1a04fcf0cd8f8b250b671ff8078df25d2` |
 | `src/api/errors.js` | 492 | `5597686590c04a8fbf88d6423787dc1f2edc0aa4f27a89e839021173ce9fafc3` |
 | `src/api/responses.js` | 934 | `21b9742895dad5c7911f8c5f7c3eb47311ce4ba0f38311bd8bc172aff16e64f7` |
 | `src/api/validation.js` | 1195 | `c90a3ef4571fd18b0fe23e702d0485b3616eaca7ab1c7b8cc0109bf87c47f077` |
-| `src/config.js` | 1187 | `a4b21d7ee4dfe2c1aa39137128a704d6c0fc5b87d5b8aaee16f37fe31548b1c8` |
+| `src/config.js` | 1187 | `062deb4422f7cb046145981a5996a986c54155ca5c17d5992f457e0f1109161f` |
 | `src/db/batch.js` | 1022 | `5c45b6421795e1714af0673bc282fce838c074b85e971a070cf5df2fa98f6efb` |
-| `src/db/migration-catalog.js` | 2514 | `5bf85d14376045ca4b187ea5f443e7af480d922b38e8805903042851d1c3ce8f` |
+| `src/db/migration-catalog.js` | 2726 | `08b9abb86c70e64e41801196ac46cd3750d5cba61c6cd8489ef05245a9ff57ca` |
 | `src/db/migrations/0001_initial.sql` | 6808 | `fd4418507ca134441918b49648505fc59d3389d2e2fe067a7f2b2f46ddf712c4` |
 | `src/db/migrations/0002_task_identity.sql` | 174 | `8e26cad2244058d8b979941e815b86f98a9882ecadeeccd1d0d0bb1354c0d316` |
 | `src/db/migrations/0003_source_seed.sql` | 71873 | `c9bdfb94788ea22577cf6dfb61c315199c9d6b6321c17d93dac8e48bf2ff70d4` |
@@ -74,6 +74,7 @@ Files: 157
 | `src/db/migrations/0009_source_discovery_runtime.sql` | 2018 | `49ec1dd8498487d82b647b3d20f691322375fd8612286cb0d19084397283baac` |
 | `src/db/migrations/0010_zero_foundation_hardening.sql` | 765 | `cdffe6acf6b44f34fecef3e5571d325fff1bacd635c1c7942305e2952f0082cc` |
 | `src/db/migrations/0011_source_candidate_provenance_fix.sql` | 3132 | `8cd43787a33ac17309eac3de99a59086141046b96891c2003ae506ba60bb4b1d` |
+| `src/db/migrations/0012_source_auto_promotion.sql` | 350 | `3d0626c9967ee3d43046da8582bd9a52c8104211117448f22eded9b1dee2f6ed` |
 | `src/db/migrations.js` | 1676 | `6d8068187122ab263b5edc24d3ef93df325125322bf0dc7adff7a2176a257e4c` |
 | `src/db/queries.js` | 469 | `80a91b61969393b8ce702ff10a05760e64dc2be90a07aaeeafada9f593443b1c` |
 | `src/db/repair.js` | 1348 | `6f99decfef91371a51c45dc89df52ff8c4ab6790131eb573da1c62c8751b0bc9` |
@@ -113,7 +114,7 @@ Files: 157
 | `src/runs/start.js` | 5473 | `6395d14be777f57cc4a9883c99bde586d415e9368a505d9a8498483f7bea5cac` |
 | `src/runs/state-machine.js` | 1652 | `b9f2852a10475de7962e9ae3dd2655107985ddeabc81099c3e7c2051c7fd1175` |
 | `src/search/adapters/html.js` | 799 | `c7fa7497ff529de57df28167808d9d9cb783e99188ea8d737b22525eeeed3631` |
-| `src/search/adapters/index.js` | 535 | `7cb109651b5bb9ca8c12d2e8e6734cc50e1f9bf3d407fa3d4144de3a2ab02b89` |
+| `src/search/adapters/index.js` | 620 | `ec989bf95888f29207a2d45aefb7c305b5fe063420cd1f77b8c0b1d77d2d84df` |
 | `src/search/adapters/rss.js` | 925 | `a1d37a0d4f888d49027602267ced3835e829ccb5fa8d4e6349cf5bc4d7ada028` |
 | `src/search/adapters/template.js` | 1192 | `77e3aee354d82e538d369116d53ca1e440a1761f7ee33e742ee472eaa00d4f8e` |
 | `src/search/autoscan.js` | 404 | `18db8b6118d70ee0ed2067f20099e61c4aa544d102e400b730f36bc91e7275c0` |
@@ -126,9 +127,10 @@ Files: 157
 | `src/search/target-decoder.js` | 3671 | `88b10d0984f22b019be4d1e72bd7bbe4a1a8012c0ecb3876e8bfcb8a4017a1c4` |
 | `src/sources/catalog.js` | 6018 | `ac839ca8b6d47c7447ba7eda6c7b2ff2705b3fdcd0c78ac0a839aca921526dfa` |
 | `src/sources/defaults.js` | 3992 | `9b160e39bcd264d9472e8bc88918abb5879394a11e0060faed426fc6b5c5394c` |
+| `src/sources/discovery-providers.js` | 3413 | `3261600121727a7b8bc8dceccfe5754b034951d3bf9fa6e32479dac8a35dcafe` |
 | `src/sources/discovery-queue.js` | 4610 | `6eb37469cb1cc6a7b8dbcc612685d96cab59a4f73139e50ec3f100634a8bbd5f` |
 | `src/sources/discovery-runs.js` | 17143 | `03856cab87153d168b46c0cf250130b77e0bd2d1dd2ee4870f5db4547336c21a` |
-| `src/sources/discovery.js` | 11374 | `a251c35ef6c3380957823f74e8123587723e5b440c6bf7673e9e15b9cdb4fde9` |
+| `src/sources/discovery.js` | 13809 | `696e8628c0b525d1bce1aa043a8264b7a46e1c6c69c08a5dbd10f0d3211d7195` |
 | `src/sources/intelligence.js` | 2900 | `a8eae0b8e25a37583468420552eba9fe06c755a9f9aaadfdad346ec853d6d83d` |
 | `src/sources/metrics.js` | 3615 | `e235c266ec9fe5009fcf7086260185f4b563360e16b4f1a5bb5ae3feb68c75f5` |
 | `src/sources/ranking.js` | 2024 | `f0ca02cfb2d39f58c697dff8acedfefb0f5fff087f6ebf75f7a0e034b385a036` |
@@ -136,10 +138,10 @@ Files: 157
 | `src/worker.js` | 356 | `1c1ea4db6626fc664eeae093a87e8996aea57c92c06a16294a02b8d625918126` |
 | `tests/architecture.test.mjs` | 1201 | `0ff04793a3440f01adc52eb2e1c91bd6624791ac5f79624913ace9eb2bb13f41` |
 | `tests/batch.test.mjs` | 933 | `d9bb7741f9317a1172408b9f3f78971504180458a9cd44ba2039b24c1c572ac5` |
-| `tests/clean-baseline.test.mjs` | 1428 | `b6f310e53d68a305105641d06f6a4aeca5598d7b02c7c0dcbba8ae2da3d63273` |
-| `tests/config.test.mjs` | 1351 | `a309edbaa8b937234804bfa74c6d93ea521f6ce229caec8533e10e96251f1445` |
+| `tests/clean-baseline.test.mjs` | 1428 | `9d3ee0608b308800adcdbaecc4f5b942f7ba162ddd7b2e6d9535ff6367a75dc1` |
+| `tests/config.test.mjs` | 1351 | `1f4c3cb3a64f6acee22fcb747396235a450195ce26a58c990ce01010028f5735` |
 | `tests/cors.test.mjs` | 953 | `6c56016939e1990702e5c9f3a892383f4331fa5f4d525e6beece8894c4808184` |
-| `tests/database-core.test.mjs` | 8350 | `faf395f042d258b5be310cecb7bb3bef5b45968a0342216a02a845c60a5f451c` |
+| `tests/database-core.test.mjs` | 8350 | `3dc07df616c1f229f141f1870713978469f44a8f86bdc71a64d50fbcf3a68ac5` |
 | `tests/discovery-context.test.mjs` | 1473 | `983376700570cc3ce688fcc0377cb32def6d010445d38833b53f2b4cf26db4a8` |
 | `tests/dynamic-source-ui.test.mjs` | 1209 | `64293147676da8f1254f00ce2e8a7de56b91c09c25c0b498b9b204cba085bb0e` |
 | `tests/extract.test.mjs` | 2785 | `6ad7415f43bc0fb5eaec647deed2b3fcba66b1991caf2bfa4af94ca7c31bd0fd` |
@@ -151,9 +153,11 @@ Files: 157
 | `tests/run-lifecycle.test.mjs` | 3323 | `02625138e08d772e690499d728163de79dcabb49f70a364db5ee7e414af469c7` |
 | `tests/runtime-services.test.mjs` | 1291 | `b0cfe6f7c914bb93b47dfd568b38b326550b1f48d715b697370b0ee3e4012700` |
 | `tests/schema.test.mjs` | 1006 | `bf010b695ad7e64dfe86eccf320698a1b091b5bdd79cead986b5d26f6d0fa8c9` |
-| `tests/search-adapters.test.mjs` | 4036 | `a5c92c37db48546f479d0e146ff7ced4a7efa30d0d30213c0fc58fef56334351` |
+| `tests/search-adapters.test.mjs` | 4255 | `34586f37240aaac156616d345ddac382989818cd90adee5adf256704ee292f38` |
 | `tests/search.test.mjs` | 2897 | `07c9e6160f88f4aaf5e33144321192c50955fac86ef4c9d5482b6177cb5eb726` |
+| `tests/source-auto-promotion.test.mjs` | 4045 | `d49fc8ed8d7f05f40e82a10a8af49e1de1654bb88f2110b4352261bd962ab539` |
 | `tests/source-candidate-provenance.test.mjs` | 789 | `04fd3b1a18cf22cfa45337820b51c5748cb162a5107e129951950d583bdb0787` |
+| `tests/source-discovery-providers.test.mjs` | 600 | `a27eca0e967323dcda352b36faa5848808e8c2a0b7f04adfca2ff46c411c78e8` |
 | `tests/source-discovery.test.mjs` | 2047 | `c0220cdb592677e781f3177a8d6aad2fc5c8f3b33cb451b9e5419c0824831583` |
 | `tests/source-intelligence-center.test.mjs` | 3382 | `a9ddfaff82fd2622ac1d2b1b4a24b9df7ab19dcdfdc58b29bd753f55a3432d00` |
 | `tests/source-intelligence-hardening.test.mjs` | 2076 | `7ecf61841c4cf5ddb304e21dffa4b7df66e8ecfabd4eb09ad09ad055eac8ea24` |

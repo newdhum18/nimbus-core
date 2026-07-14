@@ -1,8 +1,11 @@
 import { createHtmlAdapter } from "./html.js";
 import { createRssAdapter } from "./rss.js";
 
+const htmlAdapter = createHtmlAdapter();
 const ADAPTERS = new Map([
-  ["html", createHtmlAdapter()],
+  ["html", htmlAdapter],
+  ["json", htmlAdapter],
+  ["custom", htmlAdapter],
   ["rss", createRssAdapter()]
 ]);
 

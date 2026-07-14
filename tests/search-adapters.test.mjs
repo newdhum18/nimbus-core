@@ -32,10 +32,12 @@ test("RSS adapter extracts item links and excludes engine self-link", () => {
   assert.deepEqual(parseRssSearchResults(xml, "https://search.example/?q=x"), ["https://one.example/x", "https://two.example/y"]);
 });
 
-test("adapter registry supports only approved types", () => {
-  assert.deepEqual(supportedAdapterTypes(), ["html", "rss"]);
+test("adapter registry supports executable source types", () => {
+  assert.deepEqual(supportedAdapterTypes(), ["html", "json", "custom", "rss"]);
   assert.equal(adapterForSource({ source_type: "html" }).source_type, "html");
-  assert.throws(() => adapterForSource({ source_type: "json" }));
+  assert.equal(adapterForSource({ source_type: "json" }).id, "generic-html");
+  assert.equal(adapterForSource({ source_type: "custom" }).id, "generic-html");
+  assert.throws(() => adapterForSource({ source_type: "binary" }), /unsupported_search_adapter:binary/);
 });
 
 test("target normalization removes fragments and tracking", () => {

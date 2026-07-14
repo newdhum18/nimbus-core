@@ -1,6 +1,6 @@
 {
-  "version": "36.13.5",
-  "schema_version": 11,
+  "version": "36.13.7",
+  "schema_version": 12,
   "repository": "newdhum18/nimbus-core",
   "pages": "nimbus-core-v36-web",
   "worker": "nimbus-core-v36-worker",
