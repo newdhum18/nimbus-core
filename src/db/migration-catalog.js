@@ -3,7 +3,7 @@ export const MIGRATIONS = Object.freeze([
     "version": 1,
     "name": "initial_database_core",
     "file": "src/db/migrations/0001_initial.sql",
-    "checksum": "ff9ecdf2d4aac215977721b3357bab5ab81dfa9257702d3518a13e02c9da3953"
+    "checksum": "fd4418507ca134441918b49648505fc59d3389d2e2fe067a7f2b2f46ddf712c4"
   },
   {
     "version": 2,
@@ -28,6 +28,34 @@ export const MIGRATIONS = Object.freeze([
     "name": "adaptive_keyword_intelligence",
     "file": "src/db/migrations/0005_keyword_intelligence.sql",
     "checksum": "545d92d4c4ae66dd0867e304d8fd7779df7fe09b614ec88c8506eb6770778e2e"
+  }  ,{
+    "version": 6,
+    "name": "autonomous_source_discovery",
+    "file": "src/db/migrations/0006_source_discovery.sql",
+    "checksum": "92a5e90dadf95bc5834b6cf7ab3a79a4c915eda73000227529c7d946d051952d"
+  },
+  {
+    "version": 7,
+    "name": "queue_optimizer_and_link_validation",
+    "file": "src/db/migrations/0007_queue_and_validation.sql",
+    "checksum": "6219671f3d8508ccd70a7cd5ad91fa59d4a8e7ac56450bbc0216a932297d3b85"
+  },
+  {
+    "version": 8,
+    "name": "source_intelligence_center",
+    "file": "src/db/migrations/0008_source_intelligence_center.sql",
+    "checksum": "5174e1a94ead46a2291e7cf1b86263bb4602b9d1f4cc1e20c5649b1f96e91328"
+  }  ,{
+    "version": 9,
+    "name": "source_discovery_background_runtime",
+    "file": "src/db/migrations/0009_source_discovery_runtime.sql",
+    "checksum": "49ec1dd8498487d82b647b3d20f691322375fd8612286cb0d19084397283baac"
+  },
+  {
+    "version": 10,
+    "name": "zero_foundation_hardening",
+    "file": "src/db/migrations/0010_zero_foundation_hardening.sql",
+    "checksum": "cdffe6acf6b44f34fecef3e5571d325fff1bacd635c1c7942305e2952f0082cc"
   }
 ].map(Object.freeze));
 export const EXPECTED_SCHEMA_VERSION = MIGRATIONS.at(-1)?.version ?? 0;

@@ -8,8 +8,11 @@ import { syncRunProgress } from "../runs/progress.js";
 import { recordSourceResult } from "../sources/metrics.js";
 import { SYSTEM } from "../config.js";
 import { validateTaskMessage } from "./contract.js";
+import { validateSourceDiscoveryMessage, consumeSourceDiscoveryMessage } from "../sources/discovery-queue.js";
+import { recordQueueOperations } from "./usage.js";
 import { extractHttpTargets, contentVariants } from "../search/target-decoder.js";
 import { learnSearchTerms } from "../search/keyword-intelligence.js";
+import { discoverCandidateUrls, registerSourceCandidates, promoteQualifiedCandidates } from "../sources/discovery.js";
 
 async function event(db, {
   runId = null,
@@ -79,7 +82,7 @@ async function persistLinks(env, task, pageId, links) {
       ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
     `).bind(
       uid("link"),task.run_id,pageId,task.source_id,link.normalizedUrl,
-      link.normalizedUrl,link.type,1,"valid",1,nowIso()
+      link.normalizedUrl,link.type,1,"structurally_valid",1,nowIso()
     ).run();
     if ((result.meta?.changes || 0) > 0) inserted += 1;
   }
@@ -222,6 +225,20 @@ export async function processTask(env, messageBody) {
       }
     }
 
+    // Phase 14: discover and promote new public source surfaces from successful pages.
+    if (result.ok && result.text) {
+      const candidates = discoverCandidateUrls(result.text, result.finalUrl || current.url, { limit: 40 });
+      if (result.finalUrl && (result.links || []).length) candidates.unshift(result.finalUrl);
+      await registerSourceCandidates(env.DB, {
+        urls: [...new Set(candidates)],
+        sourceId: current.source_id,
+        runId: current.run_id,
+        megaLinksFound: linkStats.novel,
+        successful: true
+      }).catch(()=>{});
+      if (linkStats.novel > 0) await promoteQualifiedCandidates(env.DB, { limit: 3 }).catch(()=>{});
+    }
+
     await env.DB.prepare(`
       INSERT INTO visited_urls(
         normalized_url,first_run_id,last_run_id,first_seen_at,last_seen_at,visit_count
@@ -293,27 +310,39 @@ export async function processTask(env, messageBody) {
 }
 
 export async function consumeBatch(batch, env) {
+  await recordQueueOperations(env.DB,{reads:batch.messages.length}).catch(()=>{});
   for (const message of batch.messages) {
     try {
+      const sourceValidation = validateSourceDiscoveryMessage(message.body);
+      if (sourceValidation.ok) {
+        await consumeSourceDiscoveryMessage(env, sourceValidation.value);
+        message.ack();
+        await recordQueueOperations(env.DB,{deletes:1}).catch(()=>{});
+        continue;
+      }
       const validation = validateTaskMessage(message.body);
       if (!validation.ok) {
         console.warn("queue_message_rejected", validation.reason, validation.fields || []);
         message.ack();
+        await recordQueueOperations(env.DB,{deletes:1}).catch(()=>{});
         continue;
       }
-
-      const result = await processTask(env, validation.value);
-      if (result.action === "retry") {
-        message.retry({ delaySeconds: result.delaySeconds || SYSTEM.queueRetryDelaySeconds });
-      } else {
-        message.ack();
+      const runIds=new Set();
+      let retryNeeded=false;
+      for(const item of validation.value.tasks){
+        const result=await processTask(env,{...validation.value,task_id:item.task_id,attempt:item.attempt});
+        if(result.runId)runIds.add(result.runId);
+        if(result.action==='retry')retryNeeded=true;
       }
-      if (result.runId) {
-        const { dispatchPending } = await import("./producer.js");
-        await dispatchPending(env, result.runId, SYSTEM.queueDispatchBatch).catch((error) => {
-          console.error("queue_followup_dispatch_failed", error);
-        });
+      // Task retry state is persisted in D1; acknowledge the envelope and let the
+      // watchdog/producer re-dispatch only the failed task, avoiding duplicate work.
+      message.ack();
+      await recordQueueOperations(env.DB,{deletes:1}).catch(()=>{});
+      const { dispatchPending } = await import("./producer.js");
+      for(const runId of runIds){
+        await dispatchPending(env,runId,SYSTEM.queueDispatchTasks).catch(error=>console.error("queue_followup_dispatch_failed",error));
       }
+      if(retryNeeded)console.warn("queue_batch_contains_retryable_tasks",validation.value.message_id);
     } catch (error) {
       console.error("queue_consumer_unhandled", error);
       message.retry({ delaySeconds: SYSTEM.queueRetryDelaySeconds });

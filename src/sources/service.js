@@ -153,13 +153,20 @@ export async function sourceSummary(db) {
            COALESCE(AVG(CASE WHEN requests>0 THEN average_latency END),0) AS average_latency
     FROM source_metrics
   `).first();
+  const discovery = await db.prepare(`
+    SELECT COUNT(*) AS total,
+           SUM(CASE WHEN state='candidate' THEN 1 ELSE 0 END) AS candidates,
+           SUM(CASE WHEN state='promoted' THEN 1 ELSE 0 END) AS promoted
+    FROM source_candidates
+  `).first().catch(() => ({ total:0,candidates:0,promoted:0 }));
   return {
     total: Number(totals?.total || 0),
     enabled: Number(totals?.enabled || 0),
     default_enabled: Number(totals?.default_enabled || 0),
     categories: categories.results || [],
     source_types: types.results || [],
-    performance
+    performance,
+    discovery: { total:Number(discovery?.total||0), candidates:Number(discovery?.candidates||0), promoted:Number(discovery?.promoted||0) }
   };
 }
 

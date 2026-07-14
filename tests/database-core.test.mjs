@@ -29,7 +29,7 @@ test("migration checksum is the real SHA-256 of its SQL file", async () => {
   const bytes = await readFile(schemaPath);
   const checksum = createHash("sha256").update(bytes).digest("hex");
   assert.equal(checksum, MIGRATIONS[0].checksum);
-  assert.equal(EXPECTED_SCHEMA_VERSION, 5);
+  assert.equal(EXPECTED_SCHEMA_VERSION, 10);
 });
 
 test("fresh database creates exactly the approved eleven tables", async () => {

@@ -125,8 +125,21 @@
       </section>
 
       <section id="sources" class="page">
-        <div class="section-title"><div><p id="sourceModelLabel" class="eyebrow">AUTONOMOUS SOURCE MODEL</p><h2>Sources</h2></div><button id="reloadSources" class="secondary compact" type="button">Reload</button></div>
+        <div class="section-title"><div><p id="sourceModelLabel" class="eyebrow">SOURCE INTELLIGENCE CENTER</p><h2>Sources</h2></div><button id="reloadSources" class="secondary compact" type="button">Reload</button></div>
         <div id="sourceMetrics" class="metrics"></div>
+        <article class="panel source-discovery-control">
+          <div class="panel-head"><div><p class="panel-kicker">SOURCE DISCOVERY SCAN</p><h3>Build the source catalog</h3><small>Discover, test, grade and promote public source environments without starting AutoScan.</small></div><span class="mini-feature">◎</span></div>
+          <div class="source-discovery-options"><label>Rounds<input id="sourceDiscoveryRounds" type="number" min="1" max="100" value="5"></label><label>Profile<select id="sourceDiscoveryProfile"><option value="quick">Quick</option><option value="normal" selected>Normal</option><option value="deep">Deep</option><option value="ultra">Ultra</option></select></label></div>
+          <button id="startSourceDiscovery" class="primary wide" type="button">Start source discovery</button>
+          <div id="sourceDiscoveryControls" class="source-actions"><button data-sd-action="pause" class="secondary" type="button">Pause</button><button data-sd-action="resume" class="secondary" type="button">Resume</button><button data-sd-action="recover" class="secondary" type="button">Recover</button><button data-sd-action="cancel" class="danger" type="button">Cancel</button><button id="sourceDiscoveryStep" class="secondary" type="button">Dispatch pending tasks</button></div>
+          <div id="sourceDiscoveryStatus" class="operation-status neutral">Ready to build a larger source base.</div>
+          <div class="progress-track"><span id="sourceDiscoveryProgress" style="width:0%"></span></div>
+          <div id="sourceDiscoveryMetrics" class="summary-grid"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><div><p class="panel-kicker">SOURCE CANDIDATES</p><h3>Discovery pipeline</h3></div><button id="promoteCandidates" class="secondary compact" type="button">Promote qualified</button></div>
+          <div id="sourceCandidateMetrics" class="summary-grid"></div><div id="sourceCandidateList" class="list"></div>
+        </article>
         <article class="panel">
           <label>Search sources<input id="sourceSearch" type="search" placeholder="Name, category, or type" autocomplete="off"></label>
           <div class="source-filters"><select id="sourceStatus"><option value="all">All</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select><select id="sourceSort"><option value="priority">Priority</option><option value="rank">Rank</option><option value="yield">Yield</option><option value="name">Name</option><option value="failures">Failures</option><option value="speed">Speed</option><option value="health">Health</option></select></div>
@@ -142,7 +155,7 @@
         <article class="panel maintenance-grid">
           <button id="loadDiagnostics" class="secondary" type="button">Full diagnostics</button><button id="loadBindings" class="secondary" type="button">Check bindings</button>
           <button id="retryFailed" class="secondary" type="button">Retry failed tasks</button><button id="recoverSystemRun" class="secondary" type="button">Recover stuck run</button>
-          <button id="redispatchQueue" class="secondary" type="button">Re-dispatch queue</button><button id="clearUiCache" class="secondary" type="button">Clear UI cache</button>
+          <button id="redispatchQueue" class="secondary" type="button">Re-dispatch queue</button><button id="queueUsage" class="secondary" type="button">Queue usage</button><button id="directFallback" class="secondary" type="button">Direct fallback</button><button id="clearUiCache" class="secondary" type="button">Clear UI cache</button>
           <button id="reloadApplication" class="secondary" type="button">Reload application</button><button id="logoutButton" class="danger" type="button">Logout</button>
         </article>
         <details class="developer-details panel"><summary>Developer details</summary><div id="developerCards" class="developer-cards"></div><details><summary>Raw technical data</summary><pre id="toolsLog" class="log">Ready.</pre></details></details>

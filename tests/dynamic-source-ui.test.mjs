@@ -19,7 +19,7 @@ test('Sources UI contains no retired fixed 300/80 labels', () => {
 
 test('Sources UI derives model counts from the live summary response', () => {
   assert.match(indexHtml, /id="sourceModelLabel"/);
-  assert.match(appJs, /AUTONOMOUS SOURCE MODEL · \$\{total\} TOTAL · \$\{active\} ACTIVE/);
+  assert.match(appJs, /SOURCE INTELLIGENCE CENTER · \$\{total\} TOTAL · \$\{active\} ACTIVE/);
   assert.match(appJs, /api\("\/api\/sources\/summary"\)/);
 });
 

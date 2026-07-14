@@ -42,8 +42,8 @@ export async function startRun(env, { mode, keyword = "", category = "tools", ro
 
   const rounds = normalizeRounds(round);
   const sourceCount = Number((await env.DB.prepare("SELECT COUNT(*) AS total FROM sources").first())?.total || 0);
-  if (sourceCount !== SYSTEM.sourceTotal) {
-    await seedSources(env.DB, { preserveEnabled: false });
+  if (sourceCount < SYSTEM.sourceTotal) {
+    await seedSources(env.DB, { preserveEnabled: true });
   }
   const sourceRows = await env.DB.prepare(`
     SELECT s.*,
