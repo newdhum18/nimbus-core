@@ -1,8 +1,10 @@
 # File Inventory
 
 - Baseline: Nimbus Core V36 Zero Foundation
-- Version: 36.13.1
-- Files (excluding inventory/checksum files): 153
+- Version: 36.13.2
+- Schema version: 10
+- Inventoried files: 154
+- The inventory and checksum files are excluded from their own recursive inventory.
 
 | Path | Bytes | SHA-256 |
 |---|---:|---|
@@ -10,14 +12,15 @@
 | `.github/workflows/validate-phase.yml` | 1217 | `930828177868e48d6f3a52128c91fdfa98b8ba8aa2c340dcc8e88633d11c7109` |
 | `.gitignore` | 136 | `d193adaffd4946d86a5ee5296d2f06a73a21752b900876199c3837cc27b2d2ce` |
 | `BASELINE.md` | 641 | `2e297b16b96467b255abab34ee0117cbbc39dd8d9b70b35902f6f0d02049a5d8` |
-| `CHANGELOG.md` | 627 | `f9cfa44a6a4190a1d6dd5bf30df93245de563130f6046d1f09dbe6e96b9b5c34` |
-| `CLEAN_BASELINE_REPORT.md` | 1228 | `01ec22938f18e594040d60a215bc54da4b524cdc19204815de4c0914ecde8be5` |
-| `DEPLOYMENT.md` | 888 | `a7b90b3b75bb42cb1c099209cbcc5bd7968e4836e47b973eed5524898ad508ee` |
-| `PHASE_STATUS.md` | 1133 | `14bc104f7a17276a45a86c26138c5b784919013ecf7935ddb7fc9a8f3b7d352c` |
-| `README.md` | 866 | `8fb582aae4e2b523b5232ff4ebaff30cf719d2e1f2d38e1020d970f493ea9bf9` |
+| `CHANGELOG.md` | 665 | `a87586729c44df3bc955bb440322ce8fe77881bb8d779a1809504c36ce4d828a` |
+| `CLEAN_BASELINE_REPORT.md` | 1228 | `db2fa43b8ab2b31b93ec407305f97f9f320fae6301678da5874350166b168847` |
+| `DEPLOYMENT.md` | 888 | `f84ee783c020e8288a23f82060290c263feda38bb42e9ac06c7550cf0a6058cc` |
+| `PHASE_STATUS.md` | 1133 | `26f0f756a21d2f12c6b0affe317d779d52c3f92f8c109c27ca9e027704a106c6` |
+| `README.md` | 866 | `3502da198ea9ced5527690ed88d124a64bcb5ba18bd73628a39f768d7e28b671` |
+| `RELEASE_REPAIR_REPORT.md` | 4585 | `5a68d4bc44d74aac3ee9e09925574c60b7a387c961ee10e1df64e03ed29e366f` |
 | `backup/DATABASE_SCHEMA_REFERENCE.sql` | 89774 | `0c4d74efcded5303b59f6cecda2eba052acf39ba74452e3ee7bae4a6d9211245` |
 | `backup/README.md` | 532 | `cca290dee04bc0b0ccbd31a4d748ffe29e5af635320a9063aaedf8f243330e66` |
-| `backup/RESOURCE_MANIFEST.json` | 317 | `11cf1341375de78cd5455f8100b65aa4effff6d7459672f378eb8f5761f24af4` |
+| `backup/RESOURCE_MANIFEST.json` | 317 | `e9aa9af157baaa2f29e269bc47e457b16b5fc9274e4e91b890fe617a9f338270` |
 | `backup/nimbus-core-v36-zero.sqlite` | 450560 | `edc73920ff92e8dd3b25f9c45fdb74cd0035d8409a106e228a2810230533f6af` |
 | `docs/API_SPEC.md` | 681 | `1f117822cbb2e6a303b1a3f2c27f9133647c87aa7d517bbcf01091972503f208` |
 | `docs/ARCHITECTURE.md` | 626 | `e3358457318827074ad4c8c545b2338e17bc42e0e41e156e854597d515a7b35b` |
@@ -38,12 +41,12 @@
 | `docs/phase10/PHASE_10_SEARCH_ADAPTER_CORE.md` | 928 | `8ab5dfda644f5a609b7e2e45585da8b7fe7f80de181cf23aaa9b425ed63bef4b` |
 | `docs/phase10-ui-recovery/COMPARISON_V34_V35.md` | 653 | `7fc5c1df72da074a2cd22f2d4d5359066e8741f4406588c024b8336476201687` |
 | `docs/phase10-ui-recovery/README.md` | 1261 | `ba0d22cdfa3c5728227fd6c9d48fb03c54a4f85331eb0a9bec6a9a763cf096e7` |
-| `package-lock.json` | 48399 | `93eb59e2ba63a1a5e44500cc40b439c34f97110543a686f703d3b312ad3d65a9` |
-| `package.json` | 1780 | `059d9ea2dd521c59bacefaaa6909525c128cc35c289156af1d0f6e7d42b50d58` |
+| `package-lock.json` | 48399 | `99c40f34b83d31501796af9c44c1e62c1c0aa008472044b17b0f000128648424` |
+| `package.json` | 1800 | `303aac9520d060fc70b420a243ff83b72b2150c45020579685e2474ce14c343e` |
 | `public/_headers` | 155 | `17c3b142c0879287e6ee2170c9323a32094953821992dfa1487516892d874f56` |
-| `public/app.js` | 29477 | `8e458fc56d1e7701e29088c86fc1f89d55e52093fa54ca859569c49e671eb078` |
-| `public/index.html` | 15324 | `a276bc6ccefb6fc1b63284870913cb04c062d8ecce6cd55e07a146de7e0c1c34` |
-| `public/style.css` | 14929 | `d72889c56ffb88823d86e8e3f1a754df9ac5d7fbc58806c1c5374a7873dea217` |
+| `public/app.js` | 29604 | `7502bd83f10c53ed7aec18880eb3ee0474b9a6fe68081bcdfbf65e5c559014f6` |
+| `public/index.html` | 15458 | `77ef46e9f0de534cd90f9780526abc47e3a52e6f358967ce6158eb81a9b22d6e` |
+| `public/style.css` | 17552 | `d210df943935d2054b702f2728f187f8b30a98b1340b12d84f723a948c8097ac` |
 | `scripts/build-web.mjs` | 236 | `edf4768920075d89a1388bf204397bf61e4e52e134c9af9e0e9ca4a2dc5e409f` |
 | `scripts/check-config.mjs` | 1395 | `636a171085ec0418936aedf5dad0b1d742ad5803041261b7092ce803d3de0043` |
 | `scripts/check-release.mjs` | 433 | `2a86380d7e6d3b59298f577293f37afd47dfcc81264d9f590ae876bc128c6eb0` |
@@ -53,12 +56,12 @@
 | `scripts/db-repair-local.mjs` | 758 | `90ef5d5c1bb04a85a97f5970eef1058069128545a7acd4e2f4426ae4a59c2979` |
 | `scripts/validate-cloudflare.mjs` | 1398 | `4f3d85e72b95be5b08b79e44664ac80190f3b9873d0156da1777690d3b19e1d7` |
 | `scripts/validate-runtime.mjs` | 7760 | `3a50ff8a545696509e87ba75cfdf5b96a7d1e910a10995e1a1b7c34c5815d823` |
-| `scripts/verify-baseline.mjs` | 1280 | `fbb7a250e99641c34f100096da2bd80ae08be8285adcfb62d77d17ae35e90dc0` |
+| `scripts/verify-baseline.mjs` | 1280 | `d6daf31de32f5005ce780a3c88575eb67352d8a5d40320e4d558b98d20326494` |
 | `src/api/cors.js` | 807 | `0fe8a3c25c1d62cfd36ae630040012f1a04fcf0cd8f8b250b671ff8078df25d2` |
 | `src/api/errors.js` | 492 | `5597686590c04a8fbf88d6423787dc1f2edc0aa4f27a89e839021173ce9fafc3` |
 | `src/api/responses.js` | 934 | `21b9742895dad5c7911f8c5f7c3eb47311ce4ba0f38311bd8bc172aff16e64f7` |
 | `src/api/validation.js` | 1195 | `c90a3ef4571fd18b0fe23e702d0485b3616eaca7ab1c7b8cc0109bf87c47f077` |
-| `src/config.js` | 1189 | `7e86cbaee7e1479863a663b34941b4b64d2dc092b31dee612712fd6b620c74af` |
+| `src/config.js` | 1187 | `50579439427f19bb203da5da1cfacc818dd79231c1ded8fdb80512e644c46ec3` |
 | `src/db/batch.js` | 1022 | `5c45b6421795e1714af0673bc282fce838c074b85e971a070cf5df2fa98f6efb` |
 | `src/db/migration-catalog.js` | 2282 | `ab4bbb78a5797b0730f5b4c04e24d42a635c48d9a7d88d1593a50054c7503034` |
 | `src/db/migrations/0001_initial.sql` | 6808 | `fd4418507ca134441918b49648505fc59d3389d2e2fe067a7f2b2f46ddf712c4` |
@@ -107,7 +110,7 @@
 | `src/runs/read.js` | 852 | `06aef2d416c8f30a7e9b7bb7f66ced8f1e10033d6d1fde9039caa741f0ea399b` |
 | `src/runs/recovery.js` | 1464 | `a4e624a62af603994f1947afe46f6f933ca648b9f838fc6db2b25f0b232a2218` |
 | `src/runs/resume.js` | 1269 | `72b59e5f3fe2482b98cfe767c3076e621f4515b8b934bee5d5da8890108fcd47` |
-| `src/runs/start.js` | 5179 | `5e8537a634d3aaf7a3eaebd141734ddca679010e703e07cc1a4087cce7431520` |
+| `src/runs/start.js` | 5473 | `6395d14be777f57cc4a9883c99bde586d415e9368a505d9a8498483f7bea5cac` |
 | `src/runs/state-machine.js` | 1652 | `b9f2852a10475de7962e9ae3dd2655107985ddeabc81099c3e7c2051c7fd1175` |
 | `src/search/adapters/html.js` | 799 | `c7fa7497ff529de57df28167808d9d9cb783e99188ea8d737b22525eeeed3631` |
 | `src/search/adapters/index.js` | 535 | `7cb109651b5bb9ca8c12d2e8e6734cc50e1f9bf3d407fa3d4144de3a2ab02b89` |
@@ -124,8 +127,8 @@
 | `src/sources/catalog.js` | 6018 | `ac839ca8b6d47c7447ba7eda6c7b2ff2705b3fdcd0c78ac0a839aca921526dfa` |
 | `src/sources/defaults.js` | 3992 | `9b160e39bcd264d9472e8bc88918abb5879394a11e0060faed426fc6b5c5394c` |
 | `src/sources/discovery-queue.js` | 4610 | `6eb37469cb1cc6a7b8dbcc612685d96cab59a4f73139e50ec3f100634a8bbd5f` |
-| `src/sources/discovery-runs.js` | 13669 | `9686d62c8956bb594ef1349f38ecd0bfcdf2616e592c388dbbd9b8a060470ca5` |
-| `src/sources/discovery.js` | 10620 | `f19b737de28a532361ece43e4a9614e12112765c2c2a22570934f9872d10f4aa` |
+| `src/sources/discovery-runs.js` | 14142 | `b7219ab4dde4b7ef03053d343b1af177c31cab299ff77219db71962f01899433` |
+| `src/sources/discovery.js` | 10968 | `14c157d8d5127fa4b29223cb335cacd196ebe987f5402cc91e4fa0799618f471` |
 | `src/sources/intelligence.js` | 2900 | `a8eae0b8e25a37583468420552eba9fe06c755a9f9aaadfdad346ec853d6d83d` |
 | `src/sources/metrics.js` | 3615 | `e235c266ec9fe5009fcf7086260185f4b563360e16b4f1a5bb5ae3feb68c75f5` |
 | `src/sources/ranking.js` | 2024 | `f0ca02cfb2d39f58c697dff8acedfefb0f5fff087f6ebf75f7a0e034b385a036` |
@@ -133,8 +136,8 @@
 | `src/worker.js` | 356 | `1c1ea4db6626fc664eeae093a87e8996aea57c92c06a16294a02b8d625918126` |
 | `tests/architecture.test.mjs` | 1201 | `0ff04793a3440f01adc52eb2e1c91bd6624791ac5f79624913ace9eb2bb13f41` |
 | `tests/batch.test.mjs` | 933 | `d9bb7741f9317a1172408b9f3f78971504180458a9cd44ba2039b24c1c572ac5` |
-| `tests/clean-baseline.test.mjs` | 1428 | `62db1afdaa76106f6a77c3e593f7275235b5d42fe8f042b2ecdd66728efe9b01` |
-| `tests/config.test.mjs` | 1351 | `15ae26effd0613bb954ce247eb50226374882c077248f54fde9eaf846d02c3a7` |
+| `tests/clean-baseline.test.mjs` | 1428 | `50280002f8158397aa165de06732db55f04d07efdc5dc13f339fe8107995cf3f` |
+| `tests/config.test.mjs` | 1351 | `c4cca58ec4937da513b0a7627dc825ae1100e869a49936e9f0878e1b297df07a` |
 | `tests/cors.test.mjs` | 953 | `6c56016939e1990702e5c9f3a892383f4331fa5f4d525e6beece8894c4808184` |
 | `tests/database-core.test.mjs` | 6935 | `5dee01fd894476713967049c9676d79c473af9e33dbc2d2ccaa50737c339dd5a` |
 | `tests/discovery-context.test.mjs` | 1473 | `983376700570cc3ce688fcc0377cb32def6d010445d38833b53f2b4cf26db4a8` |
@@ -149,8 +152,8 @@
 | `tests/runtime-services.test.mjs` | 1291 | `b0cfe6f7c914bb93b47dfd568b38b326550b1f48d715b697370b0ee3e4012700` |
 | `tests/schema.test.mjs` | 1006 | `bf010b695ad7e64dfe86eccf320698a1b091b5bdd79cead986b5d26f6d0fa8c9` |
 | `tests/search-adapters.test.mjs` | 4036 | `a5c92c37db48546f479d0e146ff7ced4a7efa30d0d30213c0fc58fef56334351` |
-| `tests/search.test.mjs` | 2375 | `297d736495111e3d9e4d6c38431e17b163263b415ee4c6ae1367be9b555145ff` |
-| `tests/source-discovery.test.mjs` | 1121 | `eaf6e1465e6f03b45acb2cf612a435dee6acf692058cd72f60b59b604b5ef914` |
+| `tests/search.test.mjs` | 2897 | `07c9e6160f88f4aaf5e33144321192c50955fac86ef4c9d5482b6177cb5eb726` |
+| `tests/source-discovery.test.mjs` | 1659 | `14e53bcee3d8bccc400ac4ef833bcd9ab55c9e3a75cd1cae2e7cef5bfbc81d7e` |
 | `tests/source-intelligence-center.test.mjs` | 2905 | `efbab2e46e20b6e09985a291a39d90023ca9de4526c214893b4ea685d1ca3716` |
 | `tests/source-intelligence-hardening.test.mjs` | 2076 | `7ecf61841c4cf5ddb304e21dffa4b7df66e8ecfabd4eb09ad09ad055eac8ea24` |
 | `tests/source-manager.test.mjs` | 4842 | `8112fc830c39d51642b7ab877e80018f7ac321e8021aa120014a60e4c0b71206` |

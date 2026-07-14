@@ -9,6 +9,7 @@ import { SYSTEM } from "../config.js";
 const PROFILES=Object.freeze({quick:8,normal:20,deep:40,ultra:70});
 const DDG_HTML="https://html.duckduckgo.com/html/?q=";
 const DDG_LITE="https://lite.duckduckgo.com/lite/?q=";
+const BING_RSS="https://www.bing.com/search?format=rss&q=";
 const WAYBACK="https://web.archive.org/cdx/search/cdx?output=json&filter=statuscode:200&collapse=urlkey&fl=original&limit=50&url=";
 function q(base,text){return`${base}${encodeURIComponent(text)}`;}
 function folderParts(url){const m=String(url||"").match(/mega\.nz\/folder\/([A-Za-z0-9_-]+)(?:#([A-Za-z0-9_-]+))?/i);return{id:m?.[1]||"",key:m?.[2]||""};}
@@ -26,7 +27,7 @@ export async function buildDiscoverySeeds(db,{rounds=1,profile="normal"}={}){
   for(const row of sources.results||[]){try{const host=new URL(row.template_url).hostname;bases.push({strategy:"successful_source_expansion",seed:host,originSourceId:row.id,originHost:host,queries:[`"${host}" "mega.nz/folder"`,`related:${host} "mega.nz/folder"`,`site:${host} "mega.nz/folder"`]});}catch{}}
   for(const term of ["\"mega.nz/folder\" public index","\"mega.nz/folder\" archive","\"mega.nz/folder\" paste","\"mega.nz/folder\" collection","\"mega.nz/folder\" forum","\"mega.nz/folder\" mirror"])bases.push({strategy:"broad_discovery",seed:term,queries:[term]});
   const out=[],seen=new Set();
-  for(let r=0;r<rounds;r++)for(const b of bases){for(const text of variants(b.queries[r%b.queries.length],r)){const provider=r%3===1?DDG_LITE:DDG_HTML;const url=q(provider,text);const key=`${b.strategy}|${url}`;if(!seen.has(key)){seen.add(key);out.push({...b,url,strategy:`${b.strategy}:${r%3===1?"ddg_lite":"ddg_html"}`,round:r+1,evidenceUrl:url});}}if(r%4===3&&b.seed&&/^[A-Za-z0-9_.-]+$/.test(b.seed)){const url=`${WAYBACK}${encodeURIComponent(`*.${b.seed}/*mega.nz/folder*`)}`;const key=`wayback|${url}`;if(!seen.has(key)){seen.add(key);out.push({...b,strategy:"wayback_backlink",url,round:r+1,evidenceUrl:url});}}}
+  for(let r=0;r<rounds;r++)for(const b of bases){for(const text of variants(b.queries[r%b.queries.length],r)){const provider=r%5===4?BING_RSS:r%2===1?DDG_LITE:DDG_HTML;const url=q(provider,text);const key=`${b.strategy}|${url}`;if(!seen.has(key)){seen.add(key);out.push({...b,url,strategy:`${b.strategy}:${r%5===4?"bing_rss":r%2===1?"ddg_lite":"ddg_html"}`,round:r+1,evidenceUrl:url});}}if(r%4===3&&b.seed&&/^[A-Za-z0-9_.-]+$/.test(b.seed)){const url=`${WAYBACK}${encodeURIComponent(`*.${b.seed}/*mega.nz/folder*`)}`;const key=`wayback|${url}`;if(!seen.has(key)){seen.add(key);out.push({...b,strategy:"wayback_backlink",url,round:r+1,evidenceUrl:url});}}}
   return out.slice(0,Math.max(1,limit*rounds));
 }
 
@@ -40,7 +41,7 @@ export async function startSourceDiscovery(env,{rounds=1,profile="normal"}={}){
 }
 function rootCandidates(urls){const m=new Map();for(const value of urls){try{const u=new URL(value);u.hash="";const root=`${u.protocol}//${u.host}/`;if(!m.has(u.hostname))m.set(u.hostname,{root,examples:[]});m.get(u.hostname).examples.push(value);}catch{}}return[...m.values()];}
 async function profileDomain(env,domain,{fetchBudget=12,validationBudget=4}={}){
-  const endpoints=[domain.root,new URL("sitemap.xml",domain.root).toString(),new URL("rss",domain.root).toString(),new URL("feed",domain.root).toString(),new URL("archive",domain.root).toString(),new URL("recent",domain.root).toString()];
+  const endpoints=[...new Set([...(domain.examples||[]).slice(0,2),domain.root,new URL("sitemap.xml",domain.root).toString(),new URL("rss",domain.root).toString(),new URL("feed",domain.root).toString(),new URL("archive",domain.root).toString(),new URL("recent",domain.root).toString()])];
   let pages=0,ok=0,blocked=0,latency=0;const allLinks=new Map(),allCandidates=[];
   for(const url of endpoints){if(pages>=fetchBudget)break;const p=await fetchPage(url,{timeoutMs:6000});pages++;latency+=Number(p.latency||0);if(p.ok)ok++;if([401,403,429].includes(Number(p.status)))blocked++;for(const l of extractMegaFolders(p.text||""))allLinks.set(l.normalizedUrl,l);allCandidates.push(...discoverCandidateUrls(p.text||"",p.finalUrl||url,{limit:40}));}
   let alive=0,dead=0,unknown=0;for(const link of [...allLinks.values()].slice(0,validationBudget)){const v=await validateMegaFolderUrl(link.normalizedUrl,{timeoutMs:5000});if(v.status==="alive")alive++;else if(v.status==="dead"||v.status==="invalid")dead++;else unknown++;}
@@ -62,6 +63,15 @@ export async function processSourceDiscoveryTask(env,taskId,{fetchBudget=SYSTEM.
   }catch(error){const attempts=Number(task.attempts||0)+1,dead=attempts>=SYSTEM.sourceDiscoveryMaxAttempts;await env.DB.prepare(`UPDATE source_discovery_tasks SET status=?,lease_until=NULL,last_error=?,updated_at=? WHERE id=?`).bind(dead?"dead":"failed",String(error?.message||error),nowIso(),taskId).run();const progress=await syncSourceDiscoveryProgress(env.DB,task.run_id);return{retry:!dead,runId:task.run_id,fetches,...progress,error:String(error?.message||error)};}
 }
 export async function processSourceDiscoveryStep(env,runId){return dispatchSourceDiscovery(env,runId);}
-export async function sourceDiscoveryRun(db,id){const run=await db.prepare(`SELECT * FROM source_discovery_runs WHERE id=?`).bind(id).first();if(!run)return null;const states=await db.prepare(`SELECT status,COUNT(*) count FROM source_discovery_tasks WHERE run_id=? GROUP BY status`).bind(id).all();return{...run,task_counts:Object.fromEntries((states.results||[]).map(r=>[r.status,Number(r.count)]))};}
+export async function sourceDiscoveryRun(db,id){
+  const initial=await db.prepare(`SELECT * FROM source_discovery_runs WHERE id=?`).bind(id).first();
+  if(!initial)return null;
+  // Reconcile status/progress from the tasks every time the UI reads the run.
+  // This prevents stale “100% partial” displays while pending tasks still exist.
+  await syncSourceDiscoveryProgress(db,id);
+  const run=await db.prepare(`SELECT * FROM source_discovery_runs WHERE id=?`).bind(id).first();
+  const states=await db.prepare(`SELECT status,COUNT(*) count FROM source_discovery_tasks WHERE run_id=? GROUP BY status`).bind(id).all();
+  return{...run,task_counts:Object.fromEntries((states.results||[]).map(r=>[r.status,Number(r.count)]))};
+}
 export async function listSourceDiscoveryRuns(db,{limit=20}={}){const r=await db.prepare(`SELECT * FROM source_discovery_runs ORDER BY created_at DESC LIMIT ?`).bind(limit).all();return{runs:r.results||[]};}
 export async function sourceDiscoveryAction(db,id,action){const map={pause:"paused",resume:"running",cancel:"cancelled",recover:"recovering"};const next=map[action];if(!next)throw new Error("invalid_action");await db.prepare(`UPDATE source_discovery_runs SET status=?,updated_at=? WHERE id=?`).bind(next,nowIso(),id).run();if(action==="cancel")await db.prepare(`UPDATE source_discovery_tasks SET status='cancelled',lease_until=NULL,updated_at=? WHERE run_id=? AND status NOT IN ('completed','dead','cancelled')`).bind(nowIso(),id).run();if(action==="recover"){await db.prepare(`UPDATE source_discovery_tasks SET status='pending',lease_until=NULL,updated_at=? WHERE run_id=? AND status IN ('running','queued','dispatching','failed')`).bind(nowIso(),id).run();await db.prepare(`UPDATE source_discovery_runs SET status='running',updated_at=? WHERE id=?`).bind(nowIso(),id).run();}return sourceDiscoveryRun(db,id);}

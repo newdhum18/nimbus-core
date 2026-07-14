@@ -1,11 +1,13 @@
 # Changelog
 
-## 36.13.1 — Zero Foundation Final
+## 36.13.2 — Source Recovery and Mobile UI Repair
 
-- Merged all Phase 16.2 source-intelligence hardening into the clean v36.13 baseline.
-- Restored discovery origin, fingerprint, and evidence provenance fields.
-- Added domain profiling metrics, source grades, blocked detection, and precise partial outcomes.
-- Preserved queue-efficient task envelopes and D1-safe task creation.
-- Unified migration 0010 into a single zero-foundation hardening migration.
-- Refreshed tests, documentation, backup database, resource manifest, inventory, and checksums.
-- Removed obsolete reports, evidence, local state, and generated artifacts.
+- Decode DuckDuckGo, Google, and Bing search wrappers during source discovery.
+- Profile discovered example pages before generic domain endpoints.
+- Reduce Queue workload to two discovery tasks per message and six fetches per task.
+- Reconcile source-discovery status and progress from live task counts.
+- Make the first AutoScan round cover every explicitly enabled source.
+- Compact and reorganize the Sources interface for iPhone.
+- Add regression tests for wrapped target decoding and enabled-source AutoScan coverage.
+- Remove the obsolete hidden-files patch archive from the runtime package.
+

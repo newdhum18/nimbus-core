@@ -21,3 +21,12 @@ test("candidate IDs are stable and tracking parameters are removed", () => {
   assert.equal(a, b);
   assert.equal(candidateId(a), candidateId(b));
 });
+
+test("source discovery decodes wrapped search-result targets", () => {
+  const html = `
+    <a href="//duckduckgo.com/l/?uddg=${encodeURIComponent("https://example-paste.test/post/42")}">DDG</a>
+    <a href="https://www.google.com/url?q=${encodeURIComponent("https://example-forum.test/thread/9")}">Google</a>`;
+  const urls = discoverCandidateUrls(html, "https://html.duckduckgo.com/html/?q=mega");
+  assert.ok(urls.includes("https://example-paste.test/post/42"));
+  assert.ok(urls.includes("https://example-forum.test/thread/9"));
+});

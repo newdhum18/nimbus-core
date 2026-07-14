@@ -57,3 +57,17 @@ test("round task math is catalog-size agnostic", async () => {
   assert.equal(totalTasksForRounds(29, 25), 725);
   assert.equal(totalTasksForRounds(29, 100), 2900);
 });
+
+test("first AutoScan round covers every explicitly enabled source", async () => {
+  const { sourceSelectionsForRun } = await import("../src/runs/start.js");
+  const rows = Array.from({ length: 29 }, (_, index) => ({
+    id: `source_${index}`,
+    enabled: index < 26 ? 1 : 0,
+    priority: 100-index,
+    rank_score: 50,
+    requests: 0
+  }));
+  const rounds = sourceSelectionsForRun(rows,{mode:"autoscan",rounds:1});
+  assert.equal(rounds[0].length,26);
+  assert.ok(rounds[0].every((row)=>Number(row.enabled)===1));
+});

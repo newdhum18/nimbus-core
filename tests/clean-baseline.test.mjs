@@ -7,14 +7,14 @@ import { EXPECTED_SCHEMA_VERSION } from "../src/db/migration-catalog.js";
 test("clean baseline identity and schema version are synchronized", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
   assert.equal(pkg.version, SYSTEM.version);
-  assert.equal(SYSTEM.version, "36.13.1");
+  assert.equal(SYSTEM.version, "36.13.2");
   assert.equal(EXPECTED_SCHEMA_VERSION, 10);
 });
 
 test("source discovery uses D1-safe inserts and queue-efficient envelopes", async () => {
   const runs = await readFile("src/sources/discovery-runs.js", "utf8");
   assert.match(runs, /chunkItems\(seeds,Math\.min\(SYSTEM\.sqlBatchMax,SYSTEM\.sqlBatchSize\)\)/);
-  assert.equal(SYSTEM.sourceDiscoveryTasksPerMessage, 8);
+  assert.equal(SYSTEM.sourceDiscoveryTasksPerMessage, 2);
   assert.ok(SYSTEM.sourceDiscoveryDispatchTasks >= SYSTEM.sourceDiscoveryTasksPerMessage);
 });
 

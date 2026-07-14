@@ -1,7 +1,9 @@
 {
   "baseline": "Nimbus Core V36 Zero Foundation",
-  "version": "36.13.1",
-  "file_count": 153,
+  "version": "36.13.2",
+  "schema_version": 10,
+  "file_count": 154,
+  "note": "Inventory excludes the inventory and checksum files themselves to avoid recursive hashes.",
   "files": [
     {
       "path": ".github/workflows/deploy-worker.yml",
@@ -25,28 +27,33 @@
     },
     {
       "path": "CHANGELOG.md",
-      "size_bytes": 627,
-      "sha256": "f9cfa44a6a4190a1d6dd5bf30df93245de563130f6046d1f09dbe6e96b9b5c34"
+      "size_bytes": 665,
+      "sha256": "a87586729c44df3bc955bb440322ce8fe77881bb8d779a1809504c36ce4d828a"
     },
     {
       "path": "CLEAN_BASELINE_REPORT.md",
       "size_bytes": 1228,
-      "sha256": "01ec22938f18e594040d60a215bc54da4b524cdc19204815de4c0914ecde8be5"
+      "sha256": "db2fa43b8ab2b31b93ec407305f97f9f320fae6301678da5874350166b168847"
     },
     {
       "path": "DEPLOYMENT.md",
       "size_bytes": 888,
-      "sha256": "a7b90b3b75bb42cb1c099209cbcc5bd7968e4836e47b973eed5524898ad508ee"
+      "sha256": "f84ee783c020e8288a23f82060290c263feda38bb42e9ac06c7550cf0a6058cc"
     },
     {
       "path": "PHASE_STATUS.md",
       "size_bytes": 1133,
-      "sha256": "14bc104f7a17276a45a86c26138c5b784919013ecf7935ddb7fc9a8f3b7d352c"
+      "sha256": "26f0f756a21d2f12c6b0affe317d779d52c3f92f8c109c27ca9e027704a106c6"
     },
     {
       "path": "README.md",
       "size_bytes": 866,
-      "sha256": "8fb582aae4e2b523b5232ff4ebaff30cf719d2e1f2d38e1020d970f493ea9bf9"
+      "sha256": "3502da198ea9ced5527690ed88d124a64bcb5ba18bd73628a39f768d7e28b671"
+    },
+    {
+      "path": "RELEASE_REPAIR_REPORT.md",
+      "size_bytes": 4585,
+      "sha256": "5a68d4bc44d74aac3ee9e09925574c60b7a387c961ee10e1df64e03ed29e366f"
     },
     {
       "path": "backup/DATABASE_SCHEMA_REFERENCE.sql",
@@ -61,7 +68,7 @@
     {
       "path": "backup/RESOURCE_MANIFEST.json",
       "size_bytes": 317,
-      "sha256": "11cf1341375de78cd5455f8100b65aa4effff6d7459672f378eb8f5761f24af4"
+      "sha256": "e9aa9af157baaa2f29e269bc47e457b16b5fc9274e4e91b890fe617a9f338270"
     },
     {
       "path": "backup/nimbus-core-v36-zero.sqlite",
@@ -166,12 +173,12 @@
     {
       "path": "package-lock.json",
       "size_bytes": 48399,
-      "sha256": "93eb59e2ba63a1a5e44500cc40b439c34f97110543a686f703d3b312ad3d65a9"
+      "sha256": "99c40f34b83d31501796af9c44c1e62c1c0aa008472044b17b0f000128648424"
     },
     {
       "path": "package.json",
-      "size_bytes": 1780,
-      "sha256": "059d9ea2dd521c59bacefaaa6909525c128cc35c289156af1d0f6e7d42b50d58"
+      "size_bytes": 1800,
+      "sha256": "303aac9520d060fc70b420a243ff83b72b2150c45020579685e2474ce14c343e"
     },
     {
       "path": "public/_headers",
@@ -180,18 +187,18 @@
     },
     {
       "path": "public/app.js",
-      "size_bytes": 29477,
-      "sha256": "8e458fc56d1e7701e29088c86fc1f89d55e52093fa54ca859569c49e671eb078"
+      "size_bytes": 29604,
+      "sha256": "7502bd83f10c53ed7aec18880eb3ee0474b9a6fe68081bcdfbf65e5c559014f6"
     },
     {
       "path": "public/index.html",
-      "size_bytes": 15324,
-      "sha256": "a276bc6ccefb6fc1b63284870913cb04c062d8ecce6cd55e07a146de7e0c1c34"
+      "size_bytes": 15458,
+      "sha256": "77ef46e9f0de534cd90f9780526abc47e3a52e6f358967ce6158eb81a9b22d6e"
     },
     {
       "path": "public/style.css",
-      "size_bytes": 14929,
-      "sha256": "d72889c56ffb88823d86e8e3f1a754df9ac5d7fbc58806c1c5374a7873dea217"
+      "size_bytes": 17552,
+      "sha256": "d210df943935d2054b702f2728f187f8b30a98b1340b12d84f723a948c8097ac"
     },
     {
       "path": "scripts/build-web.mjs",
@@ -241,7 +248,7 @@
     {
       "path": "scripts/verify-baseline.mjs",
       "size_bytes": 1280,
-      "sha256": "fbb7a250e99641c34f100096da2bd80ae08be8285adcfb62d77d17ae35e90dc0"
+      "sha256": "d6daf31de32f5005ce780a3c88575eb67352d8a5d40320e4d558b98d20326494"
     },
     {
       "path": "src/api/cors.js",
@@ -265,8 +272,8 @@
     },
     {
       "path": "src/config.js",
-      "size_bytes": 1189,
-      "sha256": "7e86cbaee7e1479863a663b34941b4b64d2dc092b31dee612712fd6b620c74af"
+      "size_bytes": 1187,
+      "sha256": "50579439427f19bb203da5da1cfacc818dd79231c1ded8fdb80512e644c46ec3"
     },
     {
       "path": "src/db/batch.js",
@@ -510,8 +517,8 @@
     },
     {
       "path": "src/runs/start.js",
-      "size_bytes": 5179,
-      "sha256": "5e8537a634d3aaf7a3eaebd141734ddca679010e703e07cc1a4087cce7431520"
+      "size_bytes": 5473,
+      "sha256": "6395d14be777f57cc4a9883c99bde586d415e9368a505d9a8498483f7bea5cac"
     },
     {
       "path": "src/runs/state-machine.js",
@@ -595,13 +602,13 @@
     },
     {
       "path": "src/sources/discovery-runs.js",
-      "size_bytes": 13669,
-      "sha256": "9686d62c8956bb594ef1349f38ecd0bfcdf2616e592c388dbbd9b8a060470ca5"
+      "size_bytes": 14142,
+      "sha256": "b7219ab4dde4b7ef03053d343b1af177c31cab299ff77219db71962f01899433"
     },
     {
       "path": "src/sources/discovery.js",
-      "size_bytes": 10620,
-      "sha256": "f19b737de28a532361ece43e4a9614e12112765c2c2a22570934f9872d10f4aa"
+      "size_bytes": 10968,
+      "sha256": "14c157d8d5127fa4b29223cb335cacd196ebe987f5402cc91e4fa0799618f471"
     },
     {
       "path": "src/sources/intelligence.js",
@@ -641,12 +648,12 @@
     {
       "path": "tests/clean-baseline.test.mjs",
       "size_bytes": 1428,
-      "sha256": "62db1afdaa76106f6a77c3e593f7275235b5d42fe8f042b2ecdd66728efe9b01"
+      "sha256": "50280002f8158397aa165de06732db55f04d07efdc5dc13f339fe8107995cf3f"
     },
     {
       "path": "tests/config.test.mjs",
       "size_bytes": 1351,
-      "sha256": "15ae26effd0613bb954ce247eb50226374882c077248f54fde9eaf846d02c3a7"
+      "sha256": "c4cca58ec4937da513b0a7627dc825ae1100e869a49936e9f0878e1b297df07a"
     },
     {
       "path": "tests/cors.test.mjs",
@@ -720,13 +727,13 @@
     },
     {
       "path": "tests/search.test.mjs",
-      "size_bytes": 2375,
-      "sha256": "297d736495111e3d9e4d6c38431e17b163263b415ee4c6ae1367be9b555145ff"
+      "size_bytes": 2897,
+      "sha256": "07c9e6160f88f4aaf5e33144321192c50955fac86ef4c9d5482b6177cb5eb726"
     },
     {
       "path": "tests/source-discovery.test.mjs",
-      "size_bytes": 1121,
-      "sha256": "eaf6e1465e6f03b45acb2cf612a435dee6acf692058cd72f60b59b604b5ef914"
+      "size_bytes": 1659,
+      "sha256": "14e53bcee3d8bccc400ac4ef833bcd9ab55c9e3a75cd1cae2e7cef5bfbc81d7e"
     },
     {
       "path": "tests/source-intelligence-center.test.mjs",

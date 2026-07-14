@@ -18,6 +18,15 @@ export function totalTasksForRounds(sourceCount, rounds) {
   return Number(sourceCount) * Number(rounds);
 }
 
+
+export function sourceSelectionsForRun(sourcePool,{mode="autoscan",rounds=1}={}){
+  const enabledSources=sourcePool.filter((row)=>Number(row.enabled)===1);
+  return Array.from({length:rounds},(_,roundIndex)=>{
+    if(mode==="autoscan"&&roundIndex===0)return enabledSources.slice(0,300);
+    return chooseSources(sourcePool,{roundIndex,maxSources:Math.min(24,sourcePool.length)});
+  });
+}
+
 function normalizeRounds(value) {
   const rounds = Number(value ?? 1);
   if (!Number.isInteger(rounds) || rounds < 1 || rounds > 100) {
@@ -66,9 +75,7 @@ export async function startRun(env, { mode, keyword = "", category = "tools", ro
   if (!sourcePool.length) {
     throw new AppError("NO_ENABLED_SOURCES", "No autonomous sources are available", "runs", 409);
   }
-  const roundSelections = Array.from({ length: rounds }, (_, roundIndex) =>
-    chooseSources(sourcePool, { roundIndex, maxSources: Math.min(24, sourcePool.length) })
-  );
+  const roundSelections = sourceSelectionsForRun(sourcePool,{mode,rounds});
   const sources = roundSelections[0] || [];
 
   const runId = uid("run");

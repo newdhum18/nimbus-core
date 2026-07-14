@@ -1,12 +1,30 @@
 import { uid, nowIso } from "../db/queries.js";
 import { assertPublicHttpUrl } from "../search/crawler.js";
+import { extractHttpTargets } from "../search/target-decoder.js";
 
 const BLOCKED_HOSTS = [/(^|\.)mega\.(nz|io)$/i,/(^|\.)duckduckgo\.com$/i,/(^|\.)bing\.com$/i,/(^|\.)google\./i,/(^|\.)web\.archive\.org$/i];
 function hash(text){let h=2166136261;for(const ch of String(text)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}return(h>>>0).toString(36);}
 function hostRoot(value){const u=assertPublicHttpUrl(value);u.pathname="/";u.search="";u.hash="";return u.toString();}
 export function normalizeCandidateUrl(value){const url=assertPublicHttpUrl(value);url.hash="";for(const key of [...url.searchParams.keys()])if(/^(utm_|fbclid$|gclid$|ref$|source$)/i.test(key))url.searchParams.delete(key);return url.toString();}
 export function candidateId(value){return `candidate_${hash(normalizeCandidateUrl(value))}`;}
-export function discoverCandidateUrls(input,baseUrl,{limit=80}={}){const raw=String(input||"");const out=[],seen=new Set();const add=v=>{try{const n=normalizeCandidateUrl(new URL(v,baseUrl).toString());const h=new URL(n).hostname;if(BLOCKED_HOSTS.some(r=>r.test(h))||seen.has(n))return;seen.add(n);out.push(n);}catch{}};for(const m of raw.matchAll(/(?:href|src|action)\s*=\s*["']([^"']+)["']/gi))add(m[1]);for(const m of raw.matchAll(/https?:\/\/[^\s"'<>\\]+/gi))add(m[0]);return out.slice(0,limit);}
+export function discoverCandidateUrls(input,baseUrl,{limit=80}={}){
+  const raw=String(input||"");
+  const out=[],seen=new Set();
+  const add=v=>{
+    try{
+      const n=normalizeCandidateUrl(new URL(v,baseUrl).toString());
+      const h=new URL(n).hostname;
+      if(BLOCKED_HOSTS.some(r=>r.test(h))||seen.has(n))return;
+      seen.add(n);out.push(n);
+    }catch{}
+  };
+  // Search engines commonly wrap target URLs (uddg=, /url?q=, ck/a?...).
+  // Decode those wrappers first, then fall back to raw HTML/JSON URL discovery.
+  for(const target of extractHttpTargets(raw,baseUrl))add(target);
+  for(const m of raw.matchAll(/(?:href|src|action)\s*=\s*["']([^"']+)["']/gi))add(m[1]);
+  for(const m of raw.matchAll(/https?:\/\/[^\s"'<>\\]+/gi))add(m[0]);
+  return out.slice(0,limit);
+}
 
 export function calculateSourceGrade(metrics={}){
   const pages=Math.max(1,Number(metrics.pagesTested||0));
