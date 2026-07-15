@@ -24,7 +24,7 @@ import { sourceDiscoverySummary, promoteQualifiedCandidates } from "./sources/di
 import { queueUsage } from "./queue/usage.js";
 import { processPendingDirect } from "./queue/fallback.js";
 import { validateMegaFolderUrl, validateStoredLinks } from "./results/mega-validation.js";
-import { startSourceDiscovery, processSourceDiscoveryStep, sourceDiscoveryRun, listSourceDiscoveryRuns, sourceDiscoveryAction } from "./sources/discovery-runs.js";
+import { startSourceDiscovery, processSourceDiscoveryStep, sourceDiscoveryRun, listSourceDiscoveryRuns, sourceDiscoveryAction, cancelActiveSourceDiscoveryRuns } from "./sources/discovery-runs.js";
 
 async function requestBody(request) {
   return request.json().catch(() => ({}));
@@ -148,6 +148,9 @@ export async function route(request, env) {
     if (url.pathname === "/api/source-discovery/start" && request.method === "POST") {
       const data=await requestBody(request);
       return ok(await startSourceDiscovery(env,{rounds:data.rounds,profile:data.profile}),201,cors);
+    }
+    if (url.pathname === "/api/source-discovery/active/cancel" && request.method === "POST") {
+      return ok(await cancelActiveSourceDiscoveryRuns(requireDb(env)),200,cors);
     }
     const sourceDiscoveryMatch=/^\/api\/source-discovery\/runs\/([^/]+)(?:\/(step|pause|resume|cancel|recover))?$/.exec(url.pathname);
     if(sourceDiscoveryMatch){

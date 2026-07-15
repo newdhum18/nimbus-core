@@ -7,7 +7,7 @@ import { EXPECTED_SCHEMA_VERSION } from "../src/db/migration-catalog.js";
 test("clean baseline identity and schema version are synchronized", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
   assert.equal(pkg.version, SYSTEM.version);
-  assert.equal(SYSTEM.version, "36.16.1");
+  assert.equal(SYSTEM.version, "36.16.2");
   assert.equal(EXPECTED_SCHEMA_VERSION, 12);
 });
 

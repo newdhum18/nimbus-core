@@ -61,7 +61,11 @@ async function loadSourceDiscovery(){
   const [summary,runs]=await Promise.all([api("/api/sources/discovery"),api("/api/source-discovery/runs?limit=10")]);
   $("#sourceCandidateMetrics").innerHTML=sourceDiscoveryMetric(summary.total,"CANDIDATES")+sourceDiscoveryMetric(summary.promoted,"PROMOTED")+sourceDiscoveryMetric(summary.rejected,"REJECTED")+sourceDiscoveryMetric(summary.candidates,"EVALUATING");
   $("#sourceCandidateList").innerHTML=(summary.recent||[]).length?(summary.recent||[]).map(c=>{const reason=c.rejection_reason||candidateReason(c);return `<details class="candidate-card"><summary><div><strong>${escapeHtml(c.host)}</strong><small>${escapeHtml(c.state)} · ${escapeHtml(c.family||"unknown")} · grade ${escapeHtml(c.quality_grade||"C")} · confidence ${Number(c.confidence||0).toFixed(0)}</small></div><span class="pill ${c.state==="promoted"?"success":c.state==="blocked"?"error":"neutral"}">${escapeHtml(c.state)}</span></summary><div class="candidate-evidence"><p>${escapeHtml(reason)}</p><div class="evidence-grid"><span>Evidence <b>${Number(c.evidence_count||0)}</b></span><span>Pages <b>${Number(c.pages_tested||0)}</b></span><span>MEGA <b>${Number(c.extracted_links||0)}</b></span><span>Novel <b>${Number(c.novel_links||0)}</b></span><span>Alive <b>${Number(c.alive_links||0)}</b></span><span>Duplicates <b>${Number(c.duplicate_links||0)}</b></span></div><div class="result-toolbar"><a class="mini-btn" href="${escapeHtml(c.root_url)}" target="_blank" rel="noopener">Open source</a></div></div></details>`}).join(""):'<div class="empty-state">No source candidates yet. Start a source discovery scan.</div>';
-  const latest=(runs.runs||[])[0]; if(latest&&!state.sourceDiscoveryRunId){state.sourceDiscoveryRunId=latest.id;localStorage.setItem("nimbus.sourceDiscoveryRunId",latest.id);}
+  const rows=runs.runs||[];
+  const active=rows.find(r=>["running","paused","recovering"].includes(r.status));
+  const selected=rows.find(r=>r.id===state.sourceDiscoveryRunId);
+  const preferred=active||selected||rows[0]||null;
+  if(preferred&&preferred.id!==state.sourceDiscoveryRunId){state.sourceDiscoveryRunId=preferred.id;localStorage.setItem("nimbus.sourceDiscoveryRunId",preferred.id);}
   if(state.sourceDiscoveryRunId){
     const d=await api(`/api/source-discovery/runs/${encodeURIComponent(state.sourceDiscoveryRunId)}`); renderSourceDiscoveryRun(d);
   } else renderSourceDiscoveryRun(null);
@@ -81,7 +85,14 @@ function renderSourceDiscoveryRun(run){
 }
 async function startSourceDiscovery(){
   const btn=$("#startSourceDiscovery");setBusy(btn,true,"Starting…");
-  try{const d=await api("/api/source-discovery/start",{method:"POST",body:JSON.stringify({rounds:Number($("#sourceDiscoveryRounds").value)||1,profile:$("#sourceDiscoveryProfile").value})});state.sourceDiscoveryRunId=d.run_id;localStorage.setItem("nimbus.sourceDiscoveryRunId",d.run_id);toast("Source discovery started in Cloudflare","success");startSourceDiscoveryPolling();}finally{setBusy(btn,false);}
+  try{
+    const d=await api("/api/source-discovery/start",{method:"POST",body:JSON.stringify({rounds:Number($("#sourceDiscoveryRounds").value)||1,profile:$("#sourceDiscoveryProfile").value})});
+    state.sourceDiscoveryRunId=d.run_id;localStorage.setItem("nimbus.sourceDiscoveryRunId",d.run_id);toast("Source discovery started in Cloudflare","success");startSourceDiscoveryPolling();
+  }catch(error){
+    const match=String(error.message||"").match(/active_source_discovery_run:([^:]+):([^:]+)/);
+    if(match){state.sourceDiscoveryRunId=match[1];localStorage.setItem("nimbus.sourceDiscoveryRunId",match[1]);await loadSourceDiscovery();toast(`Active discovery selected (${match[2]}). You can cancel or recover it.`,"error");return;}
+    throw error;
+  }finally{setBusy(btn,false);}
 }
 async function processSourceDiscoveryBatch(){if(!state.sourceDiscoveryRunId)return;const d=await api(`/api/source-discovery/runs/${encodeURIComponent(state.sourceDiscoveryRunId)}/step`,{method:"POST"});toast(`Dispatched ${d.queued||0} discovery task(s)`,`success`);await loadSourceDiscovery();return d;}
 function startSourceDiscoveryPolling(){if(state.sourceDiscoveryPoll)return;state.sourceDiscoveryPoll=setInterval(()=>loadSourceDiscovery().catch(e=>{console.error(e);stopSourceDiscoveryPolling();}),2500);}

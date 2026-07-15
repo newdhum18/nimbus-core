@@ -85,11 +85,8 @@ export async function startSourceDiscovery(env,{rounds=1,profile="normal"}={}){
   // Reconcile any previously active run before enforcing the single-run lock.
   // A completed task set can otherwise leave a stale `running` row that blocks
   // the next discovery request and appears in the UI as INTERNAL_ERROR.
+  await reconcileActiveSourceDiscoveryRuns(env.DB);
   let active=await env.DB.prepare(`SELECT id,status FROM source_discovery_runs WHERE status IN ('running','paused','recovering') ORDER BY updated_at DESC LIMIT 1`).first();
-  if(active){
-    await sourceDiscoveryRun(env.DB,active.id);
-    active=await env.DB.prepare(`SELECT id,status FROM source_discovery_runs WHERE id=? AND status IN ('running','paused','recovering') LIMIT 1`).bind(active.id).first();
-  }
   if(active)throw new Error(`active_source_discovery_run:${active.id}:${active.status}`);
   rounds=Math.max(1,Math.min(100,Number(rounds)||1));if(!PROFILES[profile])profile="normal";
   const seeds=await buildDiscoverySeeds(env.DB,{rounds,profile}),id=uid("srun"),now=nowIso();
@@ -107,7 +104,44 @@ async function profileDomain(env,domain,{fetchBudget=12,validationBudget=4}={}){
   unknown+=Math.max(0,allLinks.size-(alive+dead+unknown));
   return{pages,ok,blocked,latency:pages?latency/pages:0,mega:[...allLinks.values()],candidates:[...new Set(allCandidates)],alive,dead,unknown};
 }
-async function syncSourceDiscoveryProgress(db,runId){const c=await db.prepare(`SELECT COUNT(*) total,SUM(status='completed') completed,SUM(status IN ('failed','dead')) failed,SUM(status='cancelled') cancelled FROM source_discovery_tasks WHERE run_id=?`).bind(runId).first();const total=Number(c?.total||0),completed=Number(c?.completed||0),failed=Number(c?.failed||0),cancelled=Number(c?.cancelled||0),done=completed+failed+cancelled;const {status,outcome}=deriveDiscoveryOutcome({total,completed,failed,cancelled});const progress=total?Math.min(100,done*100/total):100;await db.prepare(`UPDATE source_discovery_runs SET status=?,outcome=?,completed_tasks=?,failed_tasks=?,progress=?,completed_at=CASE WHEN ? IN ('completed','failed') THEN ? ELSE completed_at END,updated_at=? WHERE id=?`).bind(status,outcome,completed,failed,progress,status,nowIso(),nowIso(),runId).run();return{status,outcome,progress,total,completed,failed};}
+async function syncSourceDiscoveryProgress(db,runId){
+  const c=await db.prepare(`SELECT COUNT(*) total,SUM(status='completed') completed,SUM(status IN ('failed','dead')) failed,SUM(status='cancelled') cancelled FROM source_discovery_tasks WHERE run_id=?`).bind(runId).first();
+  const total=Number(c?.total||0),completed=Number(c?.completed||0),failed=Number(c?.failed||0),cancelled=Number(c?.cancelled||0),done=completed+failed+cancelled;
+  let status,outcome;
+  if(total===0){status="failed";outcome="failure";}
+  else ({status,outcome}=deriveDiscoveryOutcome({total,completed,failed,cancelled}));
+  const progress=total?Math.min(100,done*100/total):100;
+  const now=nowIso();
+  await db.prepare(`UPDATE source_discovery_runs SET status=?,outcome=?,completed_tasks=?,failed_tasks=?,progress=?,error_message=CASE WHEN ?=0 AND error_message IS NULL THEN 'orphaned_active_run_no_tasks' ELSE error_message END,completed_at=CASE WHEN ? IN ('completed','failed') THEN COALESCE(completed_at,?) ELSE completed_at END,updated_at=? WHERE id=?`).bind(status,outcome,completed,failed,progress,total,status,now,now,runId).run();
+  return{status,outcome,progress,total,completed,failed,cancelled};
+}
+
+export async function reconcileActiveSourceDiscoveryRuns(db,{staleAfterSeconds=Math.max(300,SYSTEM.sourceDiscoveryLeaseSeconds*4)}={}){
+  const rows=await db.prepare(`SELECT id,status,updated_at FROM source_discovery_runs WHERE status IN ('running','paused','recovering') ORDER BY updated_at ASC`).all();
+  const repaired=[];
+  for(const row of rows.results||[]){
+    const counts=await db.prepare(`SELECT COUNT(*) total,SUM(status IN ('completed','failed','dead','cancelled')) terminal,SUM(status IN ('pending','queued','dispatching','running')) active FROM source_discovery_tasks WHERE run_id=?`).bind(row.id).first();
+    const total=Number(counts?.total||0),terminal=Number(counts?.terminal||0),active=Number(counts?.active||0);
+    const ageSeconds=Math.max(0,(Date.now()-new Date(row.updated_at||0).getTime())/1000);
+    if(total===0||terminal>=total){
+      const result=await syncSourceDiscoveryProgress(db,row.id);repaired.push({id:row.id,reason:total===0?"no_tasks":"all_terminal",...result});continue;
+    }
+    if(ageSeconds>=staleAfterSeconds&&active>0){
+      const now=nowIso();
+      await db.prepare(`UPDATE source_discovery_tasks SET status='cancelled',lease_until=NULL,last_error=COALESCE(last_error,'stale_source_discovery_auto_cancelled'),updated_at=? WHERE run_id=? AND status NOT IN ('completed','failed','dead','cancelled')`).bind(now,row.id).run();
+      await db.prepare(`UPDATE source_discovery_runs SET error_message=COALESCE(error_message,'stale_source_discovery_auto_cancelled'),updated_at=? WHERE id=?`).bind(now,row.id).run();
+      const result=await syncSourceDiscoveryProgress(db,row.id);repaired.push({id:row.id,reason:"stale",...result});
+    }
+  }
+  return repaired;
+}
+
+export async function cancelActiveSourceDiscoveryRuns(db){
+  const rows=await db.prepare(`SELECT id FROM source_discovery_runs WHERE status IN ('running','paused','recovering')`).all();
+  const cancelled=[];
+  for(const row of rows.results||[]){await sourceDiscoveryAction(db,row.id,"cancel");cancelled.push(row.id);}
+  return{cancelled,count:cancelled.length};
+}
 
 export function isPermanentDiscoveryError(error){const m=String(error?.message||error||"").toLowerCase();return m.includes("foreign key constraint")||m.includes("check constraint")||m.includes("no such table")||m.includes("no such column")||m.includes("invalid schema")||m.includes("invalid task");}
 
@@ -148,5 +182,5 @@ export async function sourceDiscoveryRun(db,id){
   const states=await db.prepare(`SELECT status,COUNT(*) count FROM source_discovery_tasks WHERE run_id=? GROUP BY status`).bind(id).all();
   return{...run,task_counts:Object.fromEntries((states.results||[]).map(r=>[r.status,Number(r.count)]))};
 }
-export async function listSourceDiscoveryRuns(db,{limit=20}={}){const r=await db.prepare(`SELECT * FROM source_discovery_runs ORDER BY created_at DESC LIMIT ?`).bind(limit).all();return{runs:r.results||[]};}
+export async function listSourceDiscoveryRuns(db,{limit=20}={}){const repaired=await reconcileActiveSourceDiscoveryRuns(db);const r=await db.prepare(`SELECT * FROM source_discovery_runs ORDER BY CASE WHEN status IN ('running','paused','recovering') THEN 0 ELSE 1 END,created_at DESC LIMIT ?`).bind(limit).all();return{runs:r.results||[],repaired};}
 export async function sourceDiscoveryAction(db,id,action){const map={pause:"paused",resume:"running",cancel:"cancelled",recover:"recovering"};const next=map[action];if(!next)throw new Error("invalid_action");await db.prepare(`UPDATE source_discovery_runs SET status=?,updated_at=? WHERE id=?`).bind(next,nowIso(),id).run();if(action==="cancel")await db.prepare(`UPDATE source_discovery_tasks SET status='cancelled',lease_until=NULL,updated_at=? WHERE run_id=? AND status NOT IN ('completed','dead','cancelled')`).bind(nowIso(),id).run();if(action==="recover"){await db.prepare(`UPDATE source_discovery_tasks SET status='pending',lease_until=NULL,updated_at=? WHERE run_id=? AND status IN ('running','queued','dispatching','failed')`).bind(nowIso(),id).run();await db.prepare(`UPDATE source_discovery_runs SET status='running',updated_at=? WHERE id=?`).bind(nowIso(),id).run();}return sourceDiscoveryRun(db,id);}
