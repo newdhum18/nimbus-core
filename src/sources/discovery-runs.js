@@ -82,7 +82,15 @@ export async function buildDiscoverySeeds(db,{rounds=1,profile="normal"}={}){
 }
 
 export async function startSourceDiscovery(env,{rounds=1,profile="normal"}={}){
-  const active=await env.DB.prepare(`SELECT id FROM source_discovery_runs WHERE status IN ('running','paused','recovering') LIMIT 1`).first();if(active)throw new Error(`active_source_discovery_run:${active.id}`);
+  // Reconcile any previously active run before enforcing the single-run lock.
+  // A completed task set can otherwise leave a stale `running` row that blocks
+  // the next discovery request and appears in the UI as INTERNAL_ERROR.
+  let active=await env.DB.prepare(`SELECT id,status FROM source_discovery_runs WHERE status IN ('running','paused','recovering') ORDER BY updated_at DESC LIMIT 1`).first();
+  if(active){
+    await sourceDiscoveryRun(env.DB,active.id);
+    active=await env.DB.prepare(`SELECT id,status FROM source_discovery_runs WHERE id=? AND status IN ('running','paused','recovering') LIMIT 1`).bind(active.id).first();
+  }
+  if(active)throw new Error(`active_source_discovery_run:${active.id}:${active.status}`);
   rounds=Math.max(1,Math.min(100,Number(rounds)||1));if(!PROFILES[profile])profile="normal";
   const seeds=await buildDiscoverySeeds(env.DB,{rounds,profile}),id=uid("srun"),now=nowIso();
   await env.DB.prepare(`INSERT INTO source_discovery_runs(id,status,profile,rounds,total_tasks,created_at,started_at,updated_at,outcome) VALUES(?,?,?,?,?,?,?,?,?)`).bind(id,"running",profile,rounds,seeds.length,now,now,now,"pending").run();

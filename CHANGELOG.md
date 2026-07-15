@@ -1,3 +1,9 @@
+## 36.16.1 — Stale Discovery Run Lock Reconciliation
+
+- Reconciles active source-discovery runs before applying the single-run lock.
+- Automatically finalizes completed task sets left with stale running status.
+- Preserves protection against genuinely active, paused, or recovering duplicate runs.
+
 # Changelog
 
 ## 36.16.0 — iPhone Source Intelligence and Extraction Recovery
