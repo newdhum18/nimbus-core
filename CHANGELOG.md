@@ -1,12 +1,26 @@
-## 36.15.0 — Note-First Recursive Extraction Upgrade
-
-- Added extraction from data URL attributes, meta refresh, escaped scripts, JSON payloads, and Base64 redirect blobs.
-- Added priority ordering for note/paste, raw, redirect, archive, RSS, and article surfaces.
-- Increased bounded recursive discovery depth and source fetch budget.
-- Added Gist raw variants and deeper nested redirect decoding.
-- Removed deploy-only `dist/` from the source package baseline.
-
 # Changelog
+
+## 36.16.0 — iPhone Source Intelligence and Extraction Recovery
+
+- Added three iPhone-first Sources views: Control, Discovery, and Pipeline.
+- Added persistent Automatic/Manual source governance.
+- Added domain-level candidate evidence cards and clear promotion reasons.
+- Added Results → Extraction Recovery for blocked, dynamic, encoded, and unresolved MEGA pages.
+- Preserved note-first discovery, safe redirect decoding, folder-only extraction, and D1-safe queue processing.
+
+# Nimbus Core V36 Changelog
+
+## 36.15.0 — Adaptive Note-First Recursive Discovery Repair
+
+- Recursively decodes nested redirect chains, including URL-encoded and Base64URL wrapper parameters.
+- Prioritizes note, paste, raw, post and redirect surfaces before analytics and static assets.
+- Expands controlled crawl depth to 4 and child-link selection to 24 with ranked filtering.
+- Raises source-discovery fetch budgets moderately to 16 while preserving queue limits.
+- Separates disabled sandbox registration from genuine active promotion.
+- Promotes note/paste domains only after repeated extraction evidence or real novel/alive MEGA yield.
+- Uses direct root crawling for qualified note-family sources instead of only a search-engine site template.
+- Adds regression coverage for nested Linkvertise-style chains and target prioritization.
+- Produces a clean source package and a separate deployment package.
 
 ## 36.14.0 — Domain-Accurate Source Promotion Repair
 

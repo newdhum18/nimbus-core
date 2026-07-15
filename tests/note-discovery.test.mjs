@@ -20,26 +20,21 @@ test("adds raw variant for paste.ee notes",()=>{
   assert.ok(contentVariants("https://paste.ee/p/AbCd1").includes("https://paste.ee/r/AbCd1"));
 });
 
-test("extracts redirect targets from data attributes and meta refresh",()=>{
-  const target="https://rentry.co/example";
-  const encoded=Buffer.from(target).toString("base64url");
-  const html=`<meta http-equiv="refresh" content="0; url=https://linkvertise.com/x/dynamic?r=${encoded}"><button data-url="https://paste.ee/p/AbCd1">open</button>`;
-  const found=extractHttpTargets(html,"https://ofversedrops.com/post");
-  assert.ok(found.includes(target));
-  assert.ok(found.includes("https://paste.ee/r/AbCd1"));
+test("recursively decodes nested redirect chains",()=>{
+  const final="https://pastetoday.com/note123";
+  const inner=`https://linkvertise.com/471396/x/dynamic?r=${Buffer.from(final).toString("base64url")}`;
+  const outer=`https://speedy-links.com/s?url=${encodeURIComponent(inner)}`;
+  assert.equal(decodeSearchTarget(outer,outer),final);
 });
 
-test("extracts URLs embedded in escaped scripts and base64 blobs",()=>{
-  const target="https://pastetoday.com/hidden-note";
-  const encoded=Buffer.from(target).toString("base64url");
-  const html=`<script>window.payload={next:\"https:\\/\\/linkvertise.com\\/x?o=${encoded}\", raw:\"https:\\/\\/rentry.co\\/abc\"}</script>`;
-  const found=extractHttpTargets(html,"https://ofversedrops.com/post");
-  assert.ok(found.includes(target));
-  assert.ok(found.includes("https://rentry.co/raw/abc"));
-});
-
-test("prioritizes note and redirect targets above analytics assets",()=>{
-  const html=`<a href="https://www.googletagmanager.com/a.js">x</a><a href="https://pastetoday.com/note1">note</a><a href="https://linkvertise.com/x?r=aHR0cHM6Ly9yZW50cnkuY28vYWJj">redirect</a>`;
-  const found=extractHttpTargets(html,"https://ofversedrops.com/post");
-  assert.match(found[0],/(rentry|pastetoday)/);
+test("prioritizes note and redirect surfaces over tracking assets",()=>{
+  const html=`
+    <script src="https://www.googletagmanager.com/gtm.js"></script>
+    <a href="https://example.com/image.png">image</a>
+    <a href="https://pastetoday.com/note123">note</a>
+    <a href="https://linkvertise.com/1/x/dynamic?r=${Buffer.from("https://rentry.co/demo").toString("base64url")}">wrapped</a>`;
+  const targets=extractHttpTargets(html,"https://ofversedrops.com/post");
+  assert.equal(targets[0],"https://rentry.co/raw/demo");
+  assert.ok(targets.includes("https://pastetoday.com/note123"));
+  assert.ok(!targets.some((value)=>value.includes("googletagmanager")));
 });

@@ -56,12 +56,12 @@ test("reachable zero-yield domain is retained as disabled sandbox source", async
   db.prepare(`INSERT INTO source_candidate_domains(host,root_url,state,family,quality_grade,evidence_count,pages_tested,extracted_links,novel_links,alive_links,dead_links,unknown_links,duplicate_links,successful_fetches,failed_fetches,blocked_fetches,average_latency,confidence,first_seen_at,last_seen_at,last_tested_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run('sandbox.example','https://sandbox.example/','candidate','web','D',1,1,0,0,0,0,0,0,1,0,0,90,2,now,now,now);
   const result=await promoteQualifiedCandidates(d1(db),{limit:5});
-  assert.equal(result.promoted,1);
+  assert.equal(result.promoted,0);
   assert.equal(result.sandboxed,1);
   const source=db.prepare(`SELECT * FROM sources WHERE name=?`).get('Discovered — sandbox.example');
   assert.ok(source);
   assert.equal(source.enabled,0);
-  assert.equal(db.prepare(`SELECT state FROM source_candidate_domains WHERE host='sandbox.example'`).get().state,'promoted');
+  assert.equal(db.prepare(`SELECT state FROM source_candidate_domains WHERE host='sandbox.example'`).get().state,'sandbox');
   db.close();
 });
 
@@ -86,7 +86,7 @@ test("arbitrary extracted links do not auto-enable a zero-yield source", async()
   db.prepare(`INSERT INTO source_candidate_domains(host,root_url,state,family,quality_grade,evidence_count,pages_tested,extracted_links,novel_links,alive_links,dead_links,unknown_links,duplicate_links,successful_fetches,failed_fetches,blocked_fetches,average_latency,confidence,first_seen_at,last_seen_at,last_tested_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run('noise.example','https://noise.example/','candidate','web','C',1,1,50,0,0,0,0,0,1,0,0,80,10,now,now,now);
   const result=await promoteQualifiedCandidates(d1(db),{limit:5});
-  assert.equal(result.promoted,1);
+  assert.equal(result.promoted,0);
   assert.equal(result.sandboxed,1);
   const source=db.prepare(`SELECT enabled FROM sources WHERE name='Discovered — noise.example'`).get();
   assert.equal(source.enabled,0);

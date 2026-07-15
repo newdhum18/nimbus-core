@@ -1,6 +1,6 @@
 import { uid, nowIso } from "../db/queries.js";
 import { assertPublicHttpUrl } from "../search/crawler.js";
-import { extractHttpTargets, targetPriority } from "../search/target-decoder.js";
+import { extractHttpTargets } from "../search/target-decoder.js";
 
 const BLOCKED_HOSTS = [/(^|\.)mega\.(nz|io)$/i,/(^|\.)duckduckgo\.com$/i,/(^|\.)bing\.com$/i,/(^|\.)google\./i,/(^|\.)web\.archive\.org$/i];
 const BARE_DOMAIN_RE = /(?:^|[\s>"'(])((?:[a-z0-9-]+\.)+[a-z]{2,63})(?=[:/\s<"')]|$)/gi;
@@ -27,7 +27,7 @@ export function discoverCandidateUrls(input,baseUrl,{limit=80}={}){
   // Some search/RSS responses render a visible hostname without a clickable
   // absolute URL. Preserve those public host signals as root candidates.
   for(const m of raw.matchAll(BARE_DOMAIN_RE))add(`https://${m[1]}/`);
-  return out.sort((a,b)=>targetPriority(b,baseUrl)-targetPriority(a,baseUrl)).slice(0,limit);
+  return out.slice(0,limit);
 }
 
 export function calculateSourceGrade(metrics={}){
@@ -65,7 +65,7 @@ export async function promoteQualifiedCandidates(db,{limit=20}={}){
       AND blocked_fetches<3
       AND failed_fetches<=successful_fetches+3
     ORDER BY
-      CASE WHEN family='note' AND (alive_links>0 OR novel_links>0 OR extracted_links>0) THEN -1 WHEN alive_links>0 OR novel_links>0 OR extracted_links>0 THEN 0 ELSE 1 END,
+      CASE WHEN family='note' THEN 0 WHEN alive_links>0 OR novel_links>0 THEN 1 ELSE 2 END,
       alive_links DESC,novel_links DESC,extracted_links DESC,
       confidence DESC,successful_fetches DESC,last_seen_at DESC
     LIMIT ?`).bind(Math.max(1,Math.min(100,Number(limit)||20))).all();
@@ -73,32 +73,38 @@ export async function promoteQualifiedCandidates(db,{limit=20}={}){
   const decisions=[];
   for(const row of rows.results||[]){
     const sourceId=`discovered_${hash(row.host)}`;
-    // A source is only activated automatically when it produced evidence that
-    // can improve search quality. Merely extracting arbitrary links is not
-    // enough; zero-yield domains are retained as disabled sandbox sources.
-    const proven=Number(row.alive_links||0)>0||Number(row.novel_links||0)>0;
+    const alive=Number(row.alive_links||0),novel=Number(row.novel_links||0),links=Number(row.extracted_links||0);
+    const successes=Number(row.successful_fetches||0),evidence=Number(row.evidence_count||0);
+    // Active promotion requires real MEGA yield. Note/paste surfaces may qualify
+    // with repeated extraction evidence even before the health checker classifies
+    // a link as alive, but a single reachable page never auto-enables a source.
+    const proven=alive>0||novel>0||(row.family==='note'&&links>=3&&successes>=2&&evidence>=2);
     const enabled=proven?1:0;
-    const priority=proven?900:420;
+    const priority=proven?(row.family==='note'?960:900):420;
     const rank=Math.max(1,Math.min(95,Number(row.confidence||0)+(proven?20:0)));
-    const template=`https://lite.duckduckgo.com/lite/?q=site%3A${encodeURIComponent(row.host)}%20{q}%20%22mega.nz%2Ffolder%22`;
+    const root=String(row.root_url||`https://${row.host}/`);
+    // Note-first sources are crawled directly from their root surface. Other
+    // discovered domains retain a site-search template as a safe sandbox entry.
+    const template=row.family==='note'
+      ? root
+      : `https://lite.duckduckgo.com/lite/?q=site%3A${encodeURIComponent(row.host)}%20{q}%20%22mega.nz%2Ffolder%22`;
+    const sourceType=row.family==='note'?'html':'html';
     const now=nowIso();
     const existing=await db.prepare(`SELECT id,enabled FROM sources WHERE id=? OR template_url=? LIMIT 1`).bind(sourceId,template).first();
     if(!existing){
-      await db.prepare(`INSERT INTO sources(id,name,category,source_type,template_url,enabled,default_enabled,priority,rank_score,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`).bind(sourceId,`Discovered — ${row.host}`,row.family||"discovered","html",template,enabled,0,priority,rank,now,now).run();
-      await db.prepare(`INSERT INTO source_metrics(source_id,requests,successes,failures,timeouts,blocks,links_found,valid_links,yield_rate,average_latency,consecutive_failures,last_success_at,last_failure_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_id) DO NOTHING`).bind(sourceId,Number(row.pages_tested||0),Number(row.successful_fetches||0),Number(row.failed_fetches||0),0,Number(row.blocked_fetches||0),Number(row.extracted_links||0),Number(row.alive_links||0),Number(row.pages_tested||0)?Number(row.extracted_links||0)*100/Math.max(1,Number(row.pages_tested||0)):0,Number(row.average_latency||0),0,Number(row.successful_fetches||0)>0?row.last_tested_at:null,Number(row.failed_fetches||0)>0?row.last_tested_at:null,now).run();
+      await db.prepare(`INSERT INTO sources(id,name,category,source_type,template_url,enabled,default_enabled,priority,rank_score,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`).bind(sourceId,`Discovered — ${row.host}`,row.family||"discovered",sourceType,template,enabled,0,priority,rank,now,now).run();
+      await db.prepare(`INSERT INTO source_metrics(source_id,requests,successes,failures,timeouts,blocks,links_found,valid_links,yield_rate,average_latency,consecutive_failures,last_success_at,last_failure_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_id) DO NOTHING`).bind(sourceId,Number(row.pages_tested||0),successes,Number(row.failed_fetches||0),0,Number(row.blocked_fetches||0),links,alive,Number(row.pages_tested||0)?links*100/Math.max(1,Number(row.pages_tested||0)):0,Number(row.average_latency||0),0,successes>0?row.last_tested_at:null,Number(row.failed_fetches||0)>0?row.last_tested_at:null,now).run();
       created++;if(enabled)activated++;else sandboxed++;
     }else{
-      await db.prepare(`UPDATE sources SET enabled=CASE WHEN ?=1 THEN 1 ELSE enabled END,source_type='html',template_url=?,priority=MAX(priority,?),rank_score=MAX(rank_score,?),updated_at=? WHERE id=?`).bind(enabled,template,priority,rank,now,existing.id).run();
+      await db.prepare(`UPDATE sources SET enabled=CASE WHEN ?=1 THEN 1 ELSE enabled END,source_type=?,template_url=?,priority=MAX(priority,?),rank_score=MAX(rank_score,?),updated_at=? WHERE id=?`).bind(enabled,sourceType,template,priority,rank,now,existing.id).run();
       updated++;
     }
     const finalId=existing?.id||sourceId;
-    // Count the domain transition, not only newly inserted source rows. This
-    // keeps run/UI promotion totals correct when a discovered source already
-    // exists and is being refreshed or reactivated.
-    promoted++;
-    await db.prepare(`UPDATE source_candidate_domains SET state='promoted',promoted_source_id=?,quality_grade=CASE WHEN ?=1 AND quality_grade IN ('C','D') THEN 'B' ELSE quality_grade END,last_seen_at=?,rejection_reason=NULL WHERE host=?`).bind(finalId,enabled,now,row.host).run();
-    await db.prepare(`UPDATE source_candidates SET state='promoted',promoted_source_id=?,quality_grade=CASE WHEN ?=1 AND quality_grade IN ('C','D') THEN 'B' ELSE quality_grade END,last_seen_at=?,rejection_reason=NULL WHERE host=?`).bind(finalId,enabled,now,row.host).run();
-    decisions.push({host:row.host,source_id:finalId,enabled:Boolean(enabled),mode:enabled?"active":"sandbox",evidence_count:Number(row.evidence_count||0),pages_tested:Number(row.pages_tested||0),extracted_links:Number(row.extracted_links||0),novel_links:Number(row.novel_links||0),alive_links:Number(row.alive_links||0),confidence:Number(row.confidence||0)});
+    const state=proven?'promoted':'sandbox';
+    if(proven)promoted++;
+    await db.prepare(`UPDATE source_candidate_domains SET state=?,promoted_source_id=?,quality_grade=CASE WHEN ?=1 AND quality_grade IN ('C','D') THEN 'B' ELSE quality_grade END,last_seen_at=?,rejection_reason=NULL WHERE host=?`).bind(state,finalId,enabled,now,row.host).run();
+    await db.prepare(`UPDATE source_candidates SET state=?,promoted_source_id=?,quality_grade=CASE WHEN ?=1 AND quality_grade IN ('C','D') THEN 'B' ELSE quality_grade END,last_seen_at=?,rejection_reason=NULL WHERE host=?`).bind(state,finalId,enabled,now,row.host).run();
+    decisions.push({host:row.host,source_id:finalId,enabled:Boolean(enabled),mode:state,evidence_count:evidence,pages_tested:Number(row.pages_tested||0),extracted_links:links,novel_links:novel,alive_links:alive,confidence:Number(row.confidence||0)});
   }
   return{promoted,created,activated,sandboxed,updated,considered:(rows.results||[]).length,decisions};
 }

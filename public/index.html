@@ -115,40 +115,58 @@
 
       <section id="results" class="page">
         <div class="section-title"><div><p class="eyebrow">RUN OUTPUT</p><h2>Results</h2></div><button id="reloadResults" class="secondary compact" type="button">Reload</button></div>
-        <article class="panel">
+        <div class="subtabs compact-tabs" role="tablist" aria-label="Result views">
+          <button type="button" class="result-subtab active" data-result-view="resultSuccessPanel">Extracted</button>
+          <button type="button" class="result-subtab" data-result-view="resultRecoveryPanel">Recovery</button>
+        </div>
+        <div id="resultSuccessPanel" class="result-subpage active"><article class="panel">
           <label>Results<select id="resultRun"></select></label>
           <div class="result-tools"><input id="resultSearch" type="search" placeholder="Search results"><select id="resultFilter"><option value="all">All statuses</option><option value="valid">Valid</option><option value="dead">Dead</option><option value="unknown">Unknown</option></select></div>
           <div class="export-actions"><button id="exportJson" class="secondary" type="button">JSON</button><button id="exportCsv" class="secondary" type="button">CSV</button><button id="copyAll" class="secondary" type="button">Copy all</button></div>
           <div id="resultSummary" class="summary-grid"></div>
           <div id="resultList" class="list results-list"></div>
-        </article>
+        </article></div>
+        <div id="resultRecoveryPanel" class="result-subpage"><article class="panel">
+          <div class="panel-head"><div><p class="panel-kicker">LAST-RESORT REVIEW</p><h3>Extraction recovery</h3><small>Pages with strong MEGA signals where automatic extraction still needs a site rule.</small></div><button id="reloadRecovery" class="secondary compact" type="button">Refresh</button></div>
+          <div id="recoverySummary" class="summary-grid"></div><div id="recoveryList" class="list"></div>
+        </article></div>
       </section>
 
       <section id="sources" class="page">
         <div class="section-title"><div><p id="sourceModelLabel" class="eyebrow">SOURCE INTELLIGENCE CENTER</p><h2>Sources</h2></div><button id="reloadSources" class="secondary compact" type="button">Reload</button></div>
-        <div id="sourceMetrics" class="metrics"></div>
-        <div class="source-intelligence-grid">
-          <article class="panel source-discovery-control compact-panel">
-            <div class="panel-head compact-head"><div><p class="panel-kicker">DISCOVERY SCAN</p><h3>Build source catalog</h3><small>Find, test, grade and promote public source environments.</small></div><span class="mini-feature">◎</span></div>
-            <div class="source-discovery-options"><label>Rounds<input id="sourceDiscoveryRounds" type="number" min="1" max="100" value="5"></label><label>Profile<select id="sourceDiscoveryProfile"><option value="quick">Quick</option><option value="normal" selected>Normal</option><option value="deep">Deep</option><option value="ultra">Ultra</option></select></label></div>
+        <div class="subtabs source-tabs" role="tablist" aria-label="Source intelligence views">
+          <button type="button" class="source-subtab active" data-source-view="sourceControlPanel">Control</button>
+          <button type="button" class="source-subtab" data-source-view="sourceDiscoveryPanel">Discovery</button>
+          <button type="button" class="source-subtab" data-source-view="sourcePipelinePanel">Pipeline</button>
+        </div>
+        <div id="sourceControlPanel" class="source-subpage active">
+          <div id="sourceMetrics" class="metrics"></div>
+          <article class="panel mode-panel">
+            <div class="panel-head"><div><p class="panel-kicker">SOURCE GOVERNANCE</p><h3>Control mode</h3><small>Automatic learns and adapts. Manual locks the exact source set you choose.</small></div><span id="sourceModeBadge" class="pill neutral">automatic</span></div>
+            <div class="segmented-control" role="group" aria-label="Source control mode"><button id="automaticMode" type="button" data-source-mode="automatic">Automatic</button><button id="manualMode" type="button" data-source-mode="manual">Manual</button></div>
+            <div id="sourceModeNote" class="operation-status neutral">Loading control mode…</div>
+          </article>
+          <article id="manualSourcePanel" class="panel hidden">
+            <label>Search sources<input id="sourceSearch" type="search" placeholder="Name, category, or type" autocomplete="off"></label>
+            <div class="source-filters"><select id="sourceStatus"><option value="all">All</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select><select id="sourceSort"><option value="priority">Priority</option><option value="rank">Rank</option><option value="yield">Yield</option><option value="name">Name</option><option value="failures">Failures</option><option value="speed">Speed</option><option value="health">Health</option></select></div>
+            <div class="source-actions"><button id="enableAllSources" class="secondary" type="button">Select all</button><button id="disableAllSources" class="secondary" type="button">Unselect all</button><button id="restoreDefaults" class="secondary" type="button">Restore defaults</button><button id="refreshRanks" class="secondary" type="button">Refresh ranks</button></div>
+            <div id="sourceList" class="list source-list"></div><button id="loadMoreSources" class="secondary wide hidden" type="button">Load more</button>
+          </article>
+          <article id="automaticSourcePanel" class="panel"><div class="panel-head"><div><p class="panel-kicker">AUTONOMOUS SELECTION</p><h3>System-managed catalog</h3><small>The engine enables proven sources, explores note surfaces, and cools down repeated failures.</small></div></div><div id="automaticSourceSummary" class="list"></div></article>
+        </div>
+        <div id="sourceDiscoveryPanel" class="source-subpage">
+          <article class="panel source-discovery-control">
+            <div class="panel-head"><div><p class="panel-kicker">NOTE-FIRST DISCOVERY</p><h3>Build source catalog</h3><small>Find note, paste, public text, forum, archive and redirect surfaces; follow safe internal links and score domain evidence.</small></div><span class="mini-feature">◎</span></div>
+            <div class="source-discovery-options"><label>Rounds<input id="sourceDiscoveryRounds" type="number" min="1" max="100" value="10"></label><label>Profile<select id="sourceDiscoveryProfile"><option value="quick">Quick</option><option value="normal" selected>Normal</option><option value="deep">Deep</option><option value="ultra">Ultra</option></select></label></div>
+            <div class="profile-chips"><span>Note priority</span><span>Internal-page traversal</span><span>Encoded URL analysis</span><span>Asset filtering</span></div>
             <button id="startSourceDiscovery" class="primary wide" type="button">Start discovery</button>
             <div id="sourceDiscoveryControls" class="source-actions discovery-actions"><button data-sd-action="pause" class="secondary" type="button">Pause</button><button data-sd-action="resume" class="secondary" type="button">Resume</button><button data-sd-action="recover" class="secondary" type="button">Recover</button><button data-sd-action="cancel" class="danger" type="button">Cancel</button><button id="sourceDiscoveryStep" class="secondary dispatch-action" type="button">Dispatch</button></div>
-            <div id="sourceDiscoveryStatus" class="operation-status neutral">Ready.</div>
-            <div class="progress-track"><span id="sourceDiscoveryProgress" style="width:0%"></span></div>
-            <div id="sourceDiscoveryMetrics" class="summary-grid discovery-metrics"></div>
-          </article>
-          <article class="panel compact-panel candidate-panel">
-            <div class="panel-head compact-head"><div><p class="panel-kicker">CANDIDATES</p><h3>Discovery pipeline</h3></div><button id="promoteCandidates" class="secondary compact" type="button">Promote</button></div>
-            <div id="sourceCandidateMetrics" class="summary-grid candidate-metrics"></div><div id="sourceCandidateList" class="list candidate-list"></div>
+            <div id="sourceDiscoveryStatus" class="operation-status neutral">Ready.</div><div class="progress-track"><span id="sourceDiscoveryProgress" style="width:0%"></span></div><div id="sourceDiscoveryMetrics" class="summary-grid discovery-metrics"></div>
           </article>
         </div>
-        <article class="panel">
-          <label>Search sources<input id="sourceSearch" type="search" placeholder="Name, category, or type" autocomplete="off"></label>
-          <div class="source-filters"><select id="sourceStatus"><option value="all">All</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select><select id="sourceSort"><option value="priority">Priority</option><option value="rank">Rank</option><option value="yield">Yield</option><option value="name">Name</option><option value="failures">Failures</option><option value="speed">Speed</option><option value="health">Health</option></select></div>
-          <div class="source-actions"><button id="enableAllSources" class="secondary" type="button">Select all</button><button id="disableAllSources" class="secondary" type="button">Unselect all</button><button id="restoreDefaults" class="secondary" type="button">Restore autonomous defaults</button><button id="refreshRanks" class="secondary" type="button">Refresh ranks</button></div>
-          <div id="sourceList" class="list source-list"></div>
-          <button id="loadMoreSources" class="secondary wide hidden" type="button">Load more</button>
-        </article>
+        <div id="sourcePipelinePanel" class="source-subpage">
+          <article class="panel candidate-panel"><div class="panel-head"><div><p class="panel-kicker">DOMAIN-LEVEL EVIDENCE</p><h3>Discovery pipeline</h3><small>One candidate per normalized domain with the evidence and reason behind every decision.</small></div><button id="promoteCandidates" class="secondary compact" type="button">Promote rich</button></div><div id="sourceCandidateMetrics" class="summary-grid candidate-metrics"></div><div id="sourceCandidateList" class="list candidate-list"></div></article>
+        </div>
       </section>
 
       <section id="tools" class="page">

@@ -1,4 +1,4 @@
-# Nimbus Core V36.15.0 — Note-First Recursive Discovery Repair
+# Nimbus Core V36.14.0 — Note-First Recursive Discovery Repair
 
 ## Root cause
 The iPhone Shortcut executes JavaScript inside Safari's fully rendered DOM. It can therefore see links inserted by page scripts after load. The Worker previously fetched only server-returned HTML, collapsed results to domain roots, sampled a small fixed endpoint set, and did not recursively follow note pages or decode Linkvertise-style base64 redirect parameters. This caused large domain counts but low proven-source promotion.

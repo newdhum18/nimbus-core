@@ -1,6 +1,6 @@
 export const SYSTEM = Object.freeze({
   name: "Nimbus Core V36",
-  version: "36.15.0",
+  version: "36.16.0",
   worker: "nimbus-core-v36-worker",
   pages: "nimbus-core-v36-web",
   database: "nimbus-core-v36-db",
@@ -10,7 +10,7 @@ export const SYSTEM = Object.freeze({
   sqlBatchSize: 20,
   sqlBatchMax: 25,
   maxCrawlDepth: 4,
-  maxChildLinks: 30,
+  maxChildLinks: 24,
   maxPagesPerTask: 20,
   queueDispatchBatch: 10,
   queueDispatchTasks: 40,
@@ -24,8 +24,8 @@ export const SYSTEM = Object.freeze({
   queueRetryDelaySeconds: 30,
   sourceDiscoveryDispatchTasks: 16,
   sourceDiscoveryTasksPerMessage: 2,
-  sourceDiscoveryFetchBudget: 18,
-  sourceDiscoveryDirectFetchBudget: 18,
+  sourceDiscoveryFetchBudget: 16,
+  sourceDiscoveryDirectFetchBudget: 16,
   sourceDiscoveryLeaseSeconds: 90,
   sourceDiscoveryMaxAttempts: 3,
   maxResponseBytes: 1_000_000

@@ -12,7 +12,7 @@ for (const path of ["evidence", "UI_RECOVERY_AUDIT.json", "ENGINEERING_AUDIT_REP
 const pkg = JSON.parse(await readFile("package.json", "utf8"));
 const worker = JSON.parse(await readFile("wrangler.worker.jsonc", "utf8"));
 const ignore = await readFile(".gitignore", "utf8");
-assert.equal(pkg.version, "36.15.0");
+assert.equal(pkg.version, "36.16.0");
 assert.equal(worker.name, "nimbus-core-v36-worker");
 assert.equal(worker.d1_databases[0].database_name, "nimbus-core-v36-db");
 assert.equal(worker.queues.producers[0].queue, "nimbus-core-v36-queue");

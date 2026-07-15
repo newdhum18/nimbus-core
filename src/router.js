@@ -187,6 +187,22 @@ export async function route(request, env) {
         sort: url.searchParams.get("sort") || "priority"
       }), 200, cors);
     }
+    if (url.pathname === "/api/sources/control-mode" && request.method === "GET") {
+      const db=requireDb(env);const row=await db.prepare("SELECT value FROM settings WHERE key='source_control_mode'").first();
+      return ok({mode:["automatic","manual"].includes(row?.value)?row.value:"automatic"},200,cors);
+    }
+    if (url.pathname === "/api/sources/control-mode" && request.method === "POST") {
+      const db=requireDb(env);const data=await requestBody(request);const mode=String(data.mode||"");
+      if(!["automatic","manual"].includes(mode))throw new AppError("INVALID_PARAMETER","mode must be automatic or manual","sources",400);
+      await db.prepare("INSERT INTO settings(key,value,updated_at) VALUES('source_control_mode',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(mode,new Date().toISOString()).run();
+      return ok({mode,locked:mode==="manual"},200,cors);
+    }
+    if (url.pathname === "/api/results/recovery" && request.method === "GET") {
+      const db=requireDb(env);const limit=positiveInt(url.searchParams.get("limit"),{name:"limit",min:1,max:200,fallback:100});
+      const rows=await db.prepare(`SELECT host,root_url,state,family,quality_grade,confidence,rejection_reason,last_error,extracted_links,pages_tested,last_seen_at FROM source_candidate_domains WHERE state IN ('blocked','candidate','testing','sandbox') AND (blocked_fetches>0 OR failed_fetches>0 OR extracted_links>0 OR rejection_reason IS NOT NULL) ORDER BY CASE WHEN extracted_links>0 THEN 0 ELSE 1 END,blocked_fetches DESC,failed_fetches DESC,last_seen_at DESC LIMIT ?`).bind(limit).all().catch(()=>({results:[]}));
+      const items=(rows.results||[]).map(r=>({host:r.host,root_url:r.root_url,url:r.root_url,state:r.state,family:r.family,quality_grade:r.quality_grade,confidence:r.confidence,reason:r.rejection_reason||r.last_error||(Number(r.extracted_links||0)>0?"MEGA signal detected but extraction or validation is incomplete.":"The page was blocked, dynamic, or failed automatic parsing."),mega_signals:Number(r.extracted_links||0),pages_tested:Number(r.pages_tested||0),last_seen_at:r.last_seen_at}));
+      return ok({total:items.length,blocked:items.filter(x=>x.state==='blocked').length,dynamic:items.filter(x=>/dynamic|javascript|blocked/i.test(x.reason)).length,encoded:items.filter(x=>/encoded|redirect|parameter/i.test(x.reason)).length,items},200,cors);
+    }
     if (url.pathname === "/api/sources/summary" && request.method === "GET") {
       return ok(await sourceSummary(requireDb(env)), 200, cors);
     }
