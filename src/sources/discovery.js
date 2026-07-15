@@ -1,6 +1,6 @@
 import { uid, nowIso } from "../db/queries.js";
 import { assertPublicHttpUrl } from "../search/crawler.js";
-import { extractHttpTargets } from "../search/target-decoder.js";
+import { extractHttpTargets, targetPriority } from "../search/target-decoder.js";
 
 const BLOCKED_HOSTS = [/(^|\.)mega\.(nz|io)$/i,/(^|\.)duckduckgo\.com$/i,/(^|\.)bing\.com$/i,/(^|\.)google\./i,/(^|\.)web\.archive\.org$/i];
 const BARE_DOMAIN_RE = /(?:^|[\s>"'(])((?:[a-z0-9-]+\.)+[a-z]{2,63})(?=[:/\s<"')]|$)/gi;
@@ -27,7 +27,7 @@ export function discoverCandidateUrls(input,baseUrl,{limit=80}={}){
   // Some search/RSS responses render a visible hostname without a clickable
   // absolute URL. Preserve those public host signals as root candidates.
   for(const m of raw.matchAll(BARE_DOMAIN_RE))add(`https://${m[1]}/`);
-  return out.slice(0,limit);
+  return out.sort((a,b)=>targetPriority(b,baseUrl)-targetPriority(a,baseUrl)).slice(0,limit);
 }
 
 export function calculateSourceGrade(metrics={}){
@@ -38,7 +38,7 @@ export function calculateSourceGrade(metrics={}){
   const score=novelty*28+aliveRate*32+Math.min(20,novel*3)+Math.min(12,ok)-Math.min(24,fail*4)-Math.min(30,blocked*10)-Math.min(10,dupes/pages*5);
   return score>=58?"A":score>=32?"B":score>=10?"C":"D";
 }
-function familyFor(host,url=""){const v=`${host} ${url}`.toLowerCase();if(/paste|rentry|telegra|controlc|dpaste/.test(v))return"paste";if(/reddit|forum|board/.test(v))return"community";if(/archive|wayback|mirror/.test(v))return"archive";if(/index|search|links/.test(v))return"index";return"web";}
+function familyFor(host,url=""){const v=`${host} ${url}`.toLowerCase();if(/paste|rentry|telegra|controlc|dpaste|note|justpaste|pastetoday|pasteee|paste\.ee/.test(v))return"note";if(/reddit|forum|board/.test(v))return"community";if(/archive|wayback|mirror/.test(v))return"archive";if(/index|search|links/.test(v))return"index";return"web";}
 
 export async function registerSourceCandidates(db,{urls=[],sourceId=null,sourceHost=null,autoscanRunId=null,discoveryRunId=null,megaLinksFound=0,novelLinksFound=0,aliveLinksFound=0,deadLinksFound=0,unknownLinksFound=0,duplicateLinksFound=0,successful=true,blockedFetches=0,pagesTested=1,latency=0,megaFingerprints=[],evidenceUrl=null}={}){
   const now=nowIso();let registered=0;const domainMap=new Map();
@@ -65,7 +65,7 @@ export async function promoteQualifiedCandidates(db,{limit=20}={}){
       AND blocked_fetches<3
       AND failed_fetches<=successful_fetches+3
     ORDER BY
-      CASE WHEN alive_links>0 OR novel_links>0 OR extracted_links>0 THEN 0 ELSE 1 END,
+      CASE WHEN family='note' AND (alive_links>0 OR novel_links>0 OR extracted_links>0) THEN -1 WHEN alive_links>0 OR novel_links>0 OR extracted_links>0 THEN 0 ELSE 1 END,
       alive_links DESC,novel_links DESC,extracted_links DESC,
       confidence DESC,successful_fetches DESC,last_seen_at DESC
     LIMIT ?`).bind(Math.max(1,Math.min(100,Number(limit)||20))).all();

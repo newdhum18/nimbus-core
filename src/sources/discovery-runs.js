@@ -5,8 +5,11 @@ import { validateMegaFolderUrl } from "../results/mega-validation.js";
 import { discoverCandidateUrls, registerSourceCandidates, promoteQualifiedCandidates } from "./discovery.js";
 import { dispatchSourceDiscovery } from "./discovery-queue.js";
 import { SYSTEM } from "../config.js";
+import { targetPriority } from "../search/target-decoder.js";
 
 const PROFILES=Object.freeze({quick:8,normal:20,deep:40,ultra:70});
+const NOTE_HOST_RE=/(paste|rentry|telegra|controlc|justpaste|pastetoday|note|dpaste|paste\.ee)/i;
+const REDIRECT_HOST_RE=/(linkvertise|speedy-links|link-target|work\.ink|loot-link|short|redirect)/i;
 const DDG_HTML="https://html.duckduckgo.com/html/?q=";
 const DDG_LITE="https://lite.duckduckgo.com/lite/?q=";
 const BING_RSS="https://www.bing.com/search?format=rss&q=";
@@ -89,9 +92,30 @@ export async function startSourceDiscovery(env,{rounds=1,profile="normal"}={}){
 }
 function rootCandidates(urls){const m=new Map();for(const value of urls){try{const u=new URL(value);u.hash="";const root=`${u.protocol}//${u.host}/`;if(!m.has(u.hostname))m.set(u.hostname,{root,examples:[]});m.get(u.hostname).examples.push(value);}catch{}}return[...m.values()];}
 async function profileDomain(env,domain,{fetchBudget=12,validationBudget=4}={}){
-  const endpoints=[...new Set([...(domain.examples||[]).slice(0,2),domain.root,new URL("sitemap.xml",domain.root).toString(),new URL("rss",domain.root).toString(),new URL("feed",domain.root).toString(),new URL("archive",domain.root).toString(),new URL("recent",domain.root).toString()])];
-  let pages=0,ok=0,blocked=0,latency=0;const allLinks=new Map(),allCandidates=[];
-  for(const url of endpoints){if(pages>=fetchBudget)break;const p=await fetchPage(url,{timeoutMs:6000});pages++;latency+=Number(p.latency||0);if(p.ok)ok++;if([401,403,429].includes(Number(p.status)))blocked++;for(const l of extractMegaFolders(p.text||""))allLinks.set(l.normalizedUrl,l);allCandidates.push(...discoverCandidateUrls(p.text||"",p.finalUrl||url,{limit:40}));}
+  const seed=[...(domain.examples||[]).slice(0,4),domain.root,new URL("sitemap.xml",domain.root).toString(),new URL("rss",domain.root).toString(),new URL("feed",domain.root).toString(),new URL("archive",domain.root).toString(),new URL("recent",domain.root).toString()];
+  const queue=[...new Set(seed)].map(url=>({url,depth:0,priority:targetPriority(url,domain.root)}));
+  const seen=new Set(); let pages=0,ok=0,blocked=0,latency=0;const allLinks=new Map(),allCandidates=[];
+  const rootHost=new URL(domain.root).hostname;
+  while(queue.length&&pages<fetchBudget){
+    queue.sort((a,b)=>b.priority-a.priority||a.depth-b.depth);
+    const item=queue.shift();if(seen.has(item.url))continue;seen.add(item.url);
+    const p=await fetchPage(item.url,{timeoutMs:8000});pages++;latency+=Number(p.latency||0);if(p.ok)ok++;if([401,403,429].includes(Number(p.status)))blocked++;
+    for(const l of extractMegaFolders(`${p.text||""}
+${p.finalUrl||""}`))allLinks.set(l.normalizedUrl,l);
+    const discovered=discoverCandidateUrls(p.text||"",p.finalUrl||item.url,{limit:160});allCandidates.push(...discovered);
+    const currentHost=safeHost(p.finalUrl||item.url)||"";
+    const dynamicDepth=(NOTE_HOST_RE.test(currentHost)||REDIRECT_HOST_RE.test(currentHost))?SYSTEM.maxCrawlDepth:Math.min(3,SYSTEM.maxCrawlDepth);
+    if(item.depth<dynamicDepth){
+      let added=0;
+      for(const child of discovered.sort((a,b)=>targetPriority(b,p.finalUrl||item.url)-targetPriority(a,p.finalUrl||item.url))){
+        try{
+          const u=new URL(child);const same=u.hostname===rootHost||u.hostname===currentHost;
+          const useful=same||NOTE_HOST_RE.test(u.hostname)||REDIRECT_HOST_RE.test(u.hostname)||targetPriority(child,p.finalUrl||item.url)>=25;
+          if(useful&&!seen.has(child)&&added<SYSTEM.maxChildLinks){queue.push({url:child,depth:item.depth+1,priority:targetPriority(child,p.finalUrl||item.url)-item.depth*5});added++;}
+        }catch{}
+      }
+    }
+  }
   let alive=0,dead=0,unknown=0;for(const link of [...allLinks.values()].slice(0,validationBudget)){const v=await validateMegaFolderUrl(link.normalizedUrl,{timeoutMs:5000});if(v.status==="alive")alive++;else if(v.status==="dead"||v.status==="invalid")dead++;else unknown++;}
   unknown+=Math.max(0,allLinks.size-(alive+dead+unknown));
   return{pages,ok,blocked,latency:pages?latency/pages:0,mega:[...allLinks.values()],candidates:[...new Set(allCandidates)],alive,dead,unknown};

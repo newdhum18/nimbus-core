@@ -1,6 +1,14 @@
+## 36.15.0 — Note-First Recursive Extraction Upgrade
+
+- Added extraction from data URL attributes, meta refresh, escaped scripts, JSON payloads, and Base64 redirect blobs.
+- Added priority ordering for note/paste, raw, redirect, archive, RSS, and article surfaces.
+- Increased bounded recursive discovery depth and source fetch budget.
+- Added Gist raw variants and deeper nested redirect decoding.
+- Removed deploy-only `dist/` from the source package baseline.
+
 # Changelog
 
-## 36.13.9 — Domain-Accurate Source Promotion Repair
+## 36.14.0 — Domain-Accurate Source Promotion Repair
 
 - Count discovery promotion at the host/domain level instead of inflating totals with URL-level candidate evidence rows.
 - Count qualified domain transitions even when the executable source already exists and is refreshed.
@@ -36,3 +44,9 @@
 - Add regression tests for wrapped target decoding and enabled-source AutoScan coverage.
 - Remove the obsolete hidden-files patch archive from the runtime package.
 
+
+## 36.14.0
+- Added note-first recursive source discovery.
+- Added nested/base64 redirect decoding for Linkvertise-style targets.
+- Added note raw variants and deeper useful-page traversal.
+- Increased discovery fetch budget and added regression tests.
