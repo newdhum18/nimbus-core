@@ -4,6 +4,7 @@ const ABSOLUTE_URL_RE = /https?:\\?\/\\?\/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+/
 const HREF_RE = /<(?:a|iframe|form|link|script)\b[^>]*?(?:href|src|action)\s*=\s*["']([^"']+)["'][^>]*>/gi;
 const META_REFRESH_RE = /<meta\b[^>]*http-equiv=["']?refresh["']?[^>]*content=["'][^"']*?url\s*=\s*([^"';>]+)["']/gi;
 const REDIRECT_KEYS = ["uddg", "url", "target", "dest", "destination", "redirect", "redirect_url", "continue", "link", "r", "o", "u", "to", "out", "go"];
+const BASE64_URL_TOKEN_RE = /(?:^|[^A-Za-z0-9_-])([A-Za-z0-9_-]{24,684})(?=$|[^A-Za-z0-9_-])/g;
 
 function decodeHtmlEntities(value) {
   return String(value || "")
@@ -91,6 +92,27 @@ export function decodeSearchTarget(value, baseUrl, { maxDepth = 6 } = {}) {
   return current;
 }
 
+
+export function pastetodayContentVariants(value) {
+  let url;
+  try { url = new URL(value); } catch { return []; }
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (host !== "pastetoday.com") return [url.toString()];
+
+  const parts = url.pathname.split("/").filter(Boolean);
+  let slug = "";
+  if (parts[0] === "embed" && parts[1]) slug = parts[1];
+  else if (parts.length === 1 && !["login", "register", "about", "privacy", "terms"].includes(parts[0].toLowerCase())) slug = parts[0];
+  if (!slug) return [url.origin + "/"];
+
+  const cleanSlug = slug.replace(/[^A-Za-z0-9_-]/g, "");
+  if (!cleanSlug) return [url.toString()];
+  return [
+    `https://pastetoday.com/${cleanSlug}`,
+    `https://pastetoday.com/embed/${cleanSlug}`
+  ];
+}
+
 export function contentVariants(value) {
   const url = new URL(value);
   const host = url.hostname.toLowerCase().replace(/^www\./, "");
@@ -113,7 +135,8 @@ export function contentVariants(value) {
     if (slug) variants.unshift(`${url.origin}/${slug}.txt`);
   }
   if (host === "gist.github.com") variants.unshift(`${url.toString().replace(/\/$/, "")}.patch`);
-  if (["pastetoday.com", "justpaste.it", "controlc.com", "telegra.ph"].includes(host)) variants.unshift(url.toString().replace(/\/$/, ""));
+  if (host === "pastetoday.com") variants.unshift(...pastetodayContentVariants(url.toString()));
+  if (["justpaste.it", "controlc.com", "telegra.ph"].includes(host)) variants.unshift(url.toString().replace(/\/$/, ""));
   if ((host === "reddit.com" || host === "old.reddit.com") && /\/comments\//.test(url.pathname)) {
     const cleanPath = url.pathname.replace(/\/$/, "");
     variants.unshift(`https://www.reddit.com${cleanPath}.json?raw_json=1`);
@@ -151,6 +174,14 @@ export function extractHttpTargets(text, baseUrl, { limit = 80 } = {}) {
     try {
       const cleaned = match[0].replaceAll("\\/", "/").replace(/[),.;'\"]+$/g, "");
       candidates.push(decodeSearchTarget(cleaned, baseUrl));
+    } catch {}
+  }
+  // Redirect platforms sometimes expose the final public target as a bare
+  // base64url token inside JSON or inline JavaScript rather than an href.
+  for (const match of raw.matchAll(BASE64_URL_TOKEN_RE)) {
+    try {
+      const decoded = repeatedDecode(decodeBase64Url(match[1]));
+      if (/^https?:\/\//i.test(decoded)) candidates.push(decodeSearchTarget(decoded, baseUrl));
     } catch {}
   }
   return dedupeTargets(candidates.flatMap(contentVariants))

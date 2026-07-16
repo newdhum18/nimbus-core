@@ -48,11 +48,11 @@ function statementDb() {
 }
 
 test("source ranking is deterministic and bounded", () => {
-  const good = calculateSourceRank({ requests: 20, successes: 18, valid_links: 12, average_latency: 300 }, 900);
+  const good = calculateSourceRank({ requests: 20, successes: 18, valid_links: 12, average_latency: 310 }, 900);
   const poor = calculateSourceRank({ requests: 20, successes: 2, valid_links: 0, timeouts: 8, blocks: 4, consecutive_failures: 6, average_latency: 5000 }, 100);
   assert.ok(good > poor);
   assert.ok(good <= 100 && poor >= 0);
-  assert.equal(good, calculateSourceRank({ requests: 20, successes: 18, valid_links: 12, average_latency: 300 }, 900));
+  assert.equal(good, calculateSourceRank({ requests: 20, successes: 18, valid_links: 12, average_latency: 310 }, 900));
 });
 
 test("recommendations never auto-disable a source", () => {

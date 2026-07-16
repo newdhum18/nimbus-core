@@ -11,6 +11,7 @@ import { validateTaskMessage } from "./contract.js";
 import { validateSourceDiscoveryMessage, consumeSourceDiscoveryMessage } from "../sources/discovery-queue.js";
 import { recordQueueOperations } from "./usage.js";
 import { extractHttpTargets, contentVariants } from "../search/target-decoder.js";
+import { inspectPastetodayDocument } from "../search/adapters/pastetoday.js";
 import { learnSearchTerms } from "../search/keyword-intelligence.js";
 import { discoverCandidateUrls, registerSourceCandidates, promoteQualifiedCandidates } from "../sources/discovery.js";
 
@@ -34,6 +35,33 @@ async function event(db, {
     message,
     details ? JSON.stringify(details) : null,
     nowIso()
+  ).run();
+}
+
+
+async function recordExtractionRecovery(env, task, result, diagnostic) {
+  if (!diagnostic || (result.links || []).length > 0) return;
+  const targetUrl = result.finalUrl || task.url;
+  let host = "unknown";
+  try { host = new URL(targetUrl).hostname.toLowerCase().replace(/^www\./, ""); } catch {}
+  const reason = diagnostic.reason || (diagnostic.dynamic ? "dynamic_content_without_mega" : "no_mega_extracted");
+  await env.DB.prepare(`
+    INSERT INTO extraction_recovery(
+      id,run_id,task_id,source_id,url,normalized_url,host,reason,status,http_status,
+      content_type,dynamic,encoded_target,embed_detected,markers_json,evidence_json,
+      first_seen_at,last_seen_at
+    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(run_id,normalized_url,reason) DO UPDATE SET
+      http_status=excluded.http_status,content_type=excluded.content_type,
+      dynamic=excluded.dynamic,encoded_target=excluded.encoded_target,
+      embed_detected=excluded.embed_detected,markers_json=excluded.markers_json,
+      evidence_json=excluded.evidence_json,last_seen_at=excluded.last_seen_at
+  `).bind(
+    uid("recovery"),task.run_id,task.id,task.source_id,targetUrl,targetUrl,host,reason,"open",
+    Number(result.status || 0),result.contentType || "",diagnostic.dynamic ? 1 : 0,
+    diagnostic.encodedTargetDetected ? 1 : 0,diagnostic.hasEmbed ? 1 : 0,
+    JSON.stringify(diagnostic.dynamicMarkers || []),JSON.stringify(diagnostic.evidence || {}),
+    nowIso(),nowIso()
   ).run();
 }
 
@@ -147,17 +175,21 @@ export async function processTask(env, messageBody) {
 
   try {
     let result;
-    if (["html", "rss", "custom", "json"].includes(String(current.source_type))) {
+    if (["html", "rss", "custom", "json", "pastetoday"].includes(String(current.source_type))) {
       const searchPage = await fetchPage(current.url);
       const collected = new Map(extractMegaFolders(searchPage.text || "").map(link => [link.normalizedUrl, link]));
       const learningContexts = extractDiscoveryContexts(searchPage.text || "");
       const visited = new Set([searchPage.finalUrl || current.url]);
       const queue = [];
       let seedTargets = [];
+      const adapterInspections = [];
+      if (current.source_type === "pastetoday") {
+        adapterInspections.push(inspectPastetodayDocument(searchPage.text || "", searchPage.finalUrl || current.url));
+      }
 
       if (searchPage.ok) {
         try {
-          if (["html", "rss"].includes(String(current.source_type))) {
+          if (["html", "rss", "pastetoday"].includes(String(current.source_type))) {
             const adapter = adapterForSource({ source_type: current.source_type });
             seedTargets = adapter.parse({
               input: { source_id: current.source_id, mode: "autoscan", round: 0, query: "", template_url: current.url },
@@ -190,7 +222,16 @@ export async function processTask(env, messageBody) {
         for (const context of child.discoveryContexts || []) learningContexts.push(context);
 
         if (child.ok && item.depth < SYSTEM.maxCrawlDepth) {
-          const nested = extractHttpTargets(child.text || "", child.finalUrl || item.url)
+          let documentTargets;
+          if (current.source_type === "pastetoday") {
+            const inspection = inspectPastetodayDocument(child.text || "", child.finalUrl || item.url);
+            adapterInspections.push(inspection);
+            for (const link of inspection.megaLinks || []) collected.set(link.normalizedUrl, link);
+            documentTargets = [...inspection.targets, ...(inspection.endpoints || [])];
+          } else {
+            documentTargets = extractHttpTargets(child.text || "", child.finalUrl || item.url);
+          }
+          const nested = documentTargets
             .filter(url => !visited.has(url))
             .slice(0, Math.max(2, Math.floor(SYSTEM.maxChildLinks / 2)));
           for (const target of nested) {
@@ -198,13 +239,26 @@ export async function processTask(env, messageBody) {
           }
         }
       }
+      const pastetodayInspection = current.source_type === "pastetoday"
+        ? adapterInspections.sort((a,b) => Number((b.megaLinks||[]).length) - Number((a.megaLinks||[]).length))[0] || inspectPastetodayDocument(searchPage.text || "", searchPage.finalUrl || current.url)
+        : null;
       result = {
         ...searchPage,
         ok: searchPage.ok || childOk > 0,
         links: [...collected.values()],
         latency: (searchPage.latency || 0) + childLatency,
         targetsVisited: pagesVisited,
-        discoveryContexts: [...new Set(learningContexts)].slice(0, 30)
+        discoveryContexts: [...new Set(learningContexts)].slice(0, 30),
+        adapterDiagnostics: pastetodayInspection ? {
+          adapter: "pastetoday",
+          dynamic: pastetodayInspection.dynamic,
+          dynamic_markers: pastetodayInspection.dynamicMarkers,
+          embed_detected: pastetodayInspection.hasEmbed,
+          encoded_target_detected: pastetodayInspection.encodedTargetDetected,
+          reason: pastetodayInspection.reason,
+          endpoints: (pastetodayInspection.endpoints || []).slice(0, 20),
+          evidence: pastetodayInspection.evidence
+        } : null
       };
     } else {
       result = await fetchAndExtract(current.url);
@@ -217,6 +271,7 @@ export async function processTask(env, messageBody) {
     }
 
     const pageId = await getOrCreatePage(env, current, result);
+    await recordExtractionRecovery(env, current, result, result.adapterDiagnostics).catch(() => {});
     const linkStats = await persistLinks(env, current, pageId, result.links);
     if ((result.links||[]).length && linkStats.novel > 0) {
       const discoveryText = [result.title || "", ...(result.discoveryContexts || [])].join(" ");
@@ -277,7 +332,7 @@ export async function processTask(env, messageBody) {
       taskId,
       type: "task_completed",
       message: "Task completed",
-      details: { links_found: result.links.length, links_written: linkStats.inserted, novel_links: linkStats.novel, duplicate_links: linkStats.duplicates }
+      details: { links_found: result.links.length, links_written: linkStats.inserted, novel_links: linkStats.novel, duplicate_links: linkStats.duplicates, targets_visited: Number(result.targetsVisited || 0), adapter_diagnostics: result.adapterDiagnostics || null }
     });
 
     const progress = await syncRunProgress(env.DB, current.run_id);

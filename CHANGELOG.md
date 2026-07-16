@@ -1,3 +1,26 @@
+## 36.19.1 — PasteToday isolated validation correction
+
+- Separated the direct PasteToday validation note from DuckDuckGo-based discovery.
+- Added `pastetoday_search` as a distinct discovery source.
+- Added production verification for migration 0013 and `extraction_recovery`.
+- Updated source totals, tests, release identity, and deployment checks.
+
+## 36.19.0-step3 — PasteToday Complete Runtime
+
+- Added migration 0013 to allow the `pastetoday` source type in D1.
+- Added durable extraction recovery evidence.
+- Strengthened canonical/embed/endpoint traversal and escaped MEGA extraction.
+- Connected Results Recovery to real extraction failures.
+- Added isolated single-source PasteToday test protocol.
+
+
+## 36.18.0-step2 — PasteToday Adapter
+
+- Added a dedicated PasteToday search adapter and source type.
+- Expanded every public PasteToday note into canonical and `/embed/<slug>` fetch surfaces.
+- Added dynamic-page diagnostics for loading, embed, fetch/XHR, and client-render markers.
+- Restricted PasteToday discovery results to PasteToday note URLs before recursive crawling.
+- Added isolated adapter regression tests; no D1 migration is required.
 ## 36.16.1 — Stale Discovery Run Lock Reconciliation
 
 - Reconciles active source-discovery runs before applying the single-run lock.

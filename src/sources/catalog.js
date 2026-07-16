@@ -13,6 +13,17 @@ const CATALOG = Object.freeze([
   S("meawfy_search","Meawfy public search","mega-index","html","https://meawfy.com/?s={q}",1490,90),
   S("ofversedrops_search","OfverseDrops public search","mega-index","html","https://ofversedrops.com/?s={q}",1480,85),
 
+  // PasteToday coverage is intentionally split into two honest surfaces:
+  // 1) a deterministic direct validation note supplied for the isolated
+  //    adapter test; 2) a separate public-search discovery surface.
+  // This prevents a DuckDuckGo outage from being misdiagnosed as a
+  // PasteToday extraction failure.
+  S("pastetoday_direct","PasteToday direct validation","paste","pastetoday","https://pastetoday.com/wic5vif7en",1475,88),
+  S("pastetoday_search","PasteToday public discovery","paste","pastetoday","https://lite.duckduckgo.com/lite/?q=site%3Apastetoday.com%20{q}%20%22mega.nz%2Ffolder%22",1465,82),
+  S("ddg_pastetoday","DuckDuckGo alternate — PasteToday","paste","html","https://duckduckgo.com/html/?q=site%3Apastetoday.com%20{q}%20%22mega.nz%2Ffolder%22",1360,58),
+  S("ddg_html_pastetoday","DuckDuckGo HTML — PasteToday","paste","html","https://html.duckduckgo.com/html/?q=site%3Apastetoday.com%20{q}%20%22mega.nz%2Ffolder%22",1350,56),
+  S("wayback_cdx_pastetoday","Wayback CDX — PasteToday","archive","json","https://web.archive.org/cdx/search/cdx?url=pastetoday.com/*&output=json&filter=statuscode:200&filter=mimetype:text/html&fl=original,timestamp&collapse=urlkey&limit=100&from=2024",1340,54),
+
   S("reddit_search_json","Reddit public search JSON","comments","json","https://www.reddit.com/search.json?q=%22mega.nz%2Ffolder%22%20{q}&sort=new&limit=100&raw_json=1",1450,80),
   S("reddit_comments_json","Reddit comments search JSON","comments","json","https://www.reddit.com/search.json?q=%22mega.nz%2Ffolder%22%20{q}&type=comment&sort=new&limit=100&raw_json=1",1440,80),
   S("old_reddit_search","Old Reddit public search","comments","html","https://old.reddit.com/search?q=%22mega.nz%2Ffolder%22%20{q}&sort=new",1430,70),

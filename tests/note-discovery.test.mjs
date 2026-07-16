@@ -38,3 +38,11 @@ test("prioritizes note and redirect surfaces over tracking assets",()=>{
   assert.ok(targets.includes("https://pastetoday.com/note123"));
   assert.ok(!targets.some((value)=>value.includes("googletagmanager")));
 });
+
+
+test("extracts a bare base64url Pastetoday target from inline JSON",()=>{
+  const target="https://pastetoday.com/wic5vif7en";
+  const encoded=Buffer.from(target).toString("base64url");
+  const html=`<script>window.__payload={destination:"${encoded}"}</script>`;
+  assert.ok(extractHttpTargets(html,"https://linkvertise.com/471396/demo").includes(target));
+});

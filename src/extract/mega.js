@@ -24,6 +24,9 @@ function decodedVariants(input){
     .replace(/%3A/gi,":").replace(/%2F/gi,"/").replace(/%23/gi,"#").replace(/%21/gi,"!")
     .replace(/%26amp%3B/gi,"&");
   const compact=percentFixed
+    // Paste/note renderers may insert harmless markup inside displayed URLs.
+    // Strip tags only for extraction variants; fetched content is unchanged.
+    .replace(/<[^>]{0,120}>/g,"")
     .replace(/https?\s*:\s*\/\s*\//gi,m=>m.replace(/\s/g,""))
     .replace(/mega\s*\.\s*(nz|io)/gi,"mega.$1")
     .replace(/\/\s*folder\s*\//gi,"/folder/")

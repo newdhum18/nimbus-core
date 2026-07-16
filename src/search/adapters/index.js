@@ -1,12 +1,14 @@
 import { createHtmlAdapter } from "./html.js";
 import { createRssAdapter } from "./rss.js";
+import { createPastetodayAdapter } from "./pastetoday.js";
 
 const htmlAdapter = createHtmlAdapter();
 const ADAPTERS = new Map([
   ["html", htmlAdapter],
   ["json", htmlAdapter],
   ["custom", htmlAdapter],
-  ["rss", createRssAdapter()]
+  ["rss", createRssAdapter()],
+  ["pastetoday", createPastetodayAdapter()]
 ]);
 
 export function adapterForSource(source) {

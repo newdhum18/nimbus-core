@@ -8,7 +8,7 @@ test("fixed system identity", () => {
   assert.equal(SYSTEM.pages, "nimbus-core-v36-web");
   assert.equal(SYSTEM.database, "nimbus-core-v36-db");
   assert.equal(SYSTEM.queue, "nimbus-core-v36-queue");
-  assert.equal(SYSTEM.version, "36.16.2");
+  assert.equal(SYSTEM.version, "36.19.1");
 });
 
 test("worker configuration is clean", async () => {

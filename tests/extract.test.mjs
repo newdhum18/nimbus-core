@@ -74,3 +74,11 @@ test("extracts mildly whitespace-obfuscated folder URL", () => {
   const obfuscated = modern.replace("https://", "https : / /").replace("mega.nz", "mega . nz").replace("/folder/", "/ folder /");
   assert.equal(extractMegaFolders(obfuscated).length, 1);
 });
+
+
+test("extracts a MEGA folder split by harmless note markup",()=>{
+  const html='https://mega.nz/<span>folder</span>/3MBkUBqS#B8VI_3a7abcdefghijklmnopqrstuv';
+  const links=extractMegaFolders(html);
+  assert.equal(links.length,1);
+  assert.equal(links[0].type,"folder");
+});

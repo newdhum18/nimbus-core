@@ -40,17 +40,17 @@ test("source reset avoids giant NOT IN clauses and writes autonomous catalog row
     existing: [{
       id: "obsolete_source", name: "Old", category: "old", source_type: "html",
       template_url: "https://old.invalid/?q={q}", enabled: 1, default_enabled: 0,
-      priority: 1, rank_score: 0, created_at: "2026-01-01T00:00:00.000Z",
-      updated_at: "2026-01-01T00:00:00.000Z"
+      priority: 1, rank_score: 0, created_at: "2031-01-01T00:00:00.000Z",
+      updated_at: "2031-01-01T00:00:00.000Z"
     }]
   });
   const result = await seedSources(db, { preserveEnabled: false });
-  assert.equal(result.total, 29);
-  assert.equal(result.enabled, 26);
+  assert.equal(result.total, 34);
+  assert.equal(result.enabled, 31);
   assert.equal(result.removed_obsolete, 1);
-  assert.equal(db.batchStatements.length, 31);
+  assert.equal(db.batchStatements.length, 36);
   assert.equal(db.calls.some((call) => /NOT IN\s*\(/i.test(call.sql)), false);
-  assert.equal(db.calls.filter((call) => call.sql.includes("INSERT INTO sources")).length, 29);
+  assert.equal(db.calls.filter((call) => call.sql.includes("INSERT INTO sources")).length, 34);
   assert.equal(db.calls.filter((call) => call.sql.includes("UPDATE sources SET template_url")).length, 1);
   assert.ok(db.calls.every((call) => call.params.length <= 11));
 });
@@ -60,15 +60,15 @@ test("source reset preserves existing enabled state without multi-variable SQL",
     existing: [{
       id: "meawfy_api", name: "Existing", category: "api", source_type: "json",
       template_url: "https://example.invalid/?q={q}", enabled: 0, default_enabled: 1,
-      priority: 999, rank_score: 90, created_at: "2026-01-01T00:00:00.000Z",
-      updated_at: "2026-01-01T00:00:00.000Z"
+      priority: 999, rank_score: 90, created_at: "2031-01-01T00:00:00.000Z",
+      updated_at: "2031-01-01T00:00:00.000Z"
     }]
   });
   const result = await seedSources(db, { preserveEnabled: true });
   const meawfy = db.calls.find((call) => call.sql.includes("INSERT INTO sources") && call.params[0] === "meawfy_api");
   assert.ok(meawfy);
   assert.equal(meawfy.params[5], 0);
-  assert.equal(result.total, 29);
+  assert.equal(result.total, 34);
 });
 
 test("source reset propagates batch failure so D1 can roll back the transaction", async () => {
@@ -80,8 +80,8 @@ test("source reset propagates batch failure so D1 can roll back the transaction"
 test("source reset neutralizes old template URLs before catalog upserts", async () => {
   const db = transactionalDb({
     existing: [
-      { id: "old_a", name: "A", category: "old", source_type: "html", template_url: "https://collision.invalid/?q={q}", enabled: 1, default_enabled: 0, priority: 1, rank_score: 0, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z" },
-      { id: "old_b", name: "B", category: "old", source_type: "html", template_url: "https://another.invalid/?q={q}", enabled: 0, default_enabled: 0, priority: 1, rank_score: 0, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z" }
+      { id: "old_a", name: "A", category: "old", source_type: "html", template_url: "https://collision.invalid/?q={q}", enabled: 1, default_enabled: 0, priority: 1, rank_score: 0, created_at: "2031-01-01T00:00:00.000Z", updated_at: "2031-01-01T00:00:00.000Z" },
+      { id: "old_b", name: "B", category: "old", source_type: "html", template_url: "https://another.invalid/?q={q}", enabled: 0, default_enabled: 0, priority: 1, rank_score: 0, created_at: "2031-01-01T00:00:00.000Z", updated_at: "2031-01-01T00:00:00.000Z" }
     ]
   });
   await seedSources(db, { preserveEnabled: false });
