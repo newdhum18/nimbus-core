@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS sources (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   category TEXT NOT NULL,
-  source_type TEXT NOT NULL CHECK(source_type IN ('html','rss','json','custom','pastetoday')),
+  source_type TEXT NOT NULL CHECK(source_type IN ('html','rss','json','custom','pastetoday','ofversedrops')),
   template_url TEXT NOT NULL,
   enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
   default_enabled INTEGER NOT NULL DEFAULT 0 CHECK(default_enabled IN (0,1)),

@@ -26,3 +26,14 @@ test("task recovery fields exist", async () => {
     assert.match(schema, new RegExp(field));
   }
 });
+
+
+test("fresh schema accepts every catalog source type", async () => {
+  const schema = await readFile("src/db/schema.sql", "utf8");
+  const match = schema.match(/source_type TEXT NOT NULL CHECK\(source_type IN \(([^)]*)\)\)/);
+  assert.ok(match, "sources.source_type CHECK constraint must exist");
+  const allowed = new Set([...match[1].matchAll(/'([^']+)'/g)].map((entry) => entry[1]));
+  for (const type of ["html", "rss", "json", "custom", "pastetoday", "ofversedrops"]) {
+    assert.ok(allowed.has(type), `fresh schema is missing source type: ${type}`);
+  }
+});
