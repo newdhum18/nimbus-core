@@ -38,6 +38,12 @@ export function calculateSourceGrade(metrics={}){
   const score=novelty*28+aliveRate*32+Math.min(20,novel*3)+Math.min(12,ok)-Math.min(24,fail*4)-Math.min(30,blocked*10)-Math.min(10,dupes/pages*5);
   return score>=58?"A":score>=32?"B":score>=10?"C":"D";
 }
+
+async function automaticControlEnabled(db){
+  const row=await db.prepare("SELECT value FROM settings WHERE key='source_control_mode'").first();
+  return row?.value!=="manual";
+}
+
 function familyFor(host,url=""){const v=`${host} ${url}`.toLowerCase();if(/paste|rentry|telegra|controlc|dpaste|note|justpaste|pastetoday|pasteee|paste\.ee/.test(v))return"note";if(/reddit|forum|board/.test(v))return"community";if(/archive|wayback|mirror/.test(v))return"archive";if(/index|search|links/.test(v))return"index";return"web";}
 
 export async function registerSourceCandidates(db,{urls=[],sourceId=null,sourceHost=null,autoscanRunId=null,discoveryRunId=null,megaLinksFound=0,novelLinksFound=0,aliveLinksFound=0,deadLinksFound=0,unknownLinksFound=0,duplicateLinksFound=0,successful=true,blockedFetches=0,pagesTested=1,latency=0,megaFingerprints=[],evidenceUrl=null}={}){
@@ -70,6 +76,7 @@ export async function promoteQualifiedCandidates(db,{limit=20}={}){
       confidence DESC,successful_fetches DESC,last_seen_at DESC
     LIMIT ?`).bind(Math.max(1,Math.min(100,Number(limit)||20))).all();
   let promoted=0,created=0,activated=0,sandboxed=0,updated=0;
+  const allowActivation=await automaticControlEnabled(db);
   const decisions=[];
   for(const row of rows.results||[]){
     const sourceId=`discovered_${hash(row.host)}`;
@@ -79,7 +86,7 @@ export async function promoteQualifiedCandidates(db,{limit=20}={}){
     // with repeated extraction evidence even before the health checker classifies
     // a link as alive, but a single reachable page never auto-enables a source.
     const proven=alive>0||novel>0||(row.family==='note'&&links>=3&&successes>=2&&evidence>=2);
-    const enabled=proven?1:0;
+    const enabled=proven&&allowActivation?1:0;
     const priority=proven?(row.family==='note'?960:900):420;
     const rank=Math.max(1,Math.min(95,Number(row.confidence||0)+(proven?20:0)));
     const root=String(row.root_url||`https://${row.host}/`);

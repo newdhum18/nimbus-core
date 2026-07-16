@@ -1,3 +1,12 @@
+# Changelog
+
+## 36.20.0
+- Enforce strict manual source locking across every AutoScan/keyword round.
+- Prevent source discovery from auto-enabling candidates while manual mode is active.
+- Add direct public source creation and permanent deletion from the iPhone UI.
+- Preserve user-added sources during catalog synchronization.
+- Add regression tests for OfverseDrops → public Linkvertise target → PasteToday → MEGA extraction.
+
 ## 36.19.1 — PasteToday isolated validation correction
 
 - Separated the direct PasteToday validation note from DuckDuckGo-based discovery.

@@ -34,7 +34,7 @@ export async function seedSources(db, { preserveEnabled = true } = {}) {
 
   const catalog = sourceCatalog();
   const catalogIds = new Set(catalog.map((source) => source.id));
-  const obsoleteIds = [...existing.keys()].filter((id) => !catalogIds.has(id));
+  const obsoleteIds = [...existing.keys()].filter((id) => !catalogIds.has(id) && !String(id).startsWith("user_"));
   const now = nowIso();
   let enabledCount = 0;
 

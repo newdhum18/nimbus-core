@@ -7,7 +7,7 @@ import { health, bindings } from "./diagnostics/health.js";
 import { diagnostics } from "./diagnostics/report.js";
 import { sourceCatalog } from "./sources/catalog.js";
 import { seedSources } from "./sources/defaults.js";
-import { listSources, getSource, sourceSummary, setSourceEnabled, setSourcesEnabled, setAllSources, restoreHighYieldDefaults, refreshSourceRanks } from "./sources/service.js";
+import { listSources, getSource, sourceSummary, setSourceEnabled, setSourcesEnabled, setAllSources, restoreHighYieldDefaults, refreshSourceRanks, addDirectSource, deleteSource, getSourceControlMode } from "./sources/service.js";
 import { startRun } from "./runs/start.js";
 import { pauseRun } from "./runs/pause.js";
 import { resumeRun } from "./runs/resume.js";
@@ -191,8 +191,8 @@ export async function route(request, env) {
       }), 200, cors);
     }
     if (url.pathname === "/api/sources/control-mode" && request.method === "GET") {
-      const db=requireDb(env);const row=await db.prepare("SELECT value FROM settings WHERE key='source_control_mode'").first();
-      return ok({mode:["automatic","manual"].includes(row?.value)?row.value:"automatic"},200,cors);
+      const db=requireDb(env);
+      return ok({mode:await getSourceControlMode(db)},200,cors);
     }
     if (url.pathname === "/api/sources/control-mode" && request.method === "POST") {
       const db=requireDb(env);const data=await requestBody(request);const mode=String(data.mode||"");
@@ -217,6 +217,10 @@ export async function route(request, env) {
     }
     if (url.pathname === "/api/sources/ranks/refresh" && request.method === "POST") {
       return ok(await refreshSourceRanks(requireDb(env)), 200, cors);
+    }
+    if (url.pathname === "/api/sources" && request.method === "POST") {
+      const data = await requestBody(request);
+      return ok(await addDirectSource(requireDb(env), data), 201, cors);
     }
     if (url.pathname === "/api/sources/bulk" && request.method === "POST") {
       const data = await requestBody(request);
@@ -246,6 +250,9 @@ export async function route(request, env) {
     const sourceDetail = sourceDetailRoute(url.pathname);
     if (sourceDetail && request.method === "GET") {
       return ok(await getSource(requireDb(env), sourceDetail[1]), 200, cors);
+    }
+    if (sourceDetail && request.method === "DELETE") {
+      return ok(await deleteSource(requireDb(env), sourceDetail[1]), 200, cors);
     }
 
     if (url.pathname === "/api/runs/start" && request.method === "POST") {

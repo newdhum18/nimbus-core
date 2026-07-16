@@ -147,6 +147,12 @@
             <div id="sourceModeNote" class="operation-status neutral">Loading control mode…</div>
           </article>
           <article id="manualSourcePanel" class="panel hidden">
+            <div class="source-add-box">
+              <div class="panel-head"><div><p class="panel-kicker">DIRECT SOURCE</p><h3>Add source</h3><small>Add a public HTTP/HTTPS page directly to the manual catalog. Nimbus will fetch this exact URL.</small></div></div>
+              <label>Source URL<input id="newSourceUrl" type="url" inputmode="url" placeholder="https://example.com/public-page"></label>
+              <label>Display name (optional)<input id="newSourceName" type="text" maxlength="120" placeholder="Example public source"></label>
+              <button id="addDirectSource" class="primary wide" type="button">Add direct source</button>
+            </div>
             <label>Search sources<input id="sourceSearch" type="search" placeholder="Name, category, or type" autocomplete="off"></label>
             <div class="source-filters"><select id="sourceStatus"><option value="all">All</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select><select id="sourceSort"><option value="priority">Priority</option><option value="rank">Rank</option><option value="yield">Yield</option><option value="name">Name</option><option value="failures">Failures</option><option value="speed">Speed</option><option value="health">Health</option></select></div>
             <div class="source-actions"><button id="enableAllSources" class="secondary" type="button">Select all</button><button id="disableAllSources" class="secondary" type="button">Unselect all</button><button id="restoreDefaults" class="secondary" type="button">Restore defaults</button><button id="refreshRanks" class="secondary" type="button">Refresh ranks</button></div>

@@ -7,6 +7,7 @@ import { AppError } from "../api/errors.js";
 import { transitionRun, failRun } from "./lifecycle.js";
 import { chooseSources } from "../sources/intelligence.js";
 import { seedSources } from "../sources/defaults.js";
+import { getSourceControlMode } from "../sources/service.js";
 import { SYSTEM } from "../config.js";
 
 export function withRoundIdentity(url, roundIndex) {
@@ -19,8 +20,11 @@ export function totalTasksForRounds(sourceCount, rounds) {
 }
 
 
-export function sourceSelectionsForRun(sourcePool,{mode="autoscan",rounds=1}={}){
+export function sourceSelectionsForRun(sourcePool,{mode="autoscan",rounds=1,controlMode="automatic"}={}){
   const enabledSources=sourcePool.filter((row)=>Number(row.enabled)===1);
+  if(controlMode==="manual") {
+    return Array.from({length:rounds},()=>enabledSources.slice(0,300));
+  }
   return Array.from({length:rounds},(_,roundIndex)=>{
     if(mode==="autoscan"&&roundIndex===0)return enabledSources.slice(0,300);
     return chooseSources(sourcePool,{roundIndex,maxSources:Math.min(24,sourcePool.length)});
@@ -54,6 +58,10 @@ export async function startRun(env, { mode, keyword = "", category = "tools", ro
   if (sourceCount < SYSTEM.sourceTotal) {
     await seedSources(env.DB, { preserveEnabled: true });
   }
+  const controlMode = await getSourceControlMode(env.DB);
+  const sourceWhere = controlMode === "manual"
+    ? "s.enabled=1"
+    : "s.enabled=1 OR COALESCE(m.intelligence_state,'explore')='explore'";
   const sourceRows = await env.DB.prepare(`
     SELECT s.*,
            COALESCE(m.requests,0) AS requests,
@@ -68,14 +76,14 @@ export async function startRun(env, { mode, keyword = "", category = "tools", ro
            m.cooldown_until,m.intelligence_state
     FROM sources s
     LEFT JOIN source_metrics m ON m.source_id=s.id
-    WHERE s.enabled=1 OR COALESCE(m.intelligence_state,'explore')='explore'
+    WHERE ${sourceWhere}
     ORDER BY s.priority DESC,s.id ASC
   `).all();
   const sourcePool = sourceRows.results || [];
   if (!sourcePool.length) {
     throw new AppError("NO_ENABLED_SOURCES", "No autonomous sources are available", "runs", 409);
   }
-  const roundSelections = sourceSelectionsForRun(sourcePool,{mode,rounds});
+  const roundSelections = sourceSelectionsForRun(sourcePool,{mode,rounds,controlMode});
   const sources = roundSelections[0] || [];
 
   const runId = uid("run");
@@ -126,7 +134,7 @@ export async function startRun(env, { mode, keyword = "", category = "tools", ro
 
     await transitionRun(env.DB, runId, "running", { from: "created" });
     const dispatch = await dispatchPending(env, runId, 20);
-    return { runId, totalTasks, rounds, sources: sources.length, category: mode === "keyword" ? category : null, generated_queries: mode === "keyword" ? adaptiveQueries : [], strategy: "autonomous-70-20-10-v2", dispatch };
+    return { runId, totalTasks, rounds, sources: sources.length, category: mode === "keyword" ? category : null, generated_queries: mode === "keyword" ? adaptiveQueries : [], strategy: controlMode === "manual" ? "manual-locked-exact-sources" : "autonomous-70-20-10-v2", control_mode: controlMode, dispatch };
   } catch (error) {
     await failRun(env.DB, runId, error).catch(() => {});
     throw error;

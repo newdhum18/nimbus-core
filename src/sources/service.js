@@ -3,6 +3,44 @@ import { nowIso } from "../db/queries.js";
 import { chunkArray } from "../db/batch.js";
 import { seedSources } from "./defaults.js";
 import { calculateSourceRank, sourceRecommendation } from "./ranking.js";
+import { assertPublicHttpUrl } from "../search/crawler.js";
+
+
+export async function getSourceControlMode(db) {
+  const row = await db.prepare("SELECT value FROM settings WHERE key='source_control_mode'").first();
+  return ["automatic", "manual"].includes(row?.value) ? row.value : "automatic";
+}
+
+function userSourceId(url) {
+  let hash = 2166136261;
+  for (const char of String(url)) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); }
+  return `user_${(hash >>> 0).toString(36)}`;
+}
+
+export async function addDirectSource(db, { url, name = "", category = "custom", enabled = true } = {}) {
+  await assertNoActiveRun(db);
+  const parsed = assertPublicHttpUrl(String(url || "").trim());
+  parsed.hash = "";
+  const templateUrl = parsed.toString();
+  const id = userSourceId(templateUrl);
+  const cleanName = String(name || parsed.hostname).trim().slice(0, 120) || parsed.hostname;
+  const cleanCategory = String(category || "custom").trim().slice(0, 80) || "custom";
+  const now = nowIso();
+  await db.prepare(`
+    INSERT INTO sources(id,name,category,source_type,template_url,enabled,default_enabled,priority,rank_score,created_at,updated_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET name=excluded.name,category=excluded.category,template_url=excluded.template_url,enabled=excluded.enabled,updated_at=excluded.updated_at
+  `).bind(id,cleanName,cleanCategory,"custom",templateUrl,enabled?1:0,0,100,0,now,now).run();
+  return getSource(db,id);
+}
+
+export async function deleteSource(db, sourceId) {
+  await assertNoActiveRun(db);
+  const source = await db.prepare("SELECT id,name FROM sources WHERE id=?").bind(sourceId).first();
+  if (!source) throw new AppError("SOURCE_NOT_FOUND", "Source was not found", "sources", 404);
+  await db.prepare("DELETE FROM sources WHERE id=?").bind(sourceId).run();
+  return { deleted: true, source_id: sourceId, name: source.name };
+}
 
 const SORT_SQL = Object.freeze({
   priority: "s.priority DESC,s.id ASC",
