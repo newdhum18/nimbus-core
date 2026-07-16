@@ -11,7 +11,7 @@ const S = (id,name,category,sourceType,templateUrl,priority,rankScore=0) => ({
 const CATALOG = Object.freeze([
   S("meawfy_api","Meawfy public index API","mega-index","json","https://meawfy.com/internal/api/results.json?q={q}",1500,100),
   S("meawfy_search","Meawfy public search","mega-index","html","https://meawfy.com/?s={q}",1490,90),
-  S("ofversedrops_search","OfverseDrops public search","mega-index","html","https://ofversedrops.com/?s={q}",1480,85),
+  S("ofversedrops_search","OfverseDrops public search","mega-index","ofversedrops","https://ofversedrops.com/?s={q}",1480,85),
 
   // PasteToday coverage is intentionally split into two honest surfaces:
   // 1) a deterministic direct validation note supplied for the isolated

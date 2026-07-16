@@ -75,5 +75,11 @@ export const MIGRATIONS = Object.freeze([
     "file": "src/db/migrations/0013_pastetoday_extraction_runtime.sql",
     "checksum": "4def322cd1556cc403f5e3d488adf1d6208838a7c564595e2ca49f3bd4612ce9"
   }
+  ,{
+    "version": 14,
+    "name": "source_catalog_sync_and_ofversedrops",
+    "file": "src/db/migrations/0014_source_catalog_sync_and_ofversedrops.sql",
+    "checksum": "75756d5670ea553c760933f10231a0f5a8794ff4632e6d305f23e36c607699bd"
+  }
 ].map(Object.freeze));
 export const EXPECTED_SCHEMA_VERSION = MIGRATIONS.at(-1)?.version ?? 0;

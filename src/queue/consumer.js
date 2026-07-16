@@ -175,7 +175,7 @@ export async function processTask(env, messageBody) {
 
   try {
     let result;
-    if (["html", "rss", "custom", "json", "pastetoday"].includes(String(current.source_type))) {
+    if (["html", "rss", "custom", "json", "pastetoday", "ofversedrops"].includes(String(current.source_type))) {
       const searchPage = await fetchPage(current.url);
       const collected = new Map(extractMegaFolders(searchPage.text || "").map(link => [link.normalizedUrl, link]));
       const learningContexts = extractDiscoveryContexts(searchPage.text || "");
@@ -189,7 +189,7 @@ export async function processTask(env, messageBody) {
 
       if (searchPage.ok) {
         try {
-          if (["html", "rss", "pastetoday"].includes(String(current.source_type))) {
+          if (["html", "rss", "pastetoday", "ofversedrops"].includes(String(current.source_type))) {
             const adapter = adapterForSource({ source_type: current.source_type });
             seedTargets = adapter.parse({
               input: { source_id: current.source_id, mode: "autoscan", round: 0, query: "", template_url: current.url },

@@ -1,6 +1,7 @@
 import { createHtmlAdapter } from "./html.js";
 import { createRssAdapter } from "./rss.js";
 import { createPastetodayAdapter } from "./pastetoday.js";
+import { createOfversedropsAdapter } from "./ofversedrops.js";
 
 const htmlAdapter = createHtmlAdapter();
 const ADAPTERS = new Map([
@@ -8,7 +9,8 @@ const ADAPTERS = new Map([
   ["json", htmlAdapter],
   ["custom", htmlAdapter],
   ["rss", createRssAdapter()],
-  ["pastetoday", createPastetodayAdapter()]
+  ["pastetoday", createPastetodayAdapter()],
+  ["ofversedrops", createOfversedropsAdapter()]
 ]);
 
 export function adapterForSource(source) {
