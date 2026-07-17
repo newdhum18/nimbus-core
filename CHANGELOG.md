@@ -1,4 +1,4 @@
-## 37.1.1 — extraction, discovery and deployment hardening
+## 37.1.2 — extraction, discovery and deployment hardening
 
 - Removed obsolete PasteToday and OfverseDrops adapters from active runtime.
 - Restricted runtime adapters to HTML, JSON-via-HTML, RSS and direct custom sources.
