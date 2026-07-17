@@ -7,7 +7,7 @@ import { dispatchSourceDiscovery } from "./discovery-queue.js";
 import { SYSTEM } from "../config.js";
 
 const PROFILES=Object.freeze({quick:8,normal:20,deep:40,ultra:70});
-const NOTE_HOST_RE=/(paste|rentry|telegra|controlc|justpaste|pastetoday|note|dpaste|paste\.ee)/i;
+const NOTE_HOST_RE=/(paste|rentry|telegra|controlc|justpaste|pastemode|pastelink|note)/i;
 const REDIRECT_HOST_RE=/(linkvertise|speedy-links|link-target|work\.ink|loot-link|short|redirect)/i;
 const DDG_HTML="https://html.duckduckgo.com/html/?q=";
 const DDG_LITE="https://lite.duckduckgo.com/lite/?q=";

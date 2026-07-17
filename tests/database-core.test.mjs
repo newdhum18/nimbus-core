@@ -29,7 +29,7 @@ test("migration checksum is the real SHA-256 of its SQL file", async () => {
   const bytes = await readFile(schemaPath);
   const checksum = createHash("sha256").update(bytes).digest("hex");
   assert.equal(checksum, MIGRATIONS[0].checksum);
-  assert.equal(EXPECTED_SCHEMA_VERSION, 15);
+  assert.equal(EXPECTED_SCHEMA_VERSION, 16);
 });
 
 test("fresh database creates exactly the approved eleven tables", async () => {
@@ -109,7 +109,7 @@ test("legacy migration seed remains deterministic before autonomous catalog rese
   const db=freshDb();
   for (const m of MIGRATIONS) { db.exec(await readFile(m.file,"utf8")); db.prepare(`INSERT OR IGNORE INTO schema_migrations(version,name,checksum,applied_at) VALUES(?,?,?,?)`).run(m.version,m.name,m.checksum,new Date().toISOString()); }
   const counts=db.prepare(`SELECT COUNT(*) total,SUM(enabled) enabled,SUM(default_enabled) default_enabled FROM sources`).get();
-  assert.equal(counts.total,303); assert.equal(counts.enabled,83); assert.equal(counts.default_enabled,83);
+  assert.equal(counts.total,6); assert.equal(counts.enabled,6); assert.equal(counts.default_enabled,6);
   db.close();
 });
 
@@ -118,7 +118,7 @@ test("upgrade path applies pending migrations after version one", async () => {
   const first=MIGRATIONS[0]; db.exec(await readFile(first.file,"utf8")); db.prepare(`INSERT INTO schema_migrations(version,name,checksum,applied_at) VALUES(?,?,?,?)`).run(first.version,first.name,first.checksum,new Date().toISOString());
   for (const m of MIGRATIONS.slice(1)) { db.exec(await readFile(m.file,"utf8")); db.prepare(`INSERT INTO schema_migrations(version,name,checksum,applied_at) VALUES(?,?,?,?)`).run(m.version,m.name,m.checksum,new Date().toISOString()); }
   assert.equal(db.prepare(`SELECT MAX(version) version FROM schema_migrations`).get().version,EXPECTED_SCHEMA_VERSION);
-  assert.equal(db.prepare(`SELECT COUNT(*) total FROM sources`).get().total,303);
+  assert.equal(db.prepare(`SELECT COUNT(*) total FROM sources`).get().total,6);
   db.close();
 });
 

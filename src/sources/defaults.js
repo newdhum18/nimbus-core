@@ -34,9 +34,9 @@ export async function seedSources(db, { preserveEnabled = true } = {}) {
 
   const tombstoneRows = await db.prepare("SELECT source_id FROM source_tombstones").all().catch(() => ({ results: [] }));
   const tombstones = new Set((tombstoneRows.results || []).map((row) => String(row.source_id)));
-  const catalog = sourceCatalog().filter((source) => !tombstones.has(source.id));
+  const catalog = sourceCatalog();
   const catalogIds = new Set(catalog.map((source) => source.id));
-  const obsoleteIds = [...existing.keys()].filter((id) => !catalogIds.has(id) && !String(id).startsWith("user_"));
+  const obsoleteIds = [...existing.keys()].filter((id) => !catalogIds.has(id));
   const now = nowIso();
   let enabledCount = 0;
 

@@ -1,13 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sourceCatalog } from "../src/sources/catalog.js";
+import { APPROVED_NOTE_DOMAINS, sourceCatalog } from "../src/sources/catalog.js";
 
-test("autonomous catalog contains only distinct real discovery surfaces",()=>{
- const c=sourceCatalog(); assert.equal(c.length,37);
- assert.equal(new Set(c.map(x=>x.id)).size,c.length);
- assert.equal(new Set(c.map(x=>x.templateUrl)).size,c.length);
+const expected = ["rentry.co","controlc.com","justpaste.it","telegra.ph","pastemode.com","pastelink.net"];
+
+test("catalog contains only the six approved note sources", () => {
+  const catalog = sourceCatalog();
+  assert.equal(catalog.length, 6);
+  assert.deepEqual(catalog.map((row) => row.domain), expected);
+  assert.deepEqual([...APPROVED_NOTE_DOMAINS], expected);
+  assert.ok(catalog.every((row) => row.enabled && row.defaultEnabled));
+  assert.ok(catalog.every((row) => row.category === "approved-note"));
 });
-test("autonomous catalog enables 31 proven/exploration sources",()=>{assert.equal(sourceCatalog().filter(x=>x.enabled).length,31)});
-test("catalog excludes GitHub and YouTube",()=>{assert.equal(sourceCatalog().some(x=>/github|youtube/i.test(`${x.name} ${x.templateUrl}`)),false)});
-test("Bing remains disabled reserve",()=>{const b=sourceCatalog().filter(x=>/bing/i.test(x.name));assert.ok(b.length>0);assert.ok(b.every(x=>!x.defaultEnabled&&!x.enabled));});
-test("catalog includes direct indexes, comments, archives and paste discovery",()=>{const ids=new Set(sourceCatalog().map(x=>x.id));for(const id of ["meawfy_api","meawfy_search","ofversedrops_search","reddit_search_json","reddit_comments_json","wayback_cdx_rentry","ddg_rentry"])assert.ok(ids.has(id),id)});
+
+test("approved catalog has unique IDs, domains and discovery templates", () => {
+  const catalog = sourceCatalog();
+  assert.equal(new Set(catalog.map((row) => row.id)).size, 6);
+  assert.equal(new Set(catalog.map((row) => row.domain)).size, 6);
+  assert.equal(new Set(catalog.map((row) => row.templateUrl)).size, 6);
+});
+
+test("approved source access policy is direct and bounded", () => {
+  for (const source of sourceCatalog()) {
+    assert.equal(source.access.discovery, "search-index");
+    assert.equal(source.access.fetch, "direct-http");
+    assert.equal(source.access.extraction, "visible-text+href+html");
+    assert.equal(source.access.loginRequired, false);
+    assert.equal(source.access.javascriptRequired, false);
+    assert.equal(source.access.followIntermediates, false);
+  }
+});

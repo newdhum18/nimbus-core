@@ -33,12 +33,10 @@ test("RSS adapter extracts item links and excludes engine self-link", () => {
 });
 
 test("adapter registry supports executable source types", () => {
-  assert.deepEqual(supportedAdapterTypes(), ["html", "json", "custom", "rss", "pastetoday", "ofversedrops"]);
+  assert.deepEqual(supportedAdapterTypes(), ["html", "json", "custom", "rss"]);
   assert.equal(adapterForSource({ source_type: "html" }).source_type, "html");
   assert.equal(adapterForSource({ source_type: "json" }).id, "generic-html");
   assert.equal(adapterForSource({ source_type: "custom" }).id, "direct-source-crawler-v1");
-  assert.equal(adapterForSource({ source_type: "pastetoday" }).id, "pastetoday-note-v2");
-  assert.equal(adapterForSource({ source_type: "ofversedrops" }).id, "ofversedrops-public-v1");
   assert.throws(() => adapterForSource({ source_type: "binary" }), /unsupported_search_adapter:binary/);
 });
 
@@ -60,15 +58,15 @@ test("target decoder handles Google, DuckDuckGo and Bing wrappers", () => {
   assert.equal(decodeSearchTarget(`/ck/a?u=${encoded}`, "https://www.bing.com/search?q=x"), target);
 });
 
-test("content variants prefer raw Pastebin, Rentry and Reddit JSON", () => {
-  assert.equal(contentVariants("https://pastebin.com/AbC123")[0], "https://pastebin.com/raw/AbC123");
+test("content variants prefer raw Rentry and keep approved note pages direct", () => {
   assert.equal(contentVariants("https://rentry.co/demo")[0], "https://rentry.co/raw/demo");
-  assert.match(contentVariants("https://www.reddit.com/r/test/comments/abc/title/")[0], /\.json\?raw_json=1$/);
+  assert.equal(contentVariants("https://justpaste.it/demo/")[0], "https://justpaste.it/demo");
+  assert.equal(contentVariants("https://pastelink.net/demo/")[0], "https://pastelink.net/demo");
 });
 
 test("HTTP target extraction reads anchors and JSON text", () => {
-  const text = '<a href="/url?q=https%3A%2F%2Frentry.co%2Fdemo">x</a>{"url":"https://pastebin.com/AbC123"}';
+  const text = '<a href="/url?q=https%3A%2F%2Frentry.co%2Fdemo">x</a>{"url":"https://pastelink.net/AbC123"}';
   const targets = extractHttpTargets(text, "https://www.google.com/search?q=x");
   assert.ok(targets.includes("https://rentry.co/raw/demo"));
-  assert.ok(targets.includes("https://pastebin.com/raw/AbC123"));
+  assert.ok(targets.includes("https://pastelink.net/AbC123"));
 });

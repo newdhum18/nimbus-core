@@ -1,3 +1,23 @@
+## 37.1.1 — extraction, discovery and deployment hardening
+
+- Removed obsolete PasteToday and OfverseDrops adapters from active runtime.
+- Restricted runtime adapters to HTML, JSON-via-HTML, RSS and direct custom sources.
+- Restricted content variants to the six approved note domains; Rentry retains raw-first access.
+- Source reset now removes every non-catalog row, including prior user-added rows.
+- Automatic discovery records candidates but cannot activate unapproved domains; manual approval is required.
+- Updated runtime tests and deployment validation for the exact six-source catalog.
+- Preserved historical migrations for safe upgrades, while migration 0016 remains the deterministic six-source reset.
+
+# Changelog
+
+## 37.1.0
+- Removed the complete legacy source catalog.
+- Installed only six manually approved note/paste sources.
+- Added deterministic source ordering and direct-access metadata.
+- Added database migration to purge obsolete sources.
+- Added Pastemode and Pastelink canonical page handling.
+- Updated reset and source-adoption tests.
+
 # 37.0.1
 
 - Full audit repair for Groq source adoption, structural-only validation, schema synchronization, fixtures, and migration-15 deployment verification.

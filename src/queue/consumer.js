@@ -11,9 +11,8 @@ import { validateTaskMessage } from "./contract.js";
 import { validateSourceDiscoveryMessage, consumeSourceDiscoveryMessage } from "../sources/discovery-queue.js";
 import { recordQueueOperations } from "./usage.js";
 import { extractHttpTargets, contentVariants } from "../search/target-decoder.js";
-import { inspectPastetodayDocument } from "../search/adapters/pastetoday.js";
 import { learnSearchTerms } from "../search/keyword-intelligence.js";
-import { discoverCandidateUrls, registerSourceCandidates, promoteQualifiedCandidates } from "../sources/discovery.js";
+import { discoverCandidateUrls, registerSourceCandidates } from "../sources/discovery.js";
 
 async function event(db, {
   runId = null,
@@ -175,21 +174,17 @@ export async function processTask(env, messageBody) {
 
   try {
     let result;
-    if (["html", "rss", "custom", "json", "pastetoday", "ofversedrops"].includes(String(current.source_type))) {
+    if (["html", "rss", "custom", "json"].includes(String(current.source_type))) {
       const searchPage = await fetchPage(current.url);
       const collected = new Map(extractMegaFolders(searchPage.text || "").map(link => [link.normalizedUrl, link]));
       const learningContexts = extractDiscoveryContexts(searchPage.text || "");
       const visited = new Set([searchPage.finalUrl || current.url]);
       const queue = [];
       let seedTargets = [];
-      const adapterInspections = [];
-      if (current.source_type === "pastetoday") {
-        adapterInspections.push(inspectPastetodayDocument(searchPage.text || "", searchPage.finalUrl || current.url));
-      }
 
       if (searchPage.ok) {
         try {
-          if (["html", "rss", "custom", "pastetoday", "ofversedrops"].includes(String(current.source_type))) {
+          if (["html", "rss", "custom", "json"].includes(String(current.source_type))) {
             const adapter = adapterForSource({ source_type: current.source_type });
             seedTargets = adapter.parse({
               input: { source_id: current.source_id, mode: "autoscan", round: 0, query: "", template_url: current.url },
@@ -223,21 +218,14 @@ export async function processTask(env, messageBody) {
 
         if (child.ok && item.depth < SYSTEM.maxCrawlDepth) {
           let documentTargets;
-          if (current.source_type === "pastetoday") {
-            const inspection = inspectPastetodayDocument(child.text || "", child.finalUrl || item.url);
-            adapterInspections.push(inspection);
-            for (const link of inspection.megaLinks || []) collected.set(link.normalizedUrl, link);
-            documentTargets = [...inspection.targets, ...(inspection.endpoints || [])];
-          } else {
-            try {
-              const adapter = adapterForSource({ source_type: current.source_type });
-              documentTargets = adapter.parse({
-                input: { source_id: current.source_id, mode: "autoscan", round: item.depth, query: "", template_url: child.finalUrl || item.url },
-                body: child.text || ""
-              }).targets;
-            } catch {
-              documentTargets = extractHttpTargets(child.text || "", child.finalUrl || item.url);
-            }
+          try {
+            const adapter = adapterForSource({ source_type: current.source_type });
+            documentTargets = adapter.parse({
+              input: { source_id: current.source_id, mode: "autoscan", round: item.depth, query: "", template_url: child.finalUrl || item.url },
+              body: child.text || ""
+            }).targets;
+          } catch {
+            documentTargets = extractHttpTargets(child.text || "", child.finalUrl || item.url);
           }
           const nested = documentTargets
             .filter(url => !visited.has(url))
@@ -247,9 +235,6 @@ export async function processTask(env, messageBody) {
           }
         }
       }
-      const pastetodayInspection = current.source_type === "pastetoday"
-        ? adapterInspections.sort((a,b) => Number((b.megaLinks||[]).length) - Number((a.megaLinks||[]).length))[0] || inspectPastetodayDocument(searchPage.text || "", searchPage.finalUrl || current.url)
-        : null;
       result = {
         ...searchPage,
         ok: searchPage.ok || childOk > 0,
@@ -257,16 +242,7 @@ export async function processTask(env, messageBody) {
         latency: (searchPage.latency || 0) + childLatency,
         targetsVisited: pagesVisited,
         discoveryContexts: [...new Set(learningContexts)].slice(0, 30),
-        adapterDiagnostics: pastetodayInspection ? {
-          adapter: "pastetoday",
-          dynamic: pastetodayInspection.dynamic,
-          dynamic_markers: pastetodayInspection.dynamicMarkers,
-          embed_detected: pastetodayInspection.hasEmbed,
-          encoded_target_detected: pastetodayInspection.encodedTargetDetected,
-          reason: pastetodayInspection.reason,
-          endpoints: (pastetodayInspection.endpoints || []).slice(0, 20),
-          evidence: pastetodayInspection.evidence
-        } : null
+        adapterDiagnostics: null
       };
     } else {
       result = await fetchAndExtract(current.url);
@@ -299,7 +275,6 @@ export async function processTask(env, messageBody) {
         megaLinksFound: linkStats.novel,
         successful: true
       }).catch(()=>{});
-      if (linkStats.novel > 0) await promoteQualifiedCandidates(env.DB, { limit: 3 }).catch(()=>{});
     }
 
     await env.DB.prepare(`

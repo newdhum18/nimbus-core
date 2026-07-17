@@ -93,54 +93,22 @@ export function decodeSearchTarget(value, baseUrl, { maxDepth = 6 } = {}) {
 }
 
 
-export function pastetodayContentVariants(value) {
-  let url;
-  try { url = new URL(value); } catch { return []; }
-  const host = url.hostname.toLowerCase().replace(/^www\./, "");
-  if (host !== "pastetoday.com") return [url.toString()];
-
-  const parts = url.pathname.split("/").filter(Boolean);
-  let slug = "";
-  if (parts[0] === "embed" && parts[1]) slug = parts[1];
-  else if (parts.length === 1 && !["login", "register", "about", "privacy", "terms"].includes(parts[0].toLowerCase())) slug = parts[0];
-  if (!slug) return [url.origin + "/"];
-
-  const cleanSlug = slug.replace(/[^A-Za-z0-9_-]/g, "");
-  if (!cleanSlug) return [url.toString()];
-  return [
-    `https://pastetoday.com/${cleanSlug}`,
-    `https://pastetoday.com/embed/${cleanSlug}`
-  ];
-}
-
 export function contentVariants(value) {
   const url = new URL(value);
   const host = url.hostname.toLowerCase().replace(/^www\./, "");
   const variants = [url.toString()];
 
-  if (host === "pastebin.com") {
-    const id = url.pathname.match(/^\/(?:raw\/)?([A-Za-z0-9]+)\/?$/)?.[1];
-    if (id) variants.unshift(`https://pastebin.com/raw/${id}`);
-  }
   if (host === "rentry.co") {
     const slug = url.pathname.match(/^\/(?:raw\/)?([^/?#]+)\/?$/)?.[1];
-    if (slug && !["register", "login", "what"].includes(slug.toLowerCase())) variants.unshift(`https://rentry.co/raw/${slug}`);
+    if (slug && !["register", "login", "what"].includes(slug.toLowerCase())) {
+      variants.unshift(`https://rentry.co/raw/${slug}`);
+    }
   }
-  if (host === "paste.ee") {
-    const id = url.pathname.match(/^\/p\/([^/?#]+)/)?.[1];
-    if (id) variants.unshift(`https://paste.ee/r/${id}`);
+
+  if (["justpaste.it", "controlc.com", "telegra.ph", "pastemode.com", "pastelink.net"].includes(host)) {
+    variants.unshift(url.toString().replace(/\/$/, ""));
   }
-  if (["dpaste.org", "dpaste.com"].includes(host)) {
-    const slug = url.pathname.replace(/^\//, "").replace(/\/$/, "");
-    if (slug) variants.unshift(`${url.origin}/${slug}.txt`);
-  }
-  if (host === "gist.github.com") variants.unshift(`${url.toString().replace(/\/$/, "")}.patch`);
-  if (host === "pastetoday.com") variants.unshift(...pastetodayContentVariants(url.toString()));
-  if (["justpaste.it", "controlc.com", "telegra.ph"].includes(host)) variants.unshift(url.toString().replace(/\/$/, ""));
-  if ((host === "reddit.com" || host === "old.reddit.com") && /\/comments\//.test(url.pathname)) {
-    const cleanPath = url.pathname.replace(/\/$/, "");
-    variants.unshift(`https://www.reddit.com${cleanPath}.json?raw_json=1`);
-  }
+
   return dedupeTargets(variants);
 }
 
@@ -152,7 +120,7 @@ function targetPriority(value, baseUrl) {
     if (/\.(?:css|js|mjs|png|jpe?g|gif|svg|webp|woff2?|ttf|ico|mp4|mp3|zip|rar)(?:$|\?)/i.test(url.pathname)) return -100;
     if (/google-analytics|googletagmanager|doubleclick|facebook\.com\/tr|hotjar|cloudflareinsights/.test(host)) return -100;
     let score = 0;
-    if (/paste|rentry|telegra|controlc|dpaste|note|justpaste|pastetoday|paste\.ee/.test(full)) score += 60;
+    if (/paste|rentry|telegra|controlc|note|justpaste|pastemode|pastelink/.test(full)) score += 60;
     if (/linkvertise|speedy-links|redirect|out|go\//.test(full)) score += 45;
     if (/raw|download|view|post|article|entry|share/.test(full)) score += 25;
     if (url.hostname === new URL(baseUrl).hostname) score += 15;

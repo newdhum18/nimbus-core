@@ -16,8 +16,9 @@ test("extracts nested note target from redirect link",()=>{
   assert.ok(extractHttpTargets(html,"https://ofversedrops.com/post").includes(target));
 });
 
-test("adds raw variant for paste.ee notes",()=>{
-  assert.ok(contentVariants("https://paste.ee/p/AbCd1").includes("https://paste.ee/r/AbCd1"));
+test("approved note variants stay within approved domains", () => {
+  assert.ok(contentVariants("https://rentry.co/AbCd1").includes("https://rentry.co/raw/AbCd1"));
+  assert.deepEqual(contentVariants("https://pastemode.com/AbCd1"), ["https://pastemode.com/AbCd1"]);
 });
 
 test("recursively decodes nested redirect chains",()=>{

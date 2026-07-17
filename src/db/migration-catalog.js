@@ -87,5 +87,11 @@ export const MIGRATIONS = Object.freeze([
     "file": "src/db/migrations/0015_source_control_integrity.sql",
     "checksum": "3b0bcf1daa53875a4840e3d0b4adbeae74fae66296d727ab4c74e24daed57a20"
   }
+  ,{
+    "version": 16,
+    "name": "approved_note_sources_reset",
+    "file": "src/db/migrations/0016_approved_note_sources_reset.sql",
+    "checksum": "7f2b3c4fd4914494f2dcf16bcd72e5490dc97664343673af79f1acccd9d9a340"
+  }
 ].map(Object.freeze));
 export const EXPECTED_SCHEMA_VERSION = MIGRATIONS.at(-1)?.version ?? 0;

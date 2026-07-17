@@ -15,11 +15,11 @@ test("DELETE is allowed by CORS for source manager", async () => {
 });
 
 test("direct source crawler follows useful same-host pages and note destinations", () => {
-  const html = `<a href="/post/one">Post</a><a href="https://pastetoday.com/abcd1234">Note</a><img src="/image.jpg">`;
+  const html = `<a href="/post/one">Post</a><a href="https://pastelink.net/abcd1234">Note</a><img src="/image.jpg">`;
   const targets = parseDirectSourceResults(html, "https://example.com/");
   assert.ok(targets.includes("https://example.com/post/one"));
-  assert.ok(targets.includes("https://pastetoday.com/abcd1234"));
-  assert.ok(targets.includes("https://pastetoday.com/embed/abcd1234"));
+  assert.ok(targets.includes("https://pastelink.net/abcd1234"));
+  assert.ok(targets.includes("https://pastelink.net/abcd1234"));
   assert.equal(targets.some((x) => x.endsWith("image.jpg")), false);
 });
 

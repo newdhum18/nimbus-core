@@ -33,7 +33,7 @@ test("fresh schema accepts every catalog source type", async () => {
   const match = schema.match(/source_type TEXT NOT NULL CHECK\(source_type IN \(([^)]*)\)\)/);
   assert.ok(match, "sources.source_type CHECK constraint must exist");
   const allowed = new Set([...match[1].matchAll(/'([^']+)'/g)].map((entry) => entry[1]));
-  for (const type of ["html", "rss", "json", "custom", "pastetoday", "ofversedrops"]) {
+  for (const type of ["html", "rss", "json", "custom"]) {
     assert.ok(allowed.has(type), `fresh schema is missing source type: ${type}`);
   }
 });

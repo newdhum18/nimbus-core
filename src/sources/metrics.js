@@ -1,7 +1,7 @@
 import { nowIso } from "../db/queries.js";
 import { calculateSourceRank } from "./ranking.js";
 
-const PROTECTED=/^(meawfy_api|meawfy_search|ofversedrops_search|ddg_rentry|reddit_search_json|reddit_comments_json)$/;
+const PROTECTED=/^approved_(rentry|controlc|justpaste|telegra|pastemode|pastelink)$/;
 
 export async function recordSourceResult(db, sourceId, {
   success, timeout=false, blocked=false, linksFound=0, validLinks=0,

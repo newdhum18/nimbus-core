@@ -1,3 +1,4 @@
+import { APPROVED_NOTE_DOMAINS } from "./catalog.js";
 import { uid, nowIso } from "../db/queries.js";
 import { assertPublicHttpUrl } from "../search/crawler.js";
 import { extractHttpTargets } from "../search/target-decoder.js";
@@ -44,7 +45,7 @@ async function automaticControlEnabled(db){
   return row?.value!=="manual";
 }
 
-function familyFor(host,url=""){const v=`${host} ${url}`.toLowerCase();if(/paste|rentry|telegra|controlc|dpaste|note|justpaste|pastetoday|pasteee|paste\.ee/.test(v))return"note";if(/reddit|forum|board/.test(v))return"community";if(/archive|wayback|mirror/.test(v))return"archive";if(/index|search|links/.test(v))return"index";return"web";}
+function familyFor(host,url=""){const v=`${host} ${url}`.toLowerCase();if(/paste|rentry|telegra|controlc|note|justpaste|pastemode|pastelink/.test(v))return"note";if(/reddit|forum|board/.test(v))return"community";if(/archive|wayback|mirror/.test(v))return"archive";if(/index|search|links/.test(v))return"index";return"web";}
 
 export async function registerSourceCandidates(db,{urls=[],sourceId=null,sourceHost=null,autoscanRunId=null,discoveryRunId=null,megaLinksFound=0,novelLinksFound=0,aliveLinksFound=0,deadLinksFound=0,unknownLinksFound=0,duplicateLinksFound=0,successful=true,blockedFetches=0,pagesTested=1,latency=0,megaFingerprints=[],evidenceUrl=null}={}){
   const now=nowIso();let registered=0;const domainMap=new Map();
@@ -78,7 +79,16 @@ export async function promoteQualifiedCandidates(db,{limit=20}={}){
   let promoted=0,created=0,activated=0,sandboxed=0,updated=0;
   const allowActivation=await automaticControlEnabled(db);
   const decisions=[];
+  const approvedHosts = new Set(APPROVED_NOTE_DOMAINS);
   for(const row of rows.results||[]){
+    if (!approvedHosts.has(String(row.host || "").toLowerCase().replace(/^www\./, ""))) {
+      const now = nowIso();
+      await db.prepare(`UPDATE source_candidate_domains SET state='sandbox',rejection_reason='manual_approval_required',last_seen_at=? WHERE host=?`).bind(now,row.host).run();
+      await db.prepare(`UPDATE source_candidates SET state='sandbox',rejection_reason='manual_approval_required',last_seen_at=? WHERE host=?`).bind(now,row.host).run();
+      sandboxed++;
+      decisions.push({host:row.host,source_id:null,enabled:false,mode:'sandbox',reason:'manual_approval_required'});
+      continue;
+    }
     const sourceId=`discovered_${hash(row.host)}`;
     const alive=Number(row.alive_links||0),novel=Number(row.novel_links||0),links=Number(row.extracted_links||0);
     const successes=Number(row.successful_fetches||0),evidence=Number(row.evidence_count||0);
