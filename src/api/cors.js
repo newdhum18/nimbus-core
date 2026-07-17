@@ -17,7 +17,7 @@ export function isAllowedOrigin(origin) {
 export function corsHeaders(request) {
   const origin = request.headers.get("origin") || "";
   const headers = {
-    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
     "access-control-allow-headers": "content-type",
     "access-control-max-age": "86400",
     "vary": "Origin"

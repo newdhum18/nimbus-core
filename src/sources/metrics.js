@@ -53,7 +53,12 @@ export async function recordSourceResult(db, sourceId, {
   if(row){
     const rank=calculateSourceRank({...row,valid_links:Number(row.novel_links||0)},Number(row.priority||50));
     const state=String(row.intelligence_state||'explore');
-    const enabled=PROTECTED.test(String(sourceId)) || !['quarantined','disabled'].includes(state);
-    await db.prepare(`UPDATE sources SET rank_score=?,enabled=?,updated_at=? WHERE id=?`).bind(rank,enabled?1:0,now,sourceId).run();
+    const control=await db.prepare("SELECT value FROM settings WHERE key='source_control_mode'").first();
+    if(control?.value === 'manual') {
+      await db.prepare(`UPDATE sources SET rank_score=?,updated_at=? WHERE id=?`).bind(rank,now,sourceId).run();
+    } else {
+      const enabled=PROTECTED.test(String(sourceId)) || !['quarantined','disabled'].includes(state);
+      await db.prepare(`UPDATE sources SET rank_score=?,enabled=?,updated_at=? WHERE id=?`).bind(rank,enabled?1:0,now,sourceId).run();
+    }
   }
 }

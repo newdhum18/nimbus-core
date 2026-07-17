@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { sourceCatalog } from "../src/sources/catalog.js";
 
 test("autonomous catalog contains only distinct real discovery surfaces",()=>{
- const c=sourceCatalog(); assert.equal(c.length,34);
+ const c=sourceCatalog(); assert.equal(c.length,37);
  assert.equal(new Set(c.map(x=>x.id)).size,c.length);
  assert.equal(new Set(c.map(x=>x.templateUrl)).size,c.length);
 });

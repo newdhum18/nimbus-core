@@ -189,7 +189,7 @@ export async function processTask(env, messageBody) {
 
       if (searchPage.ok) {
         try {
-          if (["html", "rss", "pastetoday", "ofversedrops"].includes(String(current.source_type))) {
+          if (["html", "rss", "custom", "pastetoday", "ofversedrops"].includes(String(current.source_type))) {
             const adapter = adapterForSource({ source_type: current.source_type });
             seedTargets = adapter.parse({
               input: { source_id: current.source_id, mode: "autoscan", round: 0, query: "", template_url: current.url },
@@ -229,7 +229,15 @@ export async function processTask(env, messageBody) {
             for (const link of inspection.megaLinks || []) collected.set(link.normalizedUrl, link);
             documentTargets = [...inspection.targets, ...(inspection.endpoints || [])];
           } else {
-            documentTargets = extractHttpTargets(child.text || "", child.finalUrl || item.url);
+            try {
+              const adapter = adapterForSource({ source_type: current.source_type });
+              documentTargets = adapter.parse({
+                input: { source_id: current.source_id, mode: "autoscan", round: item.depth, query: "", template_url: child.finalUrl || item.url },
+                body: child.text || ""
+              }).targets;
+            } catch {
+              documentTargets = extractHttpTargets(child.text || "", child.finalUrl || item.url);
+            }
           }
           const nested = documentTargets
             .filter(url => !visited.has(url))

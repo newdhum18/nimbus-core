@@ -45,12 +45,12 @@ test("source reset avoids giant NOT IN clauses and writes autonomous catalog row
     }]
   });
   const result = await seedSources(db, { preserveEnabled: false });
-  assert.equal(result.total, 34);
+  assert.equal(result.total, 37);
   assert.equal(result.enabled, 31);
   assert.equal(result.removed_obsolete, 1);
-  assert.equal(db.batchStatements.length, 36);
+  assert.equal(db.batchStatements.length, 39);
   assert.equal(db.calls.some((call) => /NOT IN\s*\(/i.test(call.sql)), false);
-  assert.equal(db.calls.filter((call) => call.sql.includes("INSERT INTO sources")).length, 34);
+  assert.equal(db.calls.filter((call) => call.sql.includes("INSERT INTO sources")).length, 37);
   assert.equal(db.calls.filter((call) => call.sql.includes("UPDATE sources SET template_url")).length, 1);
   assert.ok(db.calls.every((call) => call.params.length <= 11));
 });
@@ -68,7 +68,7 @@ test("source reset preserves existing enabled state without multi-variable SQL",
   const meawfy = db.calls.find((call) => call.sql.includes("INSERT INTO sources") && call.params[0] === "meawfy_api");
   assert.ok(meawfy);
   assert.equal(meawfy.params[5], 0);
-  assert.equal(result.total, 34);
+  assert.equal(result.total, 37);
 });
 
 test("source reset propagates batch failure so D1 can roll back the transaction", async () => {

@@ -36,7 +36,7 @@ test("adapter registry supports executable source types", () => {
   assert.deepEqual(supportedAdapterTypes(), ["html", "json", "custom", "rss", "pastetoday", "ofversedrops"]);
   assert.equal(adapterForSource({ source_type: "html" }).source_type, "html");
   assert.equal(adapterForSource({ source_type: "json" }).id, "generic-html");
-  assert.equal(adapterForSource({ source_type: "custom" }).id, "generic-html");
+  assert.equal(adapterForSource({ source_type: "custom" }).id, "direct-source-crawler-v1");
   assert.equal(adapterForSource({ source_type: "pastetoday" }).id, "pastetoday-note-v2");
   assert.equal(adapterForSource({ source_type: "ofversedrops" }).id, "ofversedrops-public-v1");
   assert.throws(() => adapterForSource({ source_type: "binary" }), /unsupported_search_adapter:binary/);

@@ -7,8 +7,8 @@ import { EXPECTED_SCHEMA_VERSION } from "../src/db/migration-catalog.js";
 test("clean baseline identity and schema version are synchronized", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
   assert.equal(pkg.version, SYSTEM.version);
-  assert.equal(SYSTEM.version, "36.20.0");
-  assert.equal(EXPECTED_SCHEMA_VERSION, 14);
+  assert.equal(SYSTEM.version, "37.0.1");
+  assert.equal(EXPECTED_SCHEMA_VERSION, 15);
 });
 
 test("source discovery uses D1-safe inserts and queue-efficient envelopes", async () => {

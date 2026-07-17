@@ -10,8 +10,9 @@ test("accepts modern folder", () => {
   assert.equal(classifyMegaFolder(modern).valid, true);
 });
 
-test("accepts legacy when enabled", () => {
-  assert.equal(classifyMegaFolder(legacy).valid, true);
+test("rejects legacy under V37 folder-only policy", () => {
+  assert.equal(classifyMegaFolder(legacy).valid, false);
+  assert.equal(classifyMegaFolder(legacy).type, "legacy_folder");
 });
 
 test("rejects legacy when disabled", () => {

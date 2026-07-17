@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS sources (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   category TEXT NOT NULL,
-  source_type TEXT NOT NULL CHECK(source_type IN ('html','rss','json','custom','pastetoday')),
+  source_type TEXT NOT NULL CHECK(source_type IN ('html','rss','json','custom','pastetoday','ofversedrops')),
   template_url TEXT NOT NULL,
   enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
   default_enabled INTEGER NOT NULL DEFAULT 0 CHECK(default_enabled IN (0,1)),
@@ -45,6 +45,14 @@ CREATE TABLE IF NOT EXISTS sources (
 );
 CREATE INDEX IF NOT EXISTS idx_sources_enabled_priority ON sources(enabled, priority DESC, id ASC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_sources_template_url ON sources(template_url);
+
+
+CREATE TABLE IF NOT EXISTS source_tombstones (
+  source_id TEXT PRIMARY KEY,
+  deleted_at TEXT NOT NULL,
+  reason TEXT NOT NULL DEFAULT 'user_deleted'
+);
+CREATE INDEX IF NOT EXISTS idx_source_tombstones_deleted_at ON source_tombstones(deleted_at DESC);
 
 CREATE TABLE IF NOT EXISTS run_tasks (
   id TEXT PRIMARY KEY,
@@ -111,15 +119,18 @@ CREATE TABLE IF NOT EXISTS links (
   normalized_url TEXT NOT NULL,
   link_type TEXT NOT NULL CHECK(link_type IN ('folder','legacy_folder')),
   has_key INTEGER NOT NULL CHECK(has_key IN (0,1)),
-  validation_status TEXT NOT NULL CHECK(validation_status IN ('valid','invalid','unchecked','dead')),
+  validation_status TEXT NOT NULL CHECK(validation_status IN ('structurally_valid','valid','invalid','unchecked','unknown','dead','pending')),
   is_complete INTEGER NOT NULL CHECK(is_complete IN (0,1)),
   discovered_at TEXT NOT NULL,
   checked_at TEXT,
+  validation_error TEXT,
+  validated_at TEXT,
+  validation_http_status INTEGER,
   UNIQUE(run_id, normalized_url)
 );
 CREATE INDEX IF NOT EXISTS idx_links_run ON links(run_id, discovered_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_links_normalized ON links(normalized_url);
-CREATE INDEX IF NOT EXISTS idx_links_validation ON links(validation_status, checked_at ASC);
+CREATE INDEX IF NOT EXISTS idx_links_validation ON links(validation_status, validated_at);
 
 CREATE TABLE IF NOT EXISTS visited_urls (
   normalized_url TEXT PRIMARY KEY,

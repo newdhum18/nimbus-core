@@ -1,11 +1,11 @@
 export const SYSTEM = Object.freeze({
   name: "Nimbus Core V36",
-  version: "36.20.0",
+  version: "37.0.1",
   worker: "nimbus-core-v36-worker",
   pages: "nimbus-core-v36-web",
   database: "nimbus-core-v36-db",
   queue: "nimbus-core-v36-queue",
-  sourceTotal: 34,
+  sourceTotal: 37,
   sourceEnabledDefault: 31,
   sqlBatchSize: 20,
   sqlBatchMax: 25,

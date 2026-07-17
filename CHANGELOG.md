@@ -1,3 +1,7 @@
+# 37.0.1
+
+- Full audit repair for Groq source adoption, structural-only validation, schema synchronization, fixtures, and migration-15 deployment verification.
+
 # Changelog
 
 ## 36.20.0

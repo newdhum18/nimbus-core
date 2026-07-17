@@ -9,6 +9,13 @@ const S = (id,name,category,sourceType,templateUrl,priority,rankScore=0) => ({
 });
 
 const CATALOG = Object.freeze([
+  // V37 research-verified direct evidence pages. They remain disabled until
+  // sanitized fixture and controlled live-fetch validation are completed.
+  {...S("v37_ulvis_verified","ULVIS Paste — verified direct evidence","paste","custom","https://paste.ulvis.net/xMc4Xjvf",1462,78),enabled:false,defaultEnabled:false},
+  {...S("v37_pastebin_verified","Pastebin — verified direct evidence","paste","custom","https://pastebin.com/eEUnV3gF",1461,77),enabled:false,defaultEnabled:false},
+  // Pastemode was reachable but exposed only a dynamic loading placeholder.
+  // Keep it disabled as a browser-review candidate; no browser bypass exists.
+  {...S("v37_pastemode_review","Pastemode — browser review candidate","paste","custom","https://pastemode.com/mCRPQ3bQ8O",250,-50),enabled:false,defaultEnabled:false},
   S("meawfy_api","Meawfy public index API","mega-index","json","https://meawfy.com/internal/api/results.json?q={q}",1500,100),
   S("meawfy_search","Meawfy public search","mega-index","html","https://meawfy.com/?s={q}",1490,90),
   S("ofversedrops_search","OfverseDrops public search","mega-index","ofversedrops","https://ofversedrops.com/?s={q}",1480,85),

@@ -18,7 +18,6 @@ function userSourceId(url) {
 }
 
 export async function addDirectSource(db, { url, name = "", category = "custom", enabled = true } = {}) {
-  await assertNoActiveRun(db);
   const parsed = assertPublicHttpUrl(String(url || "").trim());
   parsed.hash = "";
   const templateUrl = parsed.toString();
@@ -26,6 +25,7 @@ export async function addDirectSource(db, { url, name = "", category = "custom",
   const cleanName = String(name || parsed.hostname).trim().slice(0, 120) || parsed.hostname;
   const cleanCategory = String(category || "custom").trim().slice(0, 80) || "custom";
   const now = nowIso();
+  await db.prepare("DELETE FROM source_tombstones WHERE source_id=?").bind(id).run().catch(() => {});
   await db.prepare(`
     INSERT INTO sources(id,name,category,source_type,template_url,enabled,default_enabled,priority,rank_score,created_at,updated_at)
     VALUES(?,?,?,?,?,?,?,?,?,?,?)
@@ -35,11 +35,22 @@ export async function addDirectSource(db, { url, name = "", category = "custom",
 }
 
 export async function deleteSource(db, sourceId) {
-  await assertNoActiveRun(db);
   const source = await db.prepare("SELECT id,name FROM sources WHERE id=?").bind(sourceId).first();
   if (!source) throw new AppError("SOURCE_NOT_FOUND", "Source was not found", "sources", 404);
-  await db.prepare("DELETE FROM sources WHERE id=?").bind(sourceId).run();
-  return { deleted: true, source_id: sourceId, name: source.name };
+  const activeTask = await db.prepare(`
+    SELECT t.id,t.run_id,t.status FROM run_tasks t
+    JOIN runs r ON r.id=t.run_id
+    WHERE t.source_id=? AND r.status IN ('running','paused','recovering')
+      AND t.status NOT IN ('completed','failed','cancelled','dead')
+    LIMIT 1
+  `).bind(sourceId).first();
+  if (activeTask) throw new AppError("SOURCE_DELETE_BLOCKED", "This source is being used by an active run. Cancel or finish that run first.", "sources", 409, { run_id: activeTask.run_id, task_id: activeTask.id });
+  const now = nowIso();
+  await db.batch([
+    db.prepare("INSERT INTO source_tombstones(source_id,deleted_at,reason) VALUES(?,?,?) ON CONFLICT(source_id) DO UPDATE SET deleted_at=excluded.deleted_at,reason=excluded.reason").bind(sourceId,now,"user_deleted"),
+    db.prepare("DELETE FROM sources WHERE id=?").bind(sourceId)
+  ]);
+  return { deleted: true, source_id: sourceId, name: source.name, permanent: true };
 }
 
 const SORT_SQL = Object.freeze({

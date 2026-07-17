@@ -2,12 +2,13 @@ import { createHtmlAdapter } from "./html.js";
 import { createRssAdapter } from "./rss.js";
 import { createPastetodayAdapter } from "./pastetoday.js";
 import { createOfversedropsAdapter } from "./ofversedrops.js";
+import { createCustomAdapter } from "./custom.js";
 
 const htmlAdapter = createHtmlAdapter();
 const ADAPTERS = new Map([
   ["html", htmlAdapter],
   ["json", htmlAdapter],
-  ["custom", htmlAdapter],
+  ["custom", createCustomAdapter()],
   ["rss", createRssAdapter()],
   ["pastetoday", createPastetodayAdapter()],
   ["ofversedrops", createOfversedropsAdapter()]

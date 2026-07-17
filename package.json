@@ -1,9 +1,9 @@
 {
-  "name": "nimbus-core-v36",
-  "version": "36.20.0",
+  "name": "nimbus-core-v37",
+  "version": "37.0.1",
   "private": true,
   "type": "module",
-  "description": "Nimbus Core V36.20.0 strict manual source lock, user source management, and extraction hardening",
+  "description": "Nimbus Core V37 audited extraction normalization, verified public source adoption, bounded decoding, and deployment integrity foundation",
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "test": "node --test tests/*.test.mjs",
